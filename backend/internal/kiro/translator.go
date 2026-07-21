@@ -248,16 +248,27 @@ func MapModel(model string) string {
 	case "claude-haiku-4-5-20251001", "claude-haiku-4-5-20251001-thinking", "claude-haiku-4.5":
 		return "claude-haiku-4.5"
 	default:
-		// Allow already-normalized dot-notation claude model names to pass through.
+		// Allow already-normalized dot-notation claude/gpt model names to pass through.
 		// This supports manually-mapped models and future models without requiring code changes.
 		return kiroPassthroughModel(strings.TrimSpace(strings.ToLower(model)))
 	}
 }
 
 // kiroPassthroughModel returns the model name if it looks like a valid Kiro model ID
-// (claude-X.Y dot notation), otherwise returns empty string.
+// (claude-X.Y or gpt-X.Y dot notation), otherwise returns empty string.
+//
+// EXPERIMENTAL / unverified against a live Kiro account: Kiro's own model picker
+// has recently started listing OpenAI GPT-5.6 variants (sol/terra/luna) alongside
+// its Claude family (confirmed only via a screenshot, no official docs). Allowing
+// the "gpt-" prefix here only unblocks the *request-building* path (this function
+// used to zero out the modelId for anything not Claude, which would have sent an
+// empty modelId to Kiro's backend even for a manually-configured gpt- mapping).
+// It does NOT confirm that Kiro's response event stream for GPT-family models has
+// the same shape (tool_use/content blocks, stop_reason, reasoning placement) that
+// the rest of this file assumes for Claude — that side has zero model-family
+// branching today and has not been tested against real GPT-5.6 traffic.
 func kiroPassthroughModel(model string) string {
-	if !strings.HasPrefix(model, "claude-") {
+	if !strings.HasPrefix(model, "claude-") && !strings.HasPrefix(model, "gpt-") {
 		return ""
 	}
 	// Strip -thinking suffix, then check for dot-notation version

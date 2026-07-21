@@ -3952,6 +3952,7 @@ import { useGeminiOAuth } from '@/composables/useGeminiOAuth'
 import { useAntigravityOAuth } from '@/composables/useAntigravityOAuth'
 import { useGrokOAuth } from '@/composables/useGrokOAuth'
 import { useKiroOAuth } from '@/kiro/useKiroOAuth'
+import { kiroPresetMappings } from '@/kiro/models'
 import type {
   Proxy,
   AdminGroup,
@@ -4794,6 +4795,12 @@ watch(
         antigravityModelMappings.value = []
         antigravityModelRestrictionMode.value = 'mapping'
       }
+      // Kiro 只支持模型映射模式，默认填充官方模型映射预设
+      if (form.platform === 'kiro') {
+        modelRestrictionMode.value = 'mapping'
+        modelMappings.value = kiroPresetMappings.map(preset => ({ ...preset }))
+        allowedModels.value = []
+      }
     } else {
       resetForm()
     }
@@ -4840,6 +4847,8 @@ watch(
             ? 'https://generativelanguage.googleapis.com'
             : newPlatform === 'grok'
               ? 'https://api.x.ai/v1'
+              : newPlatform === 'kiro'
+                ? ''
               : 'https://api.anthropic.com'
     }
     // Clear model-related settings
@@ -4868,6 +4877,12 @@ watch(
       modelRestrictionMode.value = 'mapping'
       form.concurrency = 1
       form.load_factor = null
+    }
+    // Kiro 只支持模型映射模式，不支持白名单模式，默认填充官方模型映射预设
+    if (newPlatform === 'kiro') {
+      accountCategory.value = 'oauth-based'
+      modelRestrictionMode.value = 'mapping'
+      modelMappings.value = kiroPresetMappings.map(preset => ({ ...preset }))
     }
     if (newPlatform !== 'gemini' && newPlatform !== 'anthropic' && accountCategory.value === 'service_account') {
       accountCategory.value = 'oauth-based'

@@ -303,6 +303,15 @@ func (Group) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(0).
 			Comment("安全缓冲，小数；与 margin 相加后从下游倍率中扣除，默认 0"),
+
+		// Kiro prompt cache 计费模拟（仅 kiro 平台使用）
+		field.Bool("kiro_cache_emulation_enabled").
+			Default(false).
+			Comment("是否为该分组启用 Kiro prompt cache 计费模拟（仅 kiro 平台生效）"),
+		field.Float("kiro_cache_emulation_ratio").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(4,3)"}).
+			Default(1.0).
+			Comment("Kiro cache 命中计费模拟比例，取值 [0,1]，仅在 kiro_cache_emulation_enabled 为 true 时生效"),
 	}
 }
 

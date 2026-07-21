@@ -230,6 +230,8 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 				group.FieldProfitControlEnabled,
 				group.FieldProfitMinMargin,
 				group.FieldProfitSafetyBuffer,
+				group.FieldKiroCacheEmulationEnabled,
+				group.FieldKiroCacheEmulationRatio,
 			)
 		}).
 		Only(ctx)
@@ -964,7 +966,7 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 			modelPricing = nil
 		}
 	}
-	return &service.Group{
+	out := &service.Group{
 		ID:                              g.ID,
 		Name:                            g.Name,
 		Description:                     derefString(g.Description),
@@ -1030,9 +1032,13 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 		ProfitControlEnabled:            g.ProfitControlEnabled,
 		ProfitMinMargin:                 g.ProfitMinMargin,
 		ProfitSafetyBuffer:              g.ProfitSafetyBuffer,
+		KiroCacheEmulationEnabled:       g.KiroCacheEmulationEnabled,
+		KiroCacheEmulationRatio:         g.KiroCacheEmulationRatio,
 		CreatedAt:                       g.CreatedAt,
 		UpdatedAt:                       g.UpdatedAt,
 	}
+	service.NormalizeGroupRuntimeFields(out)
+	return out
 }
 
 func derefString(s *string) string {

@@ -184,6 +184,16 @@ func (s *TokenRefreshService) SetAccountRuntimeBlocker(blocker AccountRuntimeBlo
 	s.runtimeBlocker = blocker
 }
 
+// SetKiroOAuthService 注入 Kiro OAuth 服务并注册 Kiro 平台的后台 token 刷新。
+// 必须在 Start() 之前调用，避免与后台刷新循环并发读写 s.registrations。
+func (s *TokenRefreshService) SetKiroOAuthService(kiroOAuthService *KiroOAuthService) {
+	if kiroOAuthService == nil {
+		return
+	}
+	kiroRefresher := NewKiroTokenRefresher(kiroOAuthService)
+	s.registrations = append(s.registrations, tokenRefreshRegistration{platform: PlatformKiro, refresher: kiroRefresher, executor: kiroRefresher})
+}
+
 func (s *TokenRefreshService) notifyAccountSchedulingBlocked(account *Account, until time.Time, reason string) {
 	if s == nil || s.runtimeBlocker == nil || account == nil {
 		return

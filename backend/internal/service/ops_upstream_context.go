@@ -209,6 +209,14 @@ type OpsUpstreamErrorEvent struct {
 	// Helps debug 404/routing errors by showing which endpoint was targeted.
 	UpstreamURL string `json:"upstream_url,omitempty"`
 
+	// Model diagnostics.
+	RequestedModel      string `json:"requested_model,omitempty"`
+	MappedModel         string `json:"mapped_model,omitempty"`
+	KiroModelID         string `json:"kiro_model_id,omitempty"`
+	HasTools            bool   `json:"has_tools,omitempty"`
+	HasAdaptiveThinking bool   `json:"has_adaptive_thinking,omitempty"`
+	HasContext1MBeta    bool   `json:"has_context_1m_beta,omitempty"`
+
 	// Best-effort upstream response capture (sanitized+trimmed).
 	UpstreamResponseBody string `json:"upstream_response_body,omitempty"`
 

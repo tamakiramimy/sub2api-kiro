@@ -712,6 +712,8 @@ type GatewayService struct {
 	tlsFPProfileService   *TLSFingerprintProfileService
 	balanceNotifyService  *BalanceNotifyService
 	userPlatformQuotaRepo UserPlatformQuotaRepository
+	kiroTokenProvider     *KiroTokenProvider
+	kiroCooldownStore     KiroCooldownStore
 }
 
 // NewGatewayService creates a new GatewayService
@@ -793,6 +795,22 @@ func NewGatewayService(
 		svc.initDebugGatewayBodyFile(path)
 	}
 	return svc
+}
+
+// SetKiroTokenProvider 注入 Kiro token provider（可选，nil 时 Kiro OAuth 账号无法自动刷新 token）。
+func (s *GatewayService) SetKiroTokenProvider(provider *KiroTokenProvider) *GatewayService {
+	if s != nil {
+		s.kiroTokenProvider = provider
+	}
+	return s
+}
+
+// SetKiroCooldownStore 注入 Kiro 冷却限流存储（可选，nil 时 Kiro 转发跳过冷却检查）。
+func (s *GatewayService) SetKiroCooldownStore(store KiroCooldownStore) *GatewayService {
+	if s != nil {
+		s.kiroCooldownStore = store
+	}
+	return s
 }
 
 // GenerateSessionHash 从预解析请求计算粘性会话 hash

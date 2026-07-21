@@ -648,6 +648,10 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	}
 
 	if len(candidates) == 0 {
+		if s.tryRecoverKiroCooldownPool(ctx, accounts, requestedModel, excludedIDs, useMixed) {
+			retryCtx := context.WithValue(ctx, kiroCooldownRecoveryAttemptedKey, true)
+			return s.SelectAccountWithLoadAwareness(retryCtx, groupID, sessionHash, requestedModel, excludedIDs, metadataUserID, sub2apiUserID)
+		}
 		return nil, ErrNoAvailableAccounts
 	}
 
@@ -1037,14 +1041,33 @@ func (s *GatewayService) isAccountSchedulableForSelection(account *Account) bool
 	if account == nil {
 		return false
 	}
-	return account.IsSchedulable()
+	if !account.IsSchedulable() {
+		return false
+	}
+	return s.isKiroRuntimeSchedulable(context.Background(), account)
 }
 
 func (s *GatewayService) isAccountSchedulableForModelSelection(ctx context.Context, account *Account, requestedModel string) bool {
 	if account == nil {
 		return false
 	}
-	return account.IsSchedulableForModelWithContext(ctx, requestedModel)
+	if !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
+		return false
+	}
+	return s.isKiroRuntimeSchedulable(ctx, account)
+}
+
+// isKiroRuntimeSchedulable 检查 Kiro OAuth 账号是否处于活跃冷却状态。
+// 非 Kiro 平台或未配置冷却存储时始终视为可调度。
+func (s *GatewayService) isKiroRuntimeSchedulable(ctx context.Context, account *Account) bool {
+	if account == nil || account.Platform != PlatformKiro || account.Type != AccountTypeOAuth || s == nil || s.kiroCooldownStore == nil {
+		return true
+	}
+	state, err := s.getKiroCooldownState(ctx, buildKiroAccountKey(account))
+	if err != nil {
+		return true
+	}
+	return state == nil || !state.Active
 }
 
 // isAccountInGroup checks if the account belongs to the specified group.

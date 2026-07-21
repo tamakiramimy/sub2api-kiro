@@ -98,6 +98,10 @@ type Group struct {
 	// ReasoningEffortMappings rewrites explicit request values before applying the ceiling.
 	ReasoningEffortMappings []ReasoningEffortMapping
 
+	// Kiro prompt cache 计费模拟配置（仅 kiro 平台使用）
+	KiroCacheEmulationEnabled bool
+	KiroCacheEmulationRatio   float64
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
@@ -105,6 +109,50 @@ type Group struct {
 	AccountCount            int64
 	ActiveAccountCount      int64
 	RateLimitedAccountCount int64
+}
+
+// EffectiveKiroCacheEmulationEnabled 报告该分组是否应实际启用 Kiro cache 计费模拟
+// （必须是 kiro 平台、显式开启且比例 > 0）。
+func (g *Group) EffectiveKiroCacheEmulationEnabled() bool {
+	return g != nil && g.Platform == PlatformKiro && g.KiroCacheEmulationEnabled && g.EffectiveKiroCacheEmulationRatio() > 0
+}
+
+// EffectiveKiroCacheEmulationRatio 返回归一化后的 Kiro cache 命中计费模拟比例。
+func (g *Group) EffectiveKiroCacheEmulationRatio() float64 {
+	if g == nil || g.Platform != PlatformKiro || !g.KiroCacheEmulationEnabled {
+		return 0
+	}
+	return normalizeKiroCacheEmulationRatio(g.KiroCacheEmulationRatio)
+}
+
+func normalizeKiroCacheEmulationRatio(ratio float64) float64 {
+	if ratio < 0 {
+		return 0
+	}
+	if ratio > 1 {
+		return 1
+	}
+	return ratio
+}
+
+func normalizeKiroCacheEmulationFields(g *Group) {
+	if g == nil {
+		return
+	}
+	if g.Platform != PlatformKiro {
+		g.KiroCacheEmulationEnabled = false
+		g.KiroCacheEmulationRatio = 0
+		return
+	}
+	if g.KiroCacheEmulationRatio == 0 {
+		g.KiroCacheEmulationRatio = 1
+	}
+	g.KiroCacheEmulationRatio = normalizeKiroCacheEmulationRatio(g.KiroCacheEmulationRatio)
+}
+
+// NormalizeGroupRuntimeFields 归一化分组上从数据库读取/写入前需要校验的平台特定运行期字段。
+func NormalizeGroupRuntimeFields(g *Group) {
+	normalizeKiroCacheEmulationFields(g)
 }
 
 func (g *Group) IsActive() bool {

@@ -56,6 +56,7 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 	if groupIn == nil {
 		return errors.New("group is nil")
 	}
+	service.NormalizeGroupRuntimeFields(groupIn)
 	builder := client.Group.Create().
 		SetName(groupIn.Name).
 		SetDescription(groupIn.Description).
@@ -101,7 +102,9 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 		SetPeakRateEnabled(groupIn.PeakRateEnabled).
 		SetPeakStart(groupIn.PeakStart).
 		SetPeakEnd(groupIn.PeakEnd).
-		SetPeakRateMultiplier(groupIn.PeakRateMultiplier)
+		SetPeakRateMultiplier(groupIn.PeakRateMultiplier).
+		SetKiroCacheEmulationEnabled(groupIn.KiroCacheEmulationEnabled).
+		SetKiroCacheEmulationRatio(groupIn.KiroCacheEmulationRatio)
 	if groupIn.DuplicateOperationID != "" {
 		builder = builder.SetDuplicateOperationID(groupIn.DuplicateOperationID)
 	}
@@ -225,6 +228,7 @@ func (r *groupRepository) GetByIDLite(ctx context.Context, id int64) (*service.G
 }
 
 func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) error {
+	service.NormalizeGroupRuntimeFields(groupIn)
 	builder := r.client.Group.UpdateOneID(groupIn.ID).
 		SetName(groupIn.Name).
 		SetDescription(groupIn.Description).
@@ -266,7 +270,9 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetPeakRateEnabled(groupIn.PeakRateEnabled).
 		SetPeakStart(groupIn.PeakStart).
 		SetPeakEnd(groupIn.PeakEnd).
-		SetPeakRateMultiplier(groupIn.PeakRateMultiplier)
+		SetPeakRateMultiplier(groupIn.PeakRateMultiplier).
+		SetKiroCacheEmulationEnabled(groupIn.KiroCacheEmulationEnabled).
+		SetKiroCacheEmulationRatio(groupIn.KiroCacheEmulationRatio)
 
 	// 显式处理可空字段：nil 需要 clear，非 nil 需要 set。
 	if groupIn.DailyLimitUSD != nil {

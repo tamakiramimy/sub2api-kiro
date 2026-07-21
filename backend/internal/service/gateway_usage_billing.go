@@ -549,6 +549,9 @@ type recordUsageOpts struct {
 	// 长上下文计费（仅 Gemini 路径需要）
 	LongContextThreshold  int
 	LongContextMultiplier float64
+
+	// Kiro 账号在上游返回 auto 等无法定价模型时使用保守计费兜底。
+	IsKiroAccount bool
 }
 
 // RecordUsage 记录使用量并扣费（或更新订阅用量）
@@ -568,7 +571,9 @@ func (s *GatewayService) RecordUsage(ctx context.Context, input *RecordUsageInpu
 		APIKeyService:      input.APIKeyService,
 		QuotaPlatform:      input.QuotaPlatform,
 		ChannelUsageFields: input.ChannelUsageFields,
-	}, &recordUsageOpts{})
+	}, &recordUsageOpts{
+		IsKiroAccount: input.Account != nil && input.Account.Platform == PlatformKiro,
+	})
 }
 
 // RecordUsageLongContextInput 记录使用量的输入参数（支持长上下文双倍计费）
@@ -875,6 +880,11 @@ func (s *GatewayService) calculateTokenCost(
 		cost, err = s.billingService.CalculateCost(billingModel, tokens, multiplier)
 	}
 	if err != nil {
+		if shouldUseKiroConservativeBillingFallback(result, billingModel, opts) {
+			if fallbackCost := s.calculateKiroConservativeTokenCost(tokens, multiplier); fallbackCost != nil {
+				return fallbackCost
+			}
+		}
 		logger.LegacyPrintf("service.gateway", "Calculate cost failed: %v", err)
 		return &CostBreakdown{ActualCost: 0}
 	}

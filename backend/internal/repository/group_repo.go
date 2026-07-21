@@ -90,6 +90,7 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 	if groupIn == nil {
 		return errors.New("group is nil")
 	}
+	service.NormalizeGroupRuntimeFields(groupIn)
 	modelPricing, err := json.Marshal(groupIn.ModelPricing)
 	if err != nil {
 		return fmt.Errorf("marshal group model pricing: %w", err)
@@ -154,7 +155,9 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 		SetPeakRateMultiplier(groupIn.PeakRateMultiplier).
 		SetProfitControlEnabled(groupIn.ProfitControlEnabled).
 		SetProfitMinMargin(groupIn.ProfitMinMargin).
-		SetProfitSafetyBuffer(groupIn.ProfitSafetyBuffer)
+		SetProfitSafetyBuffer(groupIn.ProfitSafetyBuffer).
+		SetKiroCacheEmulationEnabled(groupIn.KiroCacheEmulationEnabled).
+		SetKiroCacheEmulationRatio(groupIn.KiroCacheEmulationRatio)
 	if groupIn.DuplicateOperationID != "" {
 		builder = builder.SetDuplicateOperationID(groupIn.DuplicateOperationID)
 	}
@@ -278,6 +281,7 @@ func (r *groupRepository) GetByIDLite(ctx context.Context, id int64) (*service.G
 }
 
 func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) error {
+	service.NormalizeGroupRuntimeFields(groupIn)
 	modelPricing, err := json.Marshal(groupIn.ModelPricing)
 	if err != nil {
 		return fmt.Errorf("marshal group model pricing: %w", err)
@@ -334,7 +338,9 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetPeakRateMultiplier(groupIn.PeakRateMultiplier).
 		SetProfitControlEnabled(groupIn.ProfitControlEnabled).
 		SetProfitMinMargin(groupIn.ProfitMinMargin).
-		SetProfitSafetyBuffer(groupIn.ProfitSafetyBuffer)
+		SetProfitSafetyBuffer(groupIn.ProfitSafetyBuffer).
+		SetKiroCacheEmulationEnabled(groupIn.KiroCacheEmulationEnabled).
+		SetKiroCacheEmulationRatio(groupIn.KiroCacheEmulationRatio)
 
 	// 显式处理可空字段：nil 需要 clear，非 nil 需要 set。
 	if groupIn.DailyLimitUSD != nil {

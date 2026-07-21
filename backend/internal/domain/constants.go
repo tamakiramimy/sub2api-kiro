@@ -144,6 +144,12 @@ var DefaultKiroModelMapping = map[string]string{
 	"claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4.5",
 	"claude-haiku-4-5-20251001":           "claude-haiku-4.5",
 	"claude-haiku-4-5-20251001-thinking":  "claude-haiku-4.5",
+	// 实验性 / 未经真实账号验证：见 internal/kiro/translator.go 的 kiroPassthroughModel
+	// 注释——只确认了请求侧 modelId 直通不会被拦截，Kiro 对这几个 GPT 模型的响应事件流
+	// 是否与 Claude 家族语义一致尚未验证。
+	"gpt-5.6-sol":   "gpt-5.6-sol",
+	"gpt-5.6-terra": "gpt-5.6-terra",
+	"gpt-5.6-luna":  "gpt-5.6-luna",
 }
 
 // DefaultBedrockModelMapping 是 AWS Bedrock 平台的默认模型映射

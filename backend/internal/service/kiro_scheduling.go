@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	kirocooldown "github.com/Wei-Shaw/sub2api/internal/kiro/cooldown"
@@ -12,8 +13,13 @@ import (
 const defaultKiroStreamKeepalive = 25 * time.Second
 
 // kiroConservativeFallbackBillingModel 是 Kiro 账号在上游返回 auto 等无法定价模型时
-// 使用的保守计费兜底模型（费用取该模型的价格，避免漏计费）。
+// 使用的保守计费兜底模型（费用取该模型的价格，避免漏计费）。默认按 Claude 家族计费。
 const kiroConservativeFallbackBillingModel = "claude-opus-4-6"
+
+// kiroConservativeFallbackBillingModelGPT 是请求的模型明显属于 GPT 家族时使用的保守
+// 计费兜底模型（Kiro 近期新增的 OpenAI GPT-5.6 代理模型，sol 为该系列中价格最高档，
+// 与 Claude 侧选用 Opus 档位同理，避免因家族误配导致漏计费）。
+const kiroConservativeFallbackBillingModelGPT = "gpt-5.6-sol"
 
 type kiroCooldownRecoveryAttemptedKeyType struct{}
 
@@ -115,13 +121,18 @@ func shouldUseKiroConservativeBillingFallback(result *ForwardResult, billingMode
 	return opts != nil && opts.IsKiroAccount
 }
 
-// calculateKiroConservativeTokenCost 使用保守兜底模型（kiroConservativeFallbackBillingModel）
-// 计算本次用量费用，避免因模型名无法定价而漏计费。
-func (s *GatewayService) calculateKiroConservativeTokenCost(tokens UsageTokens, multiplier float64) *CostBreakdown {
+// calculateKiroConservativeTokenCost 使用保守兜底模型计算本次用量费用，避免因模型名
+// 无法定价而漏计费。当 modelHint 明显属于 GPT 家族时改用 GPT 侧的保守兜底模型，
+// 否则默认按 Claude 家族计费（兼容未提供 modelHint 的历史调用方）。
+func (s *GatewayService) calculateKiroConservativeTokenCost(tokens UsageTokens, multiplier float64, modelHint string) *CostBreakdown {
 	if s == nil || s.billingService == nil {
 		return nil
 	}
-	cost, err := s.billingService.CalculateCost(kiroConservativeFallbackBillingModel, tokens, multiplier)
+	fallbackModel := kiroConservativeFallbackBillingModel
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(modelHint)), "gpt-") {
+		fallbackModel = kiroConservativeFallbackBillingModelGPT
+	}
+	cost, err := s.billingService.CalculateCost(fallbackModel, tokens, multiplier)
 	if err != nil {
 		return nil
 	}

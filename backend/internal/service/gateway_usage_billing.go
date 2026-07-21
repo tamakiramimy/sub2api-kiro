@@ -1161,7 +1161,11 @@ func (s *GatewayService) calculateTokenCost(
 			recordOpts = opts[0]
 		}
 		if shouldUseKiroConservativeBillingFallback(result, billingModel, recordOpts) {
-			if fallbackCost := s.calculateKiroConservativeTokenCost(tokens, multiplier); fallbackCost != nil {
+			modelHint := result.UpstreamModel
+			if modelHint == "" {
+				modelHint = result.Model
+			}
+			if fallbackCost := s.calculateKiroConservativeTokenCost(tokens, multiplier, modelHint); fallbackCost != nil {
 				return fallbackCost
 			}
 		}

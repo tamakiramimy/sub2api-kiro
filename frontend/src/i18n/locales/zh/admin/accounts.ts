@@ -254,6 +254,7 @@ export default {
         gemini: 'Gemini',
         antigravity: 'Antigravity',
         grok: 'Grok',
+        kiro: 'Kiro',
       },
       types: {
         oauth: 'OAuth',
@@ -263,6 +264,8 @@ export default {
         codeAssist: 'Code Assist',
         antigravityOauth: 'Antigravity OAuth',
         grokOauth: 'Grok OAuth',
+        kiroOauth: '社交 / 企业 IDC 登录',
+        kiroApikey: '通过 Base URL + API Key 连接',
         antigravityApikey: '通过 Base URL + API Key 连接',
         upstream: '对接上游',
         upstreamDesc: '通过 Base URL + API Key 连接上游'
@@ -600,6 +603,10 @@ export default {
       grok: {
         baseUrlHint: 'Grok OAuth 账号会转发到官方 xAI API Base URL。',
         apiKeyHint: 'Grok 订阅支持使用 OAuth refresh token；API Key 账号不在本次范围内。'
+      },
+      kiro: {
+        baseUrlHint: '请输入你的 Kiro 兼容转发端点的 Base URL。',
+        apiKeyHint: '由你的 Kiro 兼容上游服务签发的 API Key。'
       },
       anthropic: {
         apiKeyPassthrough: '自动透传（仅替换认证）',
@@ -1026,6 +1033,31 @@ export default {
               '找不到所选代理。请选择可用代理后重试。'
           },
           oauthOnlyHint: '首版 Grok 支持仅包含 OAuth 订阅的 Responses API 文本/推理转发。'
+        },
+        kiro: {
+          authModeTitle: '登录方式',
+          oauthTitle: '社交登录',
+          oauthSubtitle: '使用 Google 或 Github 登录',
+          idcTitle: '企业 IDC（AWS SSO）',
+          idcSubtitle: 'AWS IAM Identity Center 登录',
+          importTitle: '导入 Token',
+          importSubtitle: '粘贴已有的 token JSON',
+          oauthProviderTitle: '社交登录方式',
+          socialSubtitle: '选择用于登录的身份提供方',
+          googleTitle: 'Google',
+          googleDesc: '使用 Google 账号登录',
+          githubTitle: 'Github',
+          githubDesc: '使用 Github 账号登录',
+          startUrlLabel: 'AWS SSO Start URL',
+          startUrlPlaceholder: 'https://your-org.awsapps.com/start',
+          regionLabel: 'AWS 区域',
+          regionPlaceholder: 'us-east-1',
+          tokenJsonLabel: 'Token JSON',
+          tokenJsonHint: '粘贴从已有客户端导出的 Kiro token JSON（accessToken/refreshToken 等）。',
+          deviceRegistrationLabel: '设备注册 JSON（可选）',
+          deviceRegistrationHint: '仅 IDC 签发的 token 需要填写（clientId/clientSecret）。',
+          authFailed: 'Kiro 授权失败',
+          missingExchangeParams: '缺少授权码、state 或 OAuth 会话'
         },
         // Gemini specific
         gemini: {

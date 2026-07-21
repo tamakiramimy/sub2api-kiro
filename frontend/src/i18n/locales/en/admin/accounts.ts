@@ -104,6 +104,7 @@ export default {
         gemini: 'Gemini',
         antigravity: 'Antigravity',
         grok: 'Grok',
+        kiro: 'Kiro',
       },
       types: {
         oauth: 'OAuth',
@@ -113,6 +114,8 @@ export default {
         codeAssist: 'Code Assist',
         antigravityOauth: 'Antigravity OAuth',
         grokOauth: 'Grok OAuth',
+        kiroOauth: 'Social / IDC login',
+        kiroApikey: 'Connect via Base URL + API Key',
         antigravityApikey: 'Connect via Base URL + API Key',
         upstream: 'Upstream',
         upstreamDesc: 'Connect via Base URL + API Key'
@@ -540,6 +543,10 @@ export default {
       grok: {
         baseUrlHint: 'Grok OAuth accounts forward to the official xAI API base URL.',
         apiKeyHint: 'Grok subscription support uses OAuth refresh tokens; API keys are out of scope for this account type.'
+      },
+      kiro: {
+        baseUrlHint: 'Enter the base URL of your Kiro-compatible forwarding endpoint.',
+        apiKeyHint: 'API key issued by your Kiro-compatible upstream service.'
       },
       anthropic: {
         apiKeyPassthrough: 'Auto passthrough (auth only)',
@@ -977,6 +984,31 @@ export default {
               'The selected proxy could not be found. Choose an available proxy and retry.'
           },
           oauthOnlyHint: 'Initial Grok support is OAuth subscription-backed Responses API text and reasoning traffic only.'
+        },
+        kiro: {
+          authModeTitle: 'Login method',
+          oauthTitle: 'Social login',
+          oauthSubtitle: 'Sign in with Google or Github',
+          idcTitle: 'Enterprise IDC (AWS SSO)',
+          idcSubtitle: 'AWS IAM Identity Center login',
+          importTitle: 'Import token',
+          importSubtitle: 'Paste an existing token JSON',
+          oauthProviderTitle: 'Social provider',
+          socialSubtitle: 'Choose the identity provider used to sign in',
+          googleTitle: 'Google',
+          googleDesc: 'Sign in with a Google account',
+          githubTitle: 'Github',
+          githubDesc: 'Sign in with a Github account',
+          startUrlLabel: 'AWS SSO start URL',
+          startUrlPlaceholder: 'https://your-org.awsapps.com/start',
+          regionLabel: 'AWS region',
+          regionPlaceholder: 'us-east-1',
+          tokenJsonLabel: 'Token JSON',
+          tokenJsonHint: 'Paste the Kiro token JSON exported from an existing client (accessToken/refreshToken etc.).',
+          deviceRegistrationLabel: 'Device registration JSON (optional)',
+          deviceRegistrationHint: 'Only required for IDC-issued tokens (clientId/clientSecret).',
+          authFailed: 'Kiro authorization failed',
+          missingExchangeParams: 'Missing authorization code, state, or OAuth session'
         },
         // Gemini specific
 	        gemini: {

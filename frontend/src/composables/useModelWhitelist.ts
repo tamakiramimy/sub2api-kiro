@@ -2,6 +2,8 @@
 // 模型列表（硬编码，与 new-api 一致）
 // =====================
 
+import { kiroModels } from '@/kiro/models'
+
 // OpenAI
 const openaiModels = [
   // GPT-5.2 系列
@@ -239,6 +241,7 @@ const allModelsList: string[] = [
   ...mistralModels,
   ...metaModels,
   ...xaiModels,
+  ...kiroModels,
   ...cohereModels,
   ...yiModels,
   ...moonshotModels,

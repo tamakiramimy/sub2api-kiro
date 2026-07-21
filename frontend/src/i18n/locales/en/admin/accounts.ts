@@ -107,6 +107,7 @@ export default {
         kimi: 'Kimi',
         zhipu: 'Zhipu GLM',
         deepseek: 'DeepSeek',
+        kiro: 'Kiro',
       },
       cnProviders: {
         accountMode: {
@@ -162,6 +163,8 @@ export default {
         codeAssist: 'Code Assist',
         antigravityOauth: 'Antigravity OAuth',
         grokOauth: 'Grok OAuth',
+        kiroOauth: 'Social / IDC login',
+        kiroApikey: 'Connect via Base URL + API Key',
         antigravityApikey: 'Connect via Base URL + API Key',
         upstream: 'Upstream',
         upstreamDesc: 'Connect via Base URL + API Key'
@@ -735,6 +738,10 @@ export default {
         fileReadFailed: 'Failed to read the selected file',
         noResponseBody: 'No response body from server'
       },
+      kiro: {
+        baseUrlHint: 'Enter the base URL of your Kiro-compatible forwarding endpoint.',
+        apiKeyHint: 'API key issued by your Kiro-compatible upstream service.'
+      },
       anthropic: {
         apiKeyPassthrough: 'Auto passthrough (auth only)',
         apiKeyPassthroughDesc:
@@ -1195,6 +1202,31 @@ export default {
               'The selected proxy could not be found. Choose an available proxy and retry.'
           },
           oauthOnlyHint: 'Initial Grok support is OAuth subscription-backed Responses API text and reasoning traffic only.'
+        },
+        kiro: {
+          authModeTitle: 'Login method',
+          oauthTitle: 'Social login',
+          oauthSubtitle: 'Sign in with Google or Github',
+          idcTitle: 'Enterprise IDC (AWS SSO)',
+          idcSubtitle: 'AWS IAM Identity Center login',
+          importTitle: 'Import token',
+          importSubtitle: 'Paste an existing token JSON',
+          oauthProviderTitle: 'Social provider',
+          socialSubtitle: 'Choose the identity provider used to sign in',
+          googleTitle: 'Google',
+          googleDesc: 'Sign in with a Google account',
+          githubTitle: 'Github',
+          githubDesc: 'Sign in with a Github account',
+          startUrlLabel: 'AWS SSO start URL',
+          startUrlPlaceholder: 'https://your-org.awsapps.com/start',
+          regionLabel: 'AWS region',
+          regionPlaceholder: 'us-east-1',
+          tokenJsonLabel: 'Token JSON',
+          tokenJsonHint: 'Paste the Kiro token JSON exported from an existing client (accessToken/refreshToken etc.).',
+          deviceRegistrationLabel: 'Device registration JSON (optional)',
+          deviceRegistrationHint: 'Only required for IDC-issued tokens (clientId/clientSecret).',
+          authFailed: 'Kiro authorization failed',
+          missingExchangeParams: 'Missing authorization code, state, or OAuth session'
         },
         // Gemini specific
 	        gemini: {

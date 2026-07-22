@@ -37,6 +37,14 @@ func (s *GatewayService) ForwardAsResponses(
 ) (*ForwardResult, error) {
 	startTime := time.Now()
 
+	// Kiro 账号自己的上游协议既不是 Anthropic 也不是 OpenAI，永远需要经过
+	// translator.go 转换；这里转发给专用桥接函数复用 Kiro 现有的流式获取逻辑 +
+	// 下面的 Anthropic→Responses 转换终端函数，而不是走本函数其余的
+	// “真实 Anthropic 账号直连上游”逻辑。见 kiro_runtime_openai_bridge.go。
+	if account.Platform == PlatformKiro {
+		return s.forwardKiroAsResponses(ctx, c, account, body, parsed, startTime)
+	}
+
 	// 1. Parse Responses request
 	var responsesReq apicompat.ResponsesRequest
 	if err := json.Unmarshal(body, &responsesReq); err != nil {

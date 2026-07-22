@@ -648,7 +648,28 @@ func (s *GatewayService) markKiroInvalidModelRateLimited(ctx context.Context, ac
 	)
 }
 
-func (s *GatewayService) handleKiroHTTPError(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, mappedModel string, requestBody []byte) error {
+// kiroHTTPErrorOutcome describes a classified, non-failover Kiro upstream HTTP
+// error. It intentionally excludes any client-facing response shape so it can
+// be reused by every protocol-facing Kiro bridge (Anthropic Messages, OpenAI
+// Responses, OpenAI Chat Completions) — each renders it in its own error JSON
+// shape.
+type kiroHTTPErrorOutcome struct {
+	StatusCode int
+	Message    string
+}
+
+// classifyKiroHTTPErrorAndRecordOps performs Kiro upstream HTTP error
+// classification plus its side effects (ops error log, account cooldown
+// marking, rate-limit bookkeeping) without writing any client-facing response
+// body. This is the protocol-agnostic core shared by handleKiroHTTPError
+// (Anthropic Messages shape) and the OpenAI Responses/Chat Completions bridges
+// in kiro_runtime_openai_bridge.go.
+//
+// Returns (nil, *UpstreamFailoverError) when the caller should fail over to
+// another account without writing anything to the client. Returns
+// (*kiroHTTPErrorOutcome, nil) for terminal errors that the caller must render
+// using its own protocol's error shape.
+func (s *GatewayService) classifyKiroHTTPErrorAndRecordOps(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, mappedModel string, requestBody []byte) (*kiroHTTPErrorOutcome, error) {
 	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
 	upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
@@ -666,7 +687,7 @@ func (s *GatewayService) handleKiroHTTPError(ctx context.Context, resp *http.Res
 		s.markKiroInvalidModelRateLimited(ctx, account, mappedModel)
 		event := s.buildKiroInvalidModelUpstreamEvent(account, resp, upstreamMsg, mappedModel, requestBody, c)
 		appendOpsUpstreamError(c, event)
-		return &UpstreamFailoverError{
+		return nil, &UpstreamFailoverError{
 			StatusCode:      resp.StatusCode,
 			ResponseBody:    respBody,
 			ResponseHeaders: resp.Header.Clone(),
@@ -686,7 +707,7 @@ func (s *GatewayService) handleKiroHTTPError(ctx context.Context, resp *http.Res
 		if s.rateLimitService != nil {
 			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
 		}
-		return &UpstreamFailoverError{
+		return nil, &UpstreamFailoverError{
 			StatusCode:      resp.StatusCode,
 			ResponseBody:    respBody,
 			ResponseHeaders: resp.Header.Clone(),
@@ -703,14 +724,25 @@ func (s *GatewayService) handleKiroHTTPError(ctx context.Context, resp *http.Res
 		Kind:               "http_error",
 		Message:            upstreamMsg,
 	})
-	c.JSON(mapUpstreamStatusCode(resp.StatusCode), gin.H{
+	return &kiroHTTPErrorOutcome{
+		StatusCode: mapUpstreamStatusCode(resp.StatusCode),
+		Message:    coalesceKiroErrorMessage(resp.StatusCode, upstreamMsg),
+	}, nil
+}
+
+func (s *GatewayService) handleKiroHTTPError(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, mappedModel string, requestBody []byte) error {
+	outcome, err := s.classifyKiroHTTPErrorAndRecordOps(ctx, resp, c, account, mappedModel, requestBody)
+	if err != nil {
+		return err
+	}
+	c.JSON(outcome.StatusCode, gin.H{
 		"type": "error",
 		"error": gin.H{
 			"type":    "upstream_error",
-			"message": coalesceKiroErrorMessage(resp.StatusCode, upstreamMsg),
+			"message": outcome.Message,
 		},
 	})
-	return fmt.Errorf("kiro upstream error: %d %s", resp.StatusCode, upstreamMsg)
+	return fmt.Errorf("kiro upstream error: %d %s", outcome.StatusCode, outcome.Message)
 }
 
 func (s *GatewayService) buildKiroInvalidModelUpstreamEvent(account *Account, resp *http.Response, upstreamMsg, mappedModel string, requestBody []byte, c *gin.Context) OpsUpstreamErrorEvent {

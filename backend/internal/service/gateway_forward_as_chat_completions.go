@@ -35,6 +35,13 @@ func (s *GatewayService) ForwardAsChatCompletions(
 ) (*ForwardResult, error) {
 	startTime := time.Now()
 
+	// Kiro 账号需要专用桥接（见 ForwardAsResponses 里的同类说明和
+	// kiro_runtime_openai_bridge.go），不走本函数其余的“真实 Anthropic 账号
+	// 直连上游”逻辑。
+	if account.Platform == PlatformKiro {
+		return s.forwardKiroAsChatCompletions(ctx, c, account, body, parsed, startTime)
+	}
+
 	// 1. Parse Chat Completions request
 	var ccReq apicompat.ChatCompletionsRequest
 	if err := json.Unmarshal(body, &ccReq); err != nil {

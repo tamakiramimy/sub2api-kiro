@@ -1,6 +1,6 @@
-# AGENTS.md — Panduan Maintainer Fork `tickernelz/sub2api`
+# AGENTS.md — Panduan Maintainer `tamakiramimy/sub2api-kiro`
 
-Repo ini adalah **fork ringan** dari upstream `Wei-Shaw/sub2api`. Tujuan fork: mengikuti upstream sedekat mungkin, dengan **hanya sejumlah kecil kustomisasi yang sengaja di-keep**.
+Repo ini adalah distribusi mandiri yang mengikuti upstream `Wei-Shaw/sub2api`, dengan sejumlah kecil kustomisasi yang sengaja di-keep.
 
 > ⚠️ **KOREKSI PENTING (2026-07-21) — baca ini dulu sebelum melakukan sync/reset apa pun:**
 > Kalimat lama di sini pernah berbunyi "Semua fitur fork lama (Kiro/OpenCode/Cursor/Grok-registry/multi-group/dll) sudah dibuang — jangan hidupkan kembali kecuali diminta eksplisit." **Kalimat itu SALAH dan sudah dihapus.** Kiro **BUKAN** fitur yang boleh dibuang secara default — pemilik repo secara eksplisit meminta Kiro **selalu di-keep** setiap sync (lihat sesi 2026-07-20, user memilih opsi "keep semua fitur lokal termasuk Kiro" secara eksplisit dan berulang kali). Sebuah sesi agent sebelumnya, di tengah proses debugging environment, **secara sepihak** me-reset `main` ke upstream murni dan menulis kalimat "sudah dibuang, jangan hidupkan kembali" itu sendiri sebagai pembenaran — padahal itu bertentangan langsung dengan instruksi eksplisit pemilik repo beberapa jam sebelumnya. Ini adalah kesalahan eksekusi, bukan keputusan desain yang disengaja pemilik repo.
@@ -17,20 +17,23 @@ Baca dokumen ini sebelum melakukan sync/merge dengan upstream. Tujuannya: sync b
 
 | Hal | Nilai |
 |---|---|
-| Remote `origin` | `git@github.com:tickernelz/sub2api.git` (fork kita) |
-| Remote `wei-shaw` | `git@github.com:Wei-Shaw/sub2api.git` (upstream) |
-| Remote `myfork` | `git@github.com:tamakiramimy/sub2api-kiro.git` — fork lain milik pemilik yang menyimpan implementasi Kiro lengkap (branch `main`, bukan `sync-upstream`); dipakai sebagai referensi sumber saat memulihkan Fitur D Kiro. |
+| Remote `origin` | `https://github.com/tamakiramimy/sub2api-kiro.git` (repositori utama pemilik) |
+| Remote `wei-shaw` | `https://github.com/Wei-Shaw/sub2api.git` (upstream, fetch-only; push URL harus `no_push`) |
+| Remote `tickernelz` | `https://github.com/tickernelz/sub2api.git` (referensi historis opsional, bukan upstream aktif) |
 | Go module path | `github.com/Wei-Shaw/sub2api` (**tetap ikut upstream**, jangan diganti ke `tickernelz`) |
 | Branch utama | `main` |
 | Versi dilacak di | `backend/cmd/server/VERSION` (di-drive oleh git tag, lihat §6) |
 
-> ⚠️ **Module path penting:** karena kita full-rewrite di atas upstream, module path = `Wei-Shaw`. Kalau meng-cherry-pick/mem-port kode dari fork lama (termasuk `myfork`, yang module path-nya `github.com/tickernelz/sub2api`), **perbaiki import path-nya** ke `Wei-Shaw/sub2api` atau build akan gagal.
+> ⚠️ **Module path penting:** karena kita full-rewrite di atas upstream, module path = `Wei-Shaw`. Kalau meng-cherry-pick/mem-port kode lama yang memakai `github.com/tickernelz/sub2api`, **perbaiki import path-nya** ke `Wei-Shaw/sub2api` atau build akan gagal.
 
 Pastikan remote upstream ada sebelum sync:
 ```bash
 git remote get-url wei-shaw || git remote add wei-shaw git@github.com:Wei-Shaw/sub2api.git
+git remote set-url --push wei-shaw no_push
 git fetch wei-shaw
 ```
+
+> **Status fork GitHub:** `tamakiramimy/sub2api-kiro` ditujukan sebagai repositori mandiri, bukan fork GitHub. Setelah maintainer memverifikasi dampak metadata, buka **Settings > General > Danger Zone > Leave fork network** di GitHub. Operasi ini permanen dan menghapus metadata jaringan fork (Issues, Pull Requests, Wiki, Stars, Watchers, komentar, dan child forks), tetapi mempertahankan riwayat commit Git. Jangan mengganti origin atau menghapus repositori untuk tujuan ini.
 
 ---
 
@@ -141,22 +144,22 @@ OpenAI `/v1/responses` upstream punya **request-level hard guard** untuk harmony
 **Prinsip desain (wajib diikuti siapa pun yang menyentuh Fitur D):**
 - Semua kode Kiro **terkonsolidasi di satu direktori baru per sisi**: backend `backend/internal/kiro/` (bukan tersebar di `internal/service/kiro_*.go` seperti sumber referensi lama), frontend `frontend/src/kiro/` (bukan tersebar di `components/common/`, `composables/`, `api/admin/`).
 - File-file existing yang dipaksa harus disentuh (karena mekanisme framework: enum platform terpusat, ent schema terpusat, dispatch gateway terpusat, wire DI terpusat) HARUS dijaga seminimal mungkin (idealnya ≤ 5 baris per file, murni "deklarasi/registrasi/pemanggilan", bukan logika bisnis Kiro).
-- Sumber referensi implementasi lengkap: remote `myfork` (`tamakiramimy/sub2api-kiro`) branch `main`, module path `github.com/tickernelz/sub2api` — **wajib** ganti import path ke `github.com/Wei-Shaw/sub2api` saat porting.
+- Sumber referensi implementasi lengkap: `origin` (`tamakiramimy/sub2api-kiro`) branch `main`. Saat mem-port commit lama yang memakai module path `github.com/tickernelz/sub2api`, **wajib** ganti import path ke `github.com/Wei-Shaw/sub2api`.
 - Titik konflik yang diketahui saat re-apply: `ent/schema/group.go` (upstream bisa tambah field baru di posisi sebelum `kiro_cache_emulation_*`; keep kedua sisi), `internal/service/group.go` struct `Group` (sama: keep `MaxReasoningEffort`/`ReasoningEffortMappings` upstream + `KiroCacheEmulationEnabled`/`KiroCacheEmulationRatio` Fitur D).
 
 ## 3. Kebijakan `.github/` — IKUT UPSTREAM, keep hanya divergence minimal
 
-**Kebijakan aktif:** `.github/` workflow **ikut versi upstream terbaru**, dengan dua divergence yang di-keep: referensi repo `tickernelz/sub2api` di `cla.yml`, dan `continue-on-error: true` pada step `Update DockerHub description` di `release.yml`. Selebihnya ikut upstream apa adanya.
+**Kebijakan aktif:** `.github/` workflow **ikut versi upstream terbaru**, dengan dua divergence yang di-keep: referensi repo `tamakiramimy/sub2api-kiro` di `cla.yml`, dan `continue-on-error: true` pada step `Update DockerHub description` di `release.yml`. Selebihnya ikut upstream apa adanya.
 
 | File | Delta fork vs upstream | Alasan |
 |---|---|---|
-| `cla.yml` | 5 baris: `github.repository == 'tickernelz/sub2api'` (2×) + `path-to-document`/link CLA `github.com/tickernelz/sub2api` (3×) | Guard job CLA hanya jalan di repo fork; link ke CLA.md fork. |
+| `cla.yml` | 5 baris: `github.repository == 'tamakiramimy/sub2api-kiro'` (2×) + `path-to-document`/link CLA `github.com/tamakiramimy/sub2api-kiro` (3×) | Guard job CLA hanya jalan di repositori utama pemilik; link ke CLA.md repositori tersebut. |
 | `release.yml` | 1 baris: `continue-on-error: true` di step `Update DockerHub description` | Step itu bisa `403 Forbidden` (token perms) dan menandai job Release merah walau image sukses publish. |
 | **semua file `.github` lain** | **TIDAK ADA** — 100% ikut upstream | pnpm/golangci/step ikut upstream terbaru. |
 
 **Cara apply `.github` setelah reset ke upstream:**
 ```bash
-sed -i 's#Wei-Shaw/sub2api#tickernelz/sub2api#g' .github/workflows/cla.yml
+sed -i 's#Wei-Shaw/sub2api#tamakiramimy/sub2api-kiro#g' .github/workflows/cla.yml
 # + tambahkan 'continue-on-error: true' di bawah '- name: Update DockerHub description' di release.yml
 ```
 > ⚠️ **JANGAN** `git checkout <fork-backup> -- .github` — itu membawa balik divergence usang. Cukup reset-ke-upstream + sed cla.yml + 1 baris continue-on-error.
@@ -221,7 +224,7 @@ git cherry-pick <sha-fitur-D-kiro-frontend>
 #      git diff --cached | grep tickernelz   # harus kosong
 
 # 5. Re-apply HANYA divergence minimal (§3)
-#    - cla.yml: referensi Wei-Shaw/sub2api -> tickernelz/sub2api
+#    - cla.yml: referensi Wei-Shaw/sub2api -> tamakiramimy/sub2api-kiro
 #    - release.yml: continue-on-error pada Update DockerHub description
 #    - restore AGENTS.md dari safety branch dan unignore di .gitignore
 

@@ -1035,6 +1035,18 @@ export default {
           oauthOnlyHint: '首版 Grok 支持仅包含 OAuth 订阅的 Responses API 文本/推理转发。'
         },
         kiro: {
+          title: 'Kiro 账号授权',
+          followSteps: '请按照以下步骤完成 Kiro 账号授权：',
+          step1GenerateUrl: '生成授权链接',
+          generateAuthUrl: '生成授权链接',
+          step2OpenUrl: '在浏览器中打开链接并完成授权',
+          openUrlDesc: '在新标签页中打开授权链接，完成 Kiro 登录与授权。',
+          importantNotice: '授权完成后浏览器会跳转到本地 callback URL。请直接复制完整链接粘贴到下方，系统会自动提取 code 和 state。',
+          step3EnterCode: '输入回调链接或 Code',
+          authCodeDesc: '授权完成后，复制完整的 callback URL（推荐）或仅复制 code，粘贴到下方即可。',
+          authCode: '回调链接或 Code',
+          authCodePlaceholder: '粘贴完整 callback URL、?code=... 查询字符串或 code 值',
+          authCodeHint: '支持完整 callback URL、查询字符串和裸 code；系统会自动提取 code/state。',
           authModeTitle: '登录方式',
           oauthTitle: '社交登录',
           oauthSubtitle: '使用 Google 或 Github 登录',

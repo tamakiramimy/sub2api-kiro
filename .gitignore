@@ -7,6 +7,9 @@ docs/claude-relay-service/
 dev-start.sh
 dev-stop.sh
 .dev-logs/
+.dev-data/
+.dev-runtime/
+.dev-bin/
 .dev-backend.pid
 .dev-frontend.pid
 

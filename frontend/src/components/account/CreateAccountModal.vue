@@ -3765,7 +3765,7 @@ import { useGeminiOAuth } from '@/composables/useGeminiOAuth'
 import { useAntigravityOAuth } from '@/composables/useAntigravityOAuth'
 import { useGrokOAuth } from '@/composables/useGrokOAuth'
 import { useKiroOAuth } from '@/kiro/useKiroOAuth'
-import { kiroPresetMappings } from '@/kiro/models'
+import { getKiroDefaultModelMappings, kiroModels } from '@/kiro/models'
 import type {
   Proxy,
   AdminGroup,
@@ -4405,8 +4405,8 @@ watch(
       // Kiro 只支持模型映射模式，默认填充官方模型映射预设
       if (form.platform === 'kiro') {
         modelRestrictionMode.value = 'mapping'
-        modelMappings.value = kiroPresetMappings.map(preset => ({ ...preset }))
-        allowedModels.value = []
+        modelMappings.value = getKiroDefaultModelMappings()
+        allowedModels.value = [...kiroModels]
       }
     } else {
       resetForm()
@@ -4484,7 +4484,8 @@ watch(
     if (newPlatform === 'kiro') {
       accountCategory.value = 'oauth-based'
       modelRestrictionMode.value = 'mapping'
-      modelMappings.value = kiroPresetMappings.map(preset => ({ ...preset }))
+      modelMappings.value = getKiroDefaultModelMappings()
+      allowedModels.value = [...kiroModels]
     }
     if (newPlatform !== 'gemini' && newPlatform !== 'anthropic' && accountCategory.value === 'service_account') {
       accountCategory.value = 'oauth-based'
@@ -5533,6 +5534,14 @@ const createAccountAndFinish = async (
     if (!credentials.base_url) {
       credentials.base_url = apiKeyBaseUrl.value.trim() || 'https://api.x.ai/v1'
     }
+    const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
+    if (modelMapping) {
+      credentials.model_mapping = modelMapping
+    } else {
+      delete credentials.model_mapping
+    }
+  }
+  if (platform === 'kiro') {
     const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
     if (modelMapping) {
       credentials.model_mapping = modelMapping

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
+import { getKiroDefaultModelMappings, kiroModels } from '@/kiro/models'
 
 const { updateAccountMock, checkMixedChannelRiskMock, authIsSimpleMode } = vi.hoisted(() => ({
   updateAccountMock: vi.fn(),
@@ -267,6 +268,32 @@ function buildGrokOAuthAccount() {
   } as any
 }
 
+function buildKiroOAuthAccount() {
+  return {
+    id: 7,
+    name: 'Kiro OAuth',
+    notes: '',
+    platform: 'kiro',
+    type: 'oauth',
+    credentials: {
+      access_token: 'kiro-access-token',
+      refresh_token: 'kiro-refresh-token',
+      model_mapping: Object.fromEntries(
+        getKiroDefaultModelMappings().map(({ from, to }) => [from, to])
+      )
+    },
+    extra: {},
+    proxy_id: null,
+    concurrency: 1,
+    priority: 1,
+    rate_multiplier: 1,
+    status: 'active',
+    group_ids: [],
+    expires_at: null,
+    auto_pause_on_expired: false
+  } as any
+}
+
 function buildGrokAPIKeyAccount() {
   return {
     ...buildAccount(),
@@ -366,6 +393,36 @@ describe('EditAccountModal', () => {
       'gpt-5.2-2025-12-11': 'gpt-5.2-2025-12-11',
       'gpt-latest': 'gpt-5.2'
     })
+  })
+
+  it('loads the complete Kiro catalog in both whitelist and mapping tabs', async () => {
+    const account = buildKiroOAuthAccount()
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const whitelistValue = wrapper.get('[data-testid="model-whitelist-value"]').text().split(',')
+
+    expect(whitelistValue).toHaveLength(kiroModels.length)
+    expect(whitelistValue).toContain('claude-sonnet-4-6')
+    expect(whitelistValue).toContain('gpt-5.6-sol')
+
+    const mappingTab = wrapper.findAll('button').find(button => button.text().includes('admin.accounts.modelMapping'))
+    expect(mappingTab).toBeDefined()
+    await mappingTab?.trigger('click')
+
+    const sourceModels = wrapper.findAll('input[placeholder="admin.accounts.requestModel"]')
+      .map(input => (input.element as HTMLInputElement).value)
+    expect(sourceModels).toHaveLength(kiroModels.length)
+    expect(sourceModels).toContain('claude-sonnet-4-6')
+    expect(sourceModels).toContain('gpt-5.6-sol')
+
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping).toEqual(
+      Object.fromEntries(getKiroDefaultModelMappings().map(({ from, to }) => [from, to]))
+    )
   })
 
   it('submits OpenAI compact mode and compact-only model mapping', async () => {

@@ -5,6 +5,12 @@ vi.mock('@/api/admin/accounts', () => ({
 }))
 
 import { buildModelMappingObject, getModelsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
+import {
+  getKiroDefaultModelMappings,
+  isKiroCompleteDefaultMapping,
+  kiroModels,
+  sanitizeKiroModelMapping
+} from '@/kiro/models'
 
 describe('useModelWhitelist', () => {
   it('openai 模型列表包含 GPT-5.4 官方快照', () => {
@@ -34,6 +40,39 @@ describe('useModelWhitelist', () => {
     expect(models).toContain('gemini-2.5-flash-image')
     expect(models).toContain('gemini-3.1-flash-image')
     expect(models).toContain('gemini-3-pro-image')
+  })
+
+  it('Kiro 模型列表与映射预设都包含 GPT-5.6 三个变体', () => {
+    const models = getModelsByPlatform('kiro')
+
+    expect(models).toContain('gpt-5.6-sol')
+    expect(models).toContain('gpt-5.6-terra')
+    expect(models).toContain('gpt-5.6-luna')
+      expect(models).toContain('claude-sonnet-5-0')
+      expect(models).toContain('claude-sonnet-5-0-thinking')
+  })
+
+  it('完整 Kiro 默认映射会同时覆盖 GPT 与 Claude 模型', () => {
+    const mapping = Object.fromEntries(
+      getKiroDefaultModelMappings().map(({ from, to }) => [from, to])
+    )
+
+    expect(isKiroCompleteDefaultMapping(mapping)).toBe(true)
+    expect(Object.keys(mapping)).toEqual(kiroModels)
+  })
+
+  it('Kiro 精简映射不会被视为完整默认映射', () => {
+    expect(isKiroCompleteDefaultMapping({ 'gpt-5.6-sol': 'gpt-5.6-sol' })).toBe(false)
+  })
+
+  it('会将历史错误的Sonnet 5 .0目标规范化为Kiro正确ID', () => {
+    expect(sanitizeKiroModelMapping({
+      'claude-sonnet-5-0': 'claude-sonnet-5.0',
+      'claude-sonnet-4-6': 'claude-sonnet-4.6'
+    })).toEqual({
+        'claude-sonnet-5-0': 'claude-sonnet-5',
+        'claude-sonnet-4-6': 'claude-sonnet-4.6'
+    })
   })
 
   it('Claude 模型列表包含新发布的 Claude 模型', () => {

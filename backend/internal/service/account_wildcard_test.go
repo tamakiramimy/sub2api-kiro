@@ -514,6 +514,60 @@ func TestAccountGetModelMapping_AntigravityEnsuresGeminiDefaultPassthroughs(t *t
 	}
 }
 
+func TestAccountGetModelMapping_KiroExplicitMappingRemainsWhitelist(t *testing.T) {
+	account := &Account{
+		Platform: PlatformKiro,
+		Credentials: map[string]any{
+			"model_mapping": map[string]any{
+				"claude-sonnet-4-6": "claude-sonnet-4.6",
+			},
+		},
+	}
+
+	if !account.IsModelSupported("claude-sonnet-4-6") {
+		t.Fatal("expected explicitly mapped Claude model to remain supported")
+	}
+	if account.IsModelSupported("gpt-5.6-sol") {
+		t.Fatal("did not expect an explicit Kiro whitelist to admit GPT-5.6")
+	}
+}
+
+func TestAccountGetModelMapping_KiroNormalizesLegacySonnet5Aliases(t *testing.T) {
+	account := &Account{
+		Platform: PlatformKiro,
+		Credentials: map[string]any{
+			"model_mapping": map[string]any{
+				"claude-sonnet-5-0": "claude-sonnet-5.0",
+				"claude-sonnet-4-6": "claude-sonnet-4.6",
+			},
+		},
+	}
+
+	mapping := account.GetModelMapping()
+	if mapping["claude-sonnet-5-0"] != "claude-sonnet-5" {
+		t.Fatalf("expected legacy Kiro Sonnet 5 mapping to normalize, got %q", mapping["claude-sonnet-5-0"])
+	}
+	if mapping["claude-sonnet-4-6"] != "claude-sonnet-4.6" {
+		t.Fatalf("expected valid Kiro mapping to remain, got %q", mapping["claude-sonnet-4-6"])
+	}
+}
+
+func TestAccountGetModelMapping_KiroOnlyLegacySonnet5MappingNormalizes(t *testing.T) {
+	account := &Account{
+		Platform: PlatformKiro,
+		Credentials: map[string]any{
+			"model_mapping": map[string]any{
+				"claude-sonnet-5-0": "claude-sonnet-5.0",
+			},
+		},
+	}
+
+	mapping := account.GetModelMapping()
+	if len(mapping) != 1 || mapping["claude-sonnet-5-0"] != "claude-sonnet-5" {
+		t.Fatalf("expected only normalized Kiro Sonnet 5 mapping, got %#v", mapping)
+	}
+}
+
 func TestAccountGetModelMapping_AntigravityRespectsWildcardOverride(t *testing.T) {
 	account := &Account{
 		Platform: PlatformAntigravity,

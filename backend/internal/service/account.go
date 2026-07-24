@@ -616,6 +616,9 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 		}
 	}
 	if len(result) > 0 {
+		if a.Platform == domain.PlatformKiro {
+			normalizeKiroSonnet5Mappings(result)
+		}
 		if a.Platform == domain.PlatformAntigravity {
 			ensureAntigravityDefaultPassthroughs(result, []string{
 				"gemini-3-flash",
@@ -635,6 +638,20 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 		return xai.DefaultModelMapping()
 	}
 	return nil
+}
+
+func normalizeKiroSonnet5Mappings(mapping map[string]string) {
+	for _, model := range []string{
+		"claude-sonnet-5-0",
+		"claude-sonnet-5-0-thinking",
+		"claude-sonnet-5.0",
+		"claude-sonnet-5",
+		"claude-sonnet-5-thinking",
+	} {
+		if _, exists := mapping[model]; exists {
+			mapping[model] = "claude-sonnet-5"
+		}
+	}
 }
 
 func mapPtr(m map[string]any) uintptr {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
+	kiropkg "github.com/Wei-Shaw/sub2api/internal/kiro"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -2350,6 +2351,47 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	account, err := h.adminService.GetAccount(c.Request.Context(), accountID)
 	if err != nil {
 		response.NotFound(c, "Account not found")
+		return
+	}
+
+	if account.Platform == service.PlatformKiro {
+		hasExplicitMapping := false
+		switch rawMapping := account.Credentials["model_mapping"].(type) {
+		case map[string]any:
+			hasExplicitMapping = len(rawMapping) > 0
+		case map[string]string:
+			hasExplicitMapping = len(rawMapping) > 0
+		}
+		if !hasExplicitMapping {
+			response.Success(c, kiropkg.DefaultModels)
+			return
+		}
+
+		mapping := account.GetModelMapping()
+		defaultsByID := make(map[string]kiropkg.Model, len(kiropkg.DefaultModels))
+		for _, model := range kiropkg.DefaultModels {
+			defaultsByID[model.ID] = model
+		}
+		requestedModels := make([]string, 0, len(mapping))
+		for requestedModel := range mapping {
+			requestedModels = append(requestedModels, requestedModel)
+		}
+		sort.Strings(requestedModels)
+
+		models := make([]kiropkg.Model, 0, len(requestedModels))
+		for _, requestedModel := range requestedModels {
+			if model, found := defaultsByID[requestedModel]; found {
+				models = append(models, model)
+				continue
+			}
+			models = append(models, kiropkg.Model{
+				ID:          requestedModel,
+				Type:        "model",
+				DisplayName: requestedModel,
+			})
+		}
+
+		response.Success(c, models)
 		return
 	}
 

@@ -986,6 +986,18 @@ export default {
           oauthOnlyHint: 'Initial Grok support is OAuth subscription-backed Responses API text and reasoning traffic only.'
         },
         kiro: {
+          title: 'Kiro Account Authorization',
+          followSteps: 'Follow these steps to authorize your Kiro account:',
+          step1GenerateUrl: 'Generate authorization URL',
+          generateAuthUrl: 'Generate authorization URL',
+          step2OpenUrl: 'Open the URL in your browser and complete authorization',
+          openUrlDesc: 'Open the authorization URL in a new tab and complete Kiro sign-in and authorization.',
+          importantNotice: 'After authorization, the browser redirects to a local callback URL. Paste the complete URL below and the system will extract code and state automatically.',
+          step3EnterCode: 'Enter callback URL or code',
+          authCodeDesc: 'After authorization, paste the complete callback URL (recommended) or just the code value below.',
+          authCode: 'Callback URL or Code',
+          authCodePlaceholder: 'Paste the full callback URL, ?code=... query string, or code value',
+          authCodeHint: 'Full callback URLs, query strings, and bare codes are accepted; code/state are extracted automatically.',
           authModeTitle: 'Login method',
           oauthTitle: 'Social login',
           oauthSubtitle: 'Sign in with Google or Github',

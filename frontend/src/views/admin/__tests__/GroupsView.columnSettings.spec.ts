@@ -41,6 +41,7 @@ const messages: Record<string, string> = {
   'admin.groups.columns.usage': 'Usage',
   'admin.groups.columns.status': 'Status',
   'admin.groups.columns.actions': 'Actions',
+  'admin.groups.platforms.kiro': 'Kiro',
 }
 
 vi.mock('@/api/admin', () => ({
@@ -269,6 +270,31 @@ describe('admin GroupsView column settings', () => {
     ])
     expect(localStorage.getItem('group-hidden-columns')).toBe(JSON.stringify(['id']))
     expect(localStorage.getItem('group-column-settings-version')).toBe('2')
+  })
+
+  it('includes Kiro in group platform options', async () => {
+    const wrapper = await mountView()
+
+    const hasKiroPlatformOption = wrapper
+      .findAll('select')
+      .some(select => select.findAll('option').some(option => option.element.value === 'kiro'))
+
+    expect(hasKiroPlatformOption).toBe(true)
+  })
+
+  it('renders the localized Kiro platform label', async () => {
+    listGroups.mockResolvedValueOnce({
+      items: [createGroup({ platform: 'kiro', name: 'Kiro Group' })],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.text()).toContain('Kiro')
+    expect(wrapper.text()).not.toContain('admin.groups.platforms.kiro')
   })
 
   it('applies saved hidden columns on mount and ignores unknown keys', async () => {

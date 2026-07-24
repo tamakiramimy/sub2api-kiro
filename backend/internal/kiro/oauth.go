@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -170,6 +171,32 @@ func (e *RefreshTokenInvalidError) Error() string {
 	return fmt.Sprintf("kiro refresh token invalid (invalid_grant, status %d): %s", e.StatusCode, body)
 }
 
+// AuthorizationCodeInvalidError indicates that an OAuth authorization code can no
+// longer be exchanged. Authorization codes are short-lived and single-use.
+type AuthorizationCodeInvalidError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e *AuthorizationCodeInvalidError) Error() string {
+	if e == nil {
+		return ""
+	}
+	body := strings.TrimSpace(e.Body)
+	if body == "" {
+		return "kiro authorization code invalid or expired (invalid_grant)"
+	}
+	return fmt.Sprintf("kiro authorization code invalid or expired (invalid_grant, status %d): %s", e.StatusCode, body)
+}
+
+func classifyAuthorizationCodeInvalidGrant(err error) error {
+	var invalid *RefreshTokenInvalidError
+	if errors.As(err, &invalid) {
+		return &AuthorizationCodeInvalidError{StatusCode: invalid.StatusCode, Body: invalid.Body}
+	}
+	return err
+}
+
 func GenerateSessionID() string {
 	return uuid.NewString()
 }
@@ -231,7 +258,7 @@ func CreateSocialToken(ctx context.Context, proxyURL, code, codeVerifier, redire
 	}
 	var resp socialTokenResponse
 	if err := doJSON(ctx, proxyURL, http.MethodPost, socialAuthEndpointURL+"/oauth/token", payload, &resp, BuildLoginHeaders(shortSHA(codeVerifier), BuildMachineID("", "", "codeVerifier:"+codeVerifier))); err != nil {
-		return nil, err
+		return nil, classifyAuthorizationCodeInvalidGrant(err)
 	}
 	expiresIn := resp.ExpiresIn
 	if expiresIn <= 0 {
@@ -328,7 +355,7 @@ func ExchangeIDCAuthCode(ctx context.Context, proxyURL, clientID, clientSecret, 
 	accountKey := BuildAccountKey(clientID, "", "", "", 0)
 	headers := oidcHeaders(accountKey, BuildMachineID("", "", "clientID:"+clientID))
 	if err := doJSON(ctx, proxyURL, http.MethodPost, getOIDCEndpoint(region)+"/token", payload, &resp, headers); err != nil {
-		return nil, err
+		return nil, classifyAuthorizationCodeInvalidGrant(err)
 	}
 	expiresIn := resp.ExpiresIn
 	if expiresIn <= 0 {

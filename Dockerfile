@@ -113,9 +113,9 @@ FROM ${ALPINE_IMAGE}
 ARG ALPINE_REPOSITORY
 
 # Labels
-LABEL maintainer="Wei-Shaw <github.com/Wei-Shaw>"
+LABEL maintainer="tamakiramimy"
 LABEL description="Sub2API - AI API Gateway Platform"
-LABEL org.opencontainers.image.source="https://github.com/Wei-Shaw/sub2api"
+LABEL org.opencontainers.image.source="https://github.com/tamakiramimy/sub2api-kiro"
 
 # Install runtime dependencies
 RUN if [ -n "${ALPINE_REPOSITORY}" ]; then sed -i "s#https://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPOSITORY}#g" /etc/apk/repositories; fi && \

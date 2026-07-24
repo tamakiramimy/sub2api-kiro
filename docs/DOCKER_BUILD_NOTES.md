@@ -7,7 +7,7 @@
 以内部 Quay 为例：
 
 ```sh
-export IMAGE=quay.globalapp.mindray.com/prd/sub2api-kiro
+export IMAGE=your-registry.example/sub2api-kiro
 export VERSION="$(tr -d '\n' < backend/cmd/server/VERSION)"
 ```
 
@@ -21,7 +21,7 @@ export VERSION="$(tr -d '\n' < backend/cmd/server/VERSION)"
 
 ```sh
 printf '%s' "$REGISTRY_PASSWORD" | \
-  docker login --username "$REGISTRY_USERNAME" --password-stdin quay.globalapp.mindray.com
+  docker login --username "$REGISTRY_USERNAME" --password-stdin your-registry.example
 unset REGISTRY_PASSWORD
 ```
 
@@ -33,7 +33,7 @@ unset REGISTRY_PASSWORD
 docker info --format 'HTTPProxy={{.HTTPProxy}}\nHTTPSProxy={{.HTTPSProxy}}\nNoProxy={{.NoProxy}}'
 ```
 
-公司网络中，Docker daemon 可使用 `http://hkproxy.mindray.com:8080` 访问公共镜像与依赖源。内部 Registry 应位于 `NO_PROXY`，例如 `quay.globalapp.mindray.com`，使推送走内部直连。
+若使用企业代理，Docker daemon 的 `HTTP_PROXY`、`HTTPS_PROXY` 与 `NO_PROXY` 必须按企业网络策略配置。私有 Registry 可加入 `NO_PROXY`，避免内部推送被错误地送往外部代理。
 
 公共 Alpine 源出现超时时，根 `Dockerfile` 支持可选的 `ALPINE_REPOSITORY` 参数。该参数默认为空，CI 和外部网络仍使用 Alpine 官方源；受限网络可在构建时传入：
 

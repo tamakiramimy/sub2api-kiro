@@ -8,8 +8,6 @@
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
-<a href="https://trendshift.io/repositories/21823" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21823" alt="Wei-Shaw%2Fsub2api | Trendshift" width="250" height="55"/></a>
-
 **Kiro-Enhanced AI API Gateway**
 
 **GPT-5.6 Sol / Terra / Luna | Claude Opus 4.8 | Claude Sonnet 5**
@@ -102,30 +100,23 @@ Deploy with Docker Compose, including PostgreSQL and Redis containers.
 - Docker 20.10+
 - Docker Compose v2+
 
-#### Quick Start (One-Click Deployment)
-
-Use the automated deployment script for easy setup:
+#### Quick Start
 
 ```bash
-# Create deployment directory
-mkdir -p sub2api-deploy && cd sub2api-deploy
+# Clone this distribution and enter its deployment directory
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
+cd sub2api-kiro/deploy
 
-# Download and run deployment preparation script
-curl -sSL https://raw.githubusercontent.com/tamakiramimy/sub2api-kiro/main/deploy/docker-deploy.sh | bash
+# Configure deployment secrets
+cp .env.example .env
+chmod 600 .env
 
-# Start services
-docker compose up -d
+# Build the local Kiro image and start services
+docker compose -f docker-compose.local.yml up -d --build
 
 # View logs
-docker compose logs -f sub2api
+docker compose -f docker-compose.local.yml logs -f sub2api
 ```
-
-**What the script does:**
-- Downloads `docker-compose.local.yml` (saved as `docker-compose.yml`) and `.env.example`
-- Generates secure credentials (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
-- Creates `.env` file with auto-generated secrets
-- Creates data directories (uses local directories for easy backup/migration)
-- Displays generated credentials for your reference
 
 #### Manual Deployment
 
@@ -134,7 +125,7 @@ If you prefer manual setup:
 ```bash
 # 1. Clone the repository
 git clone https://github.com/tamakiramimy/sub2api-kiro.git
-cd sub2api/deploy
+cd sub2api-kiro/deploy
 
 # 2. Copy environment configuration
 cp .env.example .env
@@ -181,10 +172,10 @@ mkdir -p data postgres_data redis_data
 
 # 5. Start all services
 # Option A: Local directory version (recommended - easy migration)
-docker compose -f docker-compose.local.yml up -d
+docker compose -f docker-compose.local.yml up -d --build
 
 # Option B: Named volumes version (simple setup)
-docker compose up -d
+docker compose up -d --build
 
 # 6. Check status
 docker compose -f docker-compose.local.yml ps
@@ -200,7 +191,7 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 | **docker-compose.local.yml** | Local directories | ✅ Easy (tar entire directory) | Production, frequent backups |
 | **docker-compose.yml** | Named volumes | ⚠️ Requires docker commands | Simple setup |
 
-**Recommendation:** Use `docker-compose.local.yml` (deployed by script) for easier data management.
+**Recommendation:** Use `docker-compose.local.yml` for easier data management.
 
 #### Access
 
@@ -214,8 +205,8 @@ docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
 #### Upgrade
 
 ```bash
-# Pull latest image and recreate container
-docker compose -f docker-compose.local.yml pull
+# Rebuild the local image and recreate the application container
+docker compose -f docker-compose.local.yml build --pull sub2api
 docker compose -f docker-compose.local.yml up -d
 ```
 
@@ -257,14 +248,15 @@ rm -rf data/ postgres_data/ redis_data/
 
 ---
 
-### Method 3: Build from Source
+### Method 2: Build from Source
 
 Build and run from source code for development or customization.
 
 #### Prerequisites
 
-- Go 1.21+
-- Node.js 18+
+- Go 1.26.5
+- Node.js 24+
+- pnpm 9
 - PostgreSQL 15+
 - Redis 7+
 
@@ -273,10 +265,11 @@ Build and run from source code for development or customization.
 ```bash
 # 1. Clone the repository
 git clone https://github.com/tamakiramimy/sub2api-kiro.git
-cd sub2api
+cd sub2api-kiro
 
-# 2. Install pnpm (if not already installed)
-npm install -g pnpm
+# 2. Enable the lockfile-compatible pnpm version
+corepack enable
+corepack prepare pnpm@9 --activate
 
 # 3. Build frontend
 cd frontend
@@ -481,9 +474,10 @@ sub2api/
 │
 └── deploy/                   # Deployment files
     ├── docker-compose.yml    # Docker Compose configuration
+  ├── docker-compose.local.yml # Docker Compose with local data directories
     ├── .env.example          # Environment variables for Docker Compose
     ├── config.example.yaml   # Full config file for binary deployment
-    └── install.sh            # One-click installation script
+  └── README.md             # Deployment reference
 ```
 
 ## Disclaimer
@@ -493,18 +487,6 @@ sub2api/
 > :rotating_light: **Terms of Service Risk**: Using this project may violate Anthropic's Terms of Service. Please read Anthropic's user agreement carefully before use. All risks arising from the use of this project are borne solely by the user.
 >
 > :book: **Disclaimer**: This project is for technical learning and research purposes only. The author assumes no responsibility for account suspension, service interruption, or any other losses caused by the use of this project.
-
----
-
-## Star History
-
-<a href="https://star-history.com/#Wei-Shaw/sub2api&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date" />
- </picture>
-</a>
 
 ---
 

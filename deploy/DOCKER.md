@@ -1,62 +1,20 @@
-# Sub2API Docker Image
+# Sub2API Kiro Docker Image
 
-Sub2API is an AI API Gateway Platform for distributing and managing AI product subscription API quotas.
-
-## Quick Start
-
-```bash
-docker run -d \
-  --name sub2api \
-  -p 8080:8080 \
-  -e DATABASE_URL="postgres://user:pass@host:5432/sub2api" \
-  -e REDIS_URL="redis://host:6379" \
-  weishaw/sub2api:latest
-```
+Sub2API Kiro is the Kiro-enhanced distribution of Sub2API. The published image supports GPT-5.6, Claude Opus 4.8, and Claude Sonnet 5 through the Kiro integration.
 
 ## Docker Compose
 
-```yaml
-version: '3.8'
+Docker Compose is the supported deployment path because it builds the Kiro distribution from the checked-out source and configures the application, PostgreSQL, Redis, persistent storage, and required environment variables together.
 
-services:
-  sub2api:
-    image: weishaw/sub2api:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/sub2api?sslmode=disable
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - db
-      - redis
-
-  db:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=sub2api
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-
-volumes:
-  postgres_data:
-  redis_data:
+```bash
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
+cd sub2api-kiro/deploy
+cp .env.example .env
+chmod 600 .env
+docker compose -f docker-compose.local.yml up -d --build
 ```
 
-## Environment Variables
-
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes | - |
-| `REDIS_URL` | Redis connection string | Yes | - |
-| `PORT` | Server port | No | `8080` |
-| `GIN_MODE` | Gin framework mode (`debug`/`release`) | No | `release` |
+Use `docker-compose.local.yml` for local data directories that are easier to back up and migrate. To use an image from a private registry, set `SUB2API_IMAGE` before running Docker Compose; it overrides the local `sub2api-kiro:latest` tag. See [README.md](./README.md) for environment variables, upgrades, and operational commands.
 
 ## Supported Architectures
 
@@ -72,5 +30,5 @@ volumes:
 
 ## Links
 
-- [GitHub Repository](https://github.com/weishaw/sub2api)
-- [Documentation](https://github.com/weishaw/sub2api#readme)
+- [GitHub Repository](https://github.com/tamakiramimy/sub2api-kiro)
+- [Deployment Guide](./README.md)

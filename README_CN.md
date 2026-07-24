@@ -8,8 +8,6 @@
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
-<a href="https://trendshift.io/repositories/21823" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21823" alt="Wei-Shaw%2Fsub2api | Trendshift" width="250" height="55"/></a>
-
 **Kiro 增强 AI API 网关**
 
 **GPT-5.6 Sol / Terra / Luna | Claude Opus 4.8 | Claude Sonnet 5**
@@ -102,30 +100,23 @@ Nginx 默认会丢弃名称中含下划线的请求头（如 `session_id`），�
 - Docker 20.10+
 - Docker Compose v2+
 
-#### 快速开始（一键部署）
-
-使用自动化部署脚本快速搭建：
+#### 快速开始
 
 ```bash
-# 创建部署目录
-mkdir -p sub2api-deploy && cd sub2api-deploy
+# 克隆本发行版并进入部署目录
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
+cd sub2api-kiro/deploy
 
-# 下载并运行部署准备脚本
-curl -sSL https://raw.githubusercontent.com/tamakiramimy/sub2api-kiro/main/deploy/docker-deploy.sh | bash
+# 配置部署密钥
+cp .env.example .env
+chmod 600 .env
 
-# 启动服务
-docker compose up -d
+# 构建本地 Kiro 镜像并启动服务
+docker compose -f docker-compose.local.yml up -d --build
 
 # 查看日志
-docker compose logs -f sub2api
+docker compose -f docker-compose.local.yml logs -f sub2api
 ```
-
-**脚本功能：**
-- 下载 `docker-compose.local.yml`（本地保存为 `docker-compose.yml`）和 `.env.example`
-- 自动生成安全凭证（JWT_SECRET、TOTP_ENCRYPTION_KEY、POSTGRES_PASSWORD）
-- 创建 `.env` 文件并填充自动生成的密钥
-- 创建数据目录（使用本地目录，便于备份和迁移）
-- 显示生成的凭证供你记录
 
 #### 手动部署
 
@@ -134,7 +125,7 @@ docker compose logs -f sub2api
 ```bash
 # 1. 克隆仓库
 git clone https://github.com/tamakiramimy/sub2api-kiro.git
-cd sub2api/deploy
+cd sub2api-kiro/deploy
 
 # 2. 复制环境配置文件
 cp .env.example .env
@@ -181,10 +172,10 @@ mkdir -p data postgres_data redis_data
 
 # 5. 启动所有服务
 # 选项 A：本地目录版（推荐 - 易于迁移）
-docker compose -f docker-compose.local.yml up -d
+docker compose -f docker-compose.local.yml up -d --build
 
 # 选项 B：命名卷版（简单设置）
-docker compose up -d
+docker compose up -d --build
 
 # 6. 查看状态
 docker compose -f docker-compose.local.yml ps
@@ -200,7 +191,7 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 | **docker-compose.local.yml** | 本地目录 | ✅ 简单（打包整个目录） | 生产环境、频繁备份 |
 | **docker-compose.yml** | 命名卷 | ⚠️ 需要 docker 命令 | 简单设置 |
 
-**推荐：** 使用 `docker-compose.local.yml`（脚本部署）以便更轻松地管理数据。
+**推荐：** 使用 `docker-compose.local.yml` 以便更轻松地管理数据。
 
 #### 启用“数据管理”功能（datamanagementd）
 
@@ -226,8 +217,8 @@ docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
 #### 升级
 
 ```bash
-# 拉取最新镜像并重建容器
-docker compose -f docker-compose.local.yml pull
+# 重建本地镜像并重建应用容器
+docker compose -f docker-compose.local.yml build --pull sub2api
 docker compose -f docker-compose.local.yml up -d
 ```
 
@@ -269,14 +260,15 @@ rm -rf data/ postgres_data/ redis_data/
 
 ---
 
-### 方式三：源码编译
+### 方式二：源码编译
 
 从源码编译安装，适合开发或定制需求。
 
 #### 前置条件
 
-- Go 1.21+
-- Node.js 18+
+- Go 1.26.5
+- Node.js 24+
+- pnpm 9
 - PostgreSQL 15+
 - Redis 7+
 
@@ -285,10 +277,11 @@ rm -rf data/ postgres_data/ redis_data/
 ```bash
 # 1. 克隆仓库
 git clone https://github.com/tamakiramimy/sub2api-kiro.git
-cd sub2api
+cd sub2api-kiro
 
-# 2. 安装 pnpm（如果还没有安装）
-npm install -g pnpm
+# 2. 启用与锁文件兼容的 pnpm 版本
+corepack enable
+corepack prepare pnpm@9 --activate
 
 # 3. 编译前端
 cd frontend
@@ -543,9 +536,10 @@ sub2api/
 │
 └── deploy/                   # 部署文件
     ├── docker-compose.yml    # Docker Compose 配置
+  ├── docker-compose.local.yml # 本地数据目录的 Docker Compose 配置
     ├── .env.example          # Docker Compose 环境变量
     ├── config.example.yaml   # 二进制部署完整配置文件
-    └── install.sh            # 一键安装脚本
+  └── README.md             # 部署参考说明
 ```
 
 ## 免责声明
@@ -555,18 +549,6 @@ sub2api/
 > :rotating_light: **服务条款风险**: 使用本项目可能违反 Anthropic 的服务条款。请在使用前仔细阅读 Anthropic 的用户协议，使用本项目的一切风险由用户自行承担。
 >
 > :book: **免责声明**: 本项目仅供技术学习和研究使用，作者不对因使用本项目导致的账户封禁、服务中断或其他损失承担任何责任。
-
----
-
-## Star History
-
-<a href="https://star-history.com/#Wei-Shaw/sub2api&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date" />
- </picture>
-</a>
 
 ---
 

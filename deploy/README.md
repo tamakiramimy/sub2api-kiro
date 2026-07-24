@@ -8,7 +8,6 @@ This directory contains files for deploying Sub2API on Linux servers and Apple-s
 |--------|----------|--------------|
 | **Docker Compose** | Quick setup, all-in-one | Not needed (auto-setup) |
 | **Apple container** | Native local stack on macOS 26 | Not needed (auto-setup) |
-| **Binary Install** | Production servers, systemd | Web-based wizard |
 
 ## Files
 
@@ -16,14 +15,11 @@ This directory contains files for deploying Sub2API on Linux servers and Apple-s
 |------|-------------|
 | `docker-compose.yml` | Docker Compose configuration (named volumes) |
 | `docker-compose.local.yml` | Docker Compose configuration (local directories, easy migration) |
-| `docker-deploy.sh` | **One-click Docker deployment script (recommended)** |
 | `apple-container.sh` | Native Apple `container` lifecycle script |
 | `APPLE_CONTAINER.md` | Apple `container` deployment and operations guide |
 | `.env.example` | Container environment variables template |
-| `DOCKER.md` | Docker Hub documentation |
-| `install.sh` | One-click binary installation script |
+| `DOCKER.md` | Docker deployment reference |
 | `install-datamanagementd.sh` | datamanagementd 一键安装脚本 |
-| `sub2api.service` | Systemd service unit file |
 | `sub2api-datamanagementd.service` | datamanagementd systemd service unit file |
 | `DATAMANAGEMENTD_CN.md` | datamanagementd 部署与联动说明（中文） |
 | `config.example.yaml` | Example configuration file |
@@ -50,50 +46,12 @@ See [APPLE_CONTAINER.md](./APPLE_CONTAINER.md) for configuration, upgrades, pers
 
 ## Docker Deployment (Recommended)
 
-### Method 1: One-Click Deployment (Recommended)
-
-Use the automated preparation script for the easiest setup:
-
-```bash
-# Download and run the preparation script
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh | bash
-
-# Or download first, then run
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh -o docker-deploy.sh
-chmod +x docker-deploy.sh
-./docker-deploy.sh
-```
-
-**What the script does:**
-- Downloads `docker-compose.local.yml` and `.env.example`
-- Automatically generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
-- Creates `.env` file with generated secrets
-- Creates necessary data directories (data/, postgres_data/, redis_data/)
-- **Displays generated credentials** (POSTGRES_PASSWORD, JWT_SECRET, etc.)
-
-**After running the script:**
-```bash
-# Start services
-docker compose -f docker-compose.local.yml up -d
-
-# View logs
-docker compose -f docker-compose.local.yml logs -f sub2api
-
-# If admin password was auto-generated, find it in logs:
-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
-
-# Access Web UI
-# http://localhost:8080
-```
-
-### Method 2: Manual Deployment
-
-If you prefer manual control:
+Clone this distribution and build the Docker image locally:
 
 ```bash
 # Clone repository
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api/deploy
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
+cd sub2api-kiro/deploy
 
 # Configure environment
 cp .env.example .env
@@ -109,8 +67,8 @@ echo "TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}" >> .env
 # Create data directories
 mkdir -p data postgres_data redis_data
 
-# Start all services using local directory version
-docker compose -f docker-compose.local.yml up -d
+# Build the local Kiro image and start all services
+docker compose -f docker-compose.local.yml up -d --build
 
 # View logs (check for auto-generated admin password)
 docker compose -f docker-compose.local.yml logs -f sub2api
@@ -126,7 +84,7 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 | **docker-compose.local.yml** | Local directories (./data, ./postgres_data, ./redis_data) | ✅ Easy (tar entire directory) | Production, need frequent backups/migration |
 | **docker-compose.yml** | Named volumes (/var/lib/docker/volumes/) | ⚠️ Requires docker commands | Simple setup, don't need migration |
 
-**Recommendation:** Use `docker-compose.local.yml` (deployed by `docker-deploy.sh`) for easier data management and migration.
+**Recommendation:** Use `docker-compose.local.yml` for easier data management and migration.
 
 ### How Auto-Setup Works
 
@@ -195,8 +153,9 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 # Restart Sub2API only
 docker compose -f docker-compose.local.yml restart sub2api
 
-# Update to latest version
-docker compose -f docker-compose.local.yml pull
+# Rebuild after updating the local source checkout
+git pull --ff-only
+docker compose -f docker-compose.local.yml build --pull sub2api
 docker compose -f docker-compose.local.yml up -d
 
 # Remove all data (caution!)
@@ -219,8 +178,9 @@ docker compose logs -f sub2api
 # Restart Sub2API only
 docker compose restart sub2api
 
-# Update to latest version
-docker compose pull
+# Rebuild after updating the local source checkout
+git pull --ff-only
+docker compose build --pull sub2api
 docker compose up -d
 
 # Remove all data (caution!)
@@ -245,8 +205,6 @@ docker compose down -v
 | `GEMINI_QUOTA_POLICY` | No | *(empty)* | JSON overrides for Gemini local quota simulation (Code Assist only). |
 
 See `.env.example` for all available options.
-
-> **Note:** The `docker-deploy.sh` script automatically generates `JWT_SECRET`, `TOTP_ENCRYPTION_KEY`, and `POSTGRES_PASSWORD` for you.
 
 ### Easy Migration (Local Directory Version)
 
@@ -369,144 +327,6 @@ GEMINI_OAUTH_CLIENT_SECRET=GOCSPX-your-client-secret
 
 ---
 
-## Binary Installation
-
-For production servers using systemd.
-
-### One-Line Installation
-
-```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
-```
-
-### Manual Installation
-
-1. Download the latest release from [GitHub Releases](https://github.com/Wei-Shaw/sub2api/releases)
-2. Extract and copy the binary to `/opt/sub2api/`
-3. Copy `sub2api.service` to `/etc/systemd/system/`
-4. Run:
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable sub2api
-   sudo systemctl start sub2api
-   ```
-5. Open the Setup Wizard in your browser to complete configuration
-
-### Commands
-
-```bash
-# Install
-sudo ./install.sh
-
-# Upgrade
-sudo ./install.sh upgrade
-
-# Uninstall
-sudo ./install.sh uninstall
-```
-
-### Service Management
-
-```bash
-# Start the service
-sudo systemctl start sub2api
-
-# Stop the service
-sudo systemctl stop sub2api
-
-# Restart the service
-sudo systemctl restart sub2api
-
-# Check status
-sudo systemctl status sub2api
-
-# View logs
-sudo journalctl -u sub2api -f
-
-# Enable auto-start on boot
-sudo systemctl enable sub2api
-```
-
-### Configuration
-
-#### Server Address and Port
-
-During installation, you will be prompted to configure the server listen address and port. These settings are stored in the systemd service file as environment variables.
-
-To change after installation:
-
-1. Edit the systemd service:
-   ```bash
-   sudo systemctl edit sub2api
-   ```
-
-2. Add or modify:
-   ```ini
-   [Service]
-   Environment=SERVER_HOST=0.0.0.0
-   Environment=SERVER_PORT=3000
-   ```
-
-3. Reload and restart:
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl restart sub2api
-   ```
-
-#### Gemini OAuth Configuration
-
-If you need to use AI Studio OAuth for Gemini accounts, add the OAuth client credentials to the systemd service file:
-
-1. Edit the service file:
-   ```bash
-   sudo nano /etc/systemd/system/sub2api.service
-   ```
-
-2. Add your OAuth credentials in the `[Service]` section (after the existing `Environment=` lines):
-   ```ini
-   Environment=GEMINI_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
-   Environment=GEMINI_OAUTH_CLIENT_SECRET=GOCSPX-your-client-secret
-   ```
-
-   如需使用“内置 Gemini CLI OAuth Client”（Code Assist / Google One），还需要注入：
-   ```ini
-   Environment=GEMINI_CLI_OAUTH_CLIENT_SECRET=GOCSPX-your-built-in-secret
-   ```
-
-3. Reload and restart:
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl restart sub2api
-   ```
-
-> **Note:** Code Assist OAuth does not require any configuration - it uses the built-in Gemini CLI client.
-> See the [Gemini OAuth Configuration](#gemini-oauth-configuration) section above for detailed setup instructions.
-
-#### Application Configuration
-
-The main config file is at `/etc/sub2api/config.yaml` (created by Setup Wizard).
-
-### Prerequisites
-
-- Linux server (Ubuntu 20.04+, Debian 11+, CentOS 8+, etc.)
-- PostgreSQL 14+
-- Redis 6+
-- systemd
-
-### Directory Structure
-
-```
-/opt/sub2api/
-├── sub2api              # Main binary
-├── sub2api.backup       # Backup (after upgrade)
-└── data/                # Runtime data
-
-/etc/sub2api/
-└── config.yaml          # Configuration file
-```
-
----
-
 ## Troubleshooting
 
 ### Docker
@@ -552,39 +372,17 @@ docker compose exec redis redis-cli ping
 docker compose restart
 ```
 
-### Binary Install
-
-```bash
-# Check service status
-sudo systemctl status sub2api
-
-# View recent logs
-sudo journalctl -u sub2api -n 50
-
-# Check config file
-sudo cat /etc/sub2api/config.yaml
-
-# Check PostgreSQL
-sudo systemctl status postgresql
-
-# Check Redis
-sudo systemctl status redis
-```
-
 ### Common Issues
 
-1. **Port already in use**: Change `SERVER_PORT` in `.env` or systemd config
+1. **Port already in use**: Change `SERVER_PORT` in `.env`
 2. **Database connection failed**: Check PostgreSQL is running and credentials are correct
 3. **Redis connection failed**: Check Redis is running and password is correct
-4. **Permission denied**: Ensure proper file ownership for binary install
 
 ---
 
 ## TLS Fingerprint Configuration
 
-Sub2API supports TLS fingerprint simulation to make requests appear as if they come from the official Claude CLI (Node.js client).
-
-> **💡 Tip:** Visit **[tls.sub2api.org](https://tls.sub2api.org/)** to get TLS fingerprint information for different devices and browsers.
+Sub2API supports TLS fingerprint simulation to align requests with a configured client fingerprint profile.
 
 ### Default Behavior
 

@@ -8,8 +8,6 @@
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
-<a href="https://trendshift.io/repositories/21823" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21823" alt="Wei-Shaw%2Fsub2api | Trendshift" width="250" height="55"/></a>
-
 **Kiro 強化 AI API ゲートウェイ**
 
 **GPT-5.6 Sol / Terra / Luna | Claude Opus 4.8 | Claude Sonnet 5**
@@ -102,30 +100,23 @@ PostgreSQL と Redis のコンテナを含む Docker Compose でデプロイし�
 - Docker 20.10+
 - Docker Compose v2+
 
-#### クイックスタート（ワンクリックデプロイ）
-
-自動デプロイスクリプトを使用して簡単にセットアップできます:
+#### クイックスタート
 
 ```bash
-# デプロイ用ディレクトリを作成
-mkdir -p sub2api-deploy && cd sub2api-deploy
+# このディストリビューションをクローンしてデプロイディレクトリへ移動
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
+cd sub2api-kiro/deploy
 
-# デプロイ準備スクリプトをダウンロードして実行
-curl -sSL https://raw.githubusercontent.com/tamakiramimy/sub2api-kiro/main/deploy/docker-deploy.sh | bash
+# デプロイ用シークレットを設定
+cp .env.example .env
+chmod 600 .env
 
-# サービスを起動
-docker compose up -d
+# ローカル Kiro イメージをビルドしてサービスを起動
+docker compose -f docker-compose.local.yml up -d --build
 
 # ログを表示
-docker compose logs -f sub2api
+docker compose -f docker-compose.local.yml logs -f sub2api
 ```
-
-**スクリプトの動作内容:**
-- `docker-compose.local.yml`（`docker-compose.yml` として保存）と `.env.example` をダウンロード
-- セキュアな認証情報（JWT_SECRET、TOTP_ENCRYPTION_KEY、POSTGRES_PASSWORD）を自動生成
-- 自動生成されたシークレットで `.env` ファイルを作成
-- データディレクトリを作成（バックアップ・移行が容易なローカルディレクトリを使用）
-- 生成された認証情報を参照用に表示
 
 #### 手動デプロイ
 
@@ -134,7 +125,7 @@ docker compose logs -f sub2api
 ```bash
 # 1. リポジトリをクローン
 git clone https://github.com/tamakiramimy/sub2api-kiro.git
-cd sub2api/deploy
+cd sub2api-kiro/deploy
 
 # 2. 環境設定ファイルをコピー
 cp .env.example .env
@@ -181,10 +172,10 @@ mkdir -p data postgres_data redis_data
 
 # 5. すべてのサービスを起動
 # オプション A: ローカルディレクトリバージョン（推奨 - 移行が容易）
-docker compose -f docker-compose.local.yml up -d
+docker compose -f docker-compose.local.yml up -d --build
 
 # オプション B: 名前付きボリュームバージョン（シンプルなセットアップ）
-docker compose up -d
+docker compose up -d --build
 
 # 6. ステータスを確認
 docker compose -f docker-compose.local.yml ps
@@ -200,7 +191,7 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 | **docker-compose.local.yml** | ローカルディレクトリ | ✅ 容易（ディレクトリ全体を tar） | 本番環境、頻繁なバックアップ |
 | **docker-compose.yml** | 名前付きボリューム | ⚠️ docker コマンドが必要 | シンプルなセットアップ |
 
-**推奨:** データ管理が容易な `docker-compose.local.yml`（スクリプトによるデプロイ）を使用してください。
+**推奨:** データ管理が容易な `docker-compose.local.yml` を使用してください。
 
 #### アクセス
 
@@ -214,8 +205,8 @@ docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
 #### アップグレード
 
 ```bash
-# 最新イメージをプルしてコンテナを再作成
-docker compose -f docker-compose.local.yml pull
+# ローカルイメージを再ビルドしてアプリケーションコンテナを再作成
+docker compose -f docker-compose.local.yml build --pull sub2api
 docker compose -f docker-compose.local.yml up -d
 ```
 
@@ -257,14 +248,15 @@ rm -rf data/ postgres_data/ redis_data/
 
 ---
 
-### 方法3: ソースからビルド
+### 方法2: ソースからビルド
 
 開発やカスタマイズのためにソースコードからビルドして実行します。
 
 #### 前提条件
 
-- Go 1.21+
-- Node.js 18+
+- Go 1.26.5
+- Node.js 24+
+- pnpm 9
 - PostgreSQL 15+
 - Redis 7+
 
@@ -273,10 +265,11 @@ rm -rf data/ postgres_data/ redis_data/
 ```bash
 # 1. リポジトリをクローン
 git clone https://github.com/tamakiramimy/sub2api-kiro.git
-cd sub2api
+cd sub2api-kiro
 
-# 2. pnpm をインストール（未インストールの場合）
-npm install -g pnpm
+# 2. ロックファイル互換の pnpm バージョンを有効化
+corepack enable
+corepack prepare pnpm@9 --activate
 
 # 3. フロントエンドをビルド
 cd frontend
@@ -481,9 +474,10 @@ sub2api/
 │
 └── deploy/                   # デプロイファイル
     ├── docker-compose.yml    # Docker Compose 設定
+  ├── docker-compose.local.yml # ローカルデータディレクトリ用の Docker Compose 設定
     ├── .env.example          # Docker Compose 用環境変数
     ├── config.example.yaml   # バイナリデプロイ用フル設定ファイル
-    └── install.sh            # ワンクリックインストールスクリプト
+  └── README.md             # デプロイリファレンス
 ```
 
 ## 免責事項
@@ -493,18 +487,6 @@ sub2api/
 > :rotating_light: **利用規約違反のリスク**: 本プロジェクトの使用は Anthropic の利用規約に違反する可能性があります。使用前に Anthropic のユーザー契約をよくお読みください。本プロジェクトの使用に起因するすべてのリスクは、ユーザー自身が負うものとします。
 >
 > :book: **免責事項**: 本プロジェクトは技術的な学習および研究目的のみで提供されています。作者は、本プロジェクトの使用によるアカウント停止、サービス中断、その他の損失について一切の責任を負いません。
-
----
-
-## スター履歴
-
-<a href="https://star-history.com/#Wei-Shaw/sub2api&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date" />
- </picture>
-</a>
 
 ---
 

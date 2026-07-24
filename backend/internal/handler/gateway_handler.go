@@ -15,6 +15,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	kiropkg "github.com/Wei-Shaw/sub2api/internal/kiro"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
@@ -1185,6 +1186,13 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		writeGrokModelsList(c, xai.DefaultModelIDs())
 		return
 	}
+	if platform == service.PlatformKiro {
+		c.JSON(http.StatusOK, gin.H{
+			"object": "list",
+			"data":   kiropkg.DefaultModels,
+		})
+		return
+	}
 
 	writeModelsListResponse(c, claude.DefaultModels)
 }
@@ -1464,6 +1472,12 @@ func defaultModelIDsForPlatform(platform string) []string {
 				seen[id] = struct{}{}
 				ids = append(ids, id)
 			}
+		}
+		return ids
+	case service.PlatformKiro:
+		ids := make([]string, 0, len(kiropkg.DefaultModels))
+		for _, model := range kiropkg.DefaultModels {
+			ids = append(ids, model.ID)
 		}
 		return ids
 	default:

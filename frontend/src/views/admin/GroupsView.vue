@@ -162,7 +162,7 @@
               ]"
             >
               <PlatformIcon :platform="value" size="xs" />
-              {{ t("admin.groups.platforms." + value) }}
+              {{ t("admin.groups.platforms." + value, value) }}
             </span>
           </template>
 
@@ -3838,7 +3838,7 @@
                                     : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
                   ]"
                 >
-                  {{ t("admin.groups.platforms." + group.platform) }}
+                  {{ t("admin.groups.platforms." + group.platform, group.platform) }}
                 </span>
               </div>
             </div>

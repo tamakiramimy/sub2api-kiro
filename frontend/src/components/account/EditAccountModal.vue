@@ -3202,6 +3202,12 @@ import {
   splitModelMappingObject,
   isValidWildcardPattern
 } from '@/composables/useModelWhitelist'
+import {
+  getKiroDefaultModelMappings,
+  isKiroCompleteDefaultMapping,
+  kiroModels,
+  sanitizeKiroModelMapping
+} from '@/kiro/models'
 
 interface Props {
   show: boolean
@@ -4085,6 +4091,18 @@ const loadModelRestrictionFromMapping = (rawMapping?: Record<string, unknown>) =
       : 'whitelist'
 }
 
+const loadKiroModelRestrictionFromMapping = (rawMapping?: Record<string, unknown>) => {
+  const mapping = sanitizeKiroModelMapping(rawMapping)
+  const hasExplicitMapping = Object.keys(mapping).length > 0
+  if (!hasExplicitMapping || isKiroCompleteDefaultMapping(mapping)) {
+    allowedModels.value = [...kiroModels]
+    modelMappings.value = getKiroDefaultModelMappings()
+    modelRestrictionMode.value = 'whitelist'
+    return
+  }
+  loadModelRestrictionFromMapping(mapping)
+}
+
 const buildModelRestrictionMapping = () =>
   buildModelMappingObject('combined', allowedModels.value, modelMappings.value)
 
@@ -4457,7 +4475,11 @@ const syncFormFromAccount = (newAccount: Account | null) => {
       : (credentials.base_url as string) || platformDefaultUrl
 
     // Load model mappings and detect mode
-    loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
+    if (newAccount.platform === 'kiro') {
+      loadKiroModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
+    } else {
+      loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
+    }
 
     // Load pool mode
     poolModeEnabled.value = credentials.pool_mode === true
@@ -4532,7 +4554,11 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     // Load model mappings for OpenAI/Grok/Kiro OAuth accounts
     if ((newAccount.platform === 'openai' || newAccount.platform === 'grok' || newAccount.platform === 'kiro') && newAccount.credentials) {
       const oauthCredentials = newAccount.credentials as Record<string, unknown>
-      loadModelRestrictionFromMapping(oauthCredentials.model_mapping as Record<string, unknown> | undefined)
+      if (newAccount.platform === 'kiro') {
+        loadKiroModelRestrictionFromMapping(oauthCredentials.model_mapping as Record<string, unknown> | undefined)
+      } else {
+        loadModelRestrictionFromMapping(oauthCredentials.model_mapping as Record<string, unknown> | undefined)
+      }
     } else {
       modelRestrictionMode.value = 'whitelist'
       modelMappings.value = []

@@ -1,4 +1,4 @@
-# Sub2API
+# Sub2API Kiro
 
 <div align="center">
 
@@ -10,25 +10,13 @@
 
 <a href="https://trendshift.io/repositories/21823" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21823" alt="Wei-Shaw%2Fsub2api | Trendshift" width="250" height="55"/></a>
 
-**AI API Gateway Platform for Subscription Quota Distribution**
+**Kiro-Enhanced AI API Gateway**
+
+**GPT-5.6 Sol / Terra / Luna | Claude Opus 4.8 | Claude Sonnet 5**
 
 English | [中文](README_CN.md) | [日本語](README_JA.md)
 
 </div>
-
-> **Sub2API officially uses only the domains `sub2api.org` and `pincc.ai`. Other websites using the Sub2API name may be third-party deployments or services and are not affiliated with this project. Please verify and exercise your own judgment.**
-
----
-
-## Demo
-
-Try Sub2API online: **[https://demo.sub2api.org/](https://demo.sub2api.org/)**
-
-Demo credentials (shared demo environment; **not** created automatically for self-hosted installs):
-
-| Email | Password |
-|-------|----------|
-| admin@sub2api.org | admin123 |
 
 ## Overview
 

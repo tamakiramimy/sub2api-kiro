@@ -1,4 +1,4 @@
-# Sub2API
+# Sub2API Kiro
 
 <div align="center">
 
@@ -10,24 +10,13 @@
 
 <a href="https://trendshift.io/repositories/21823" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21823" alt="Wei-Shaw%2Fsub2api | Trendshift" width="250" height="55"/></a>
 
-**AI API 网关平台 - 订阅配额分发管理**
+**Kiro 增强 AI API 网关**
+
+**GPT-5.6 Sol / Terra / Luna | Claude Opus 4.8 | Claude Sonnet 5**
 
 [English](README.md) | 中文 | [日本語](README_JA.md)
 
 </div>
-
-> **Sub2API 官方仅使用  `sub2api.org` 与 `pincc.ai` 两个域名。其他使用 Sub2API 名义的网站可能为第三方部署或服务，与本项目无关，请自行甄别。**
----
-
-## 在线体验
-
-体验地址：**[https://demo.sub2api.org/](https://demo.sub2api.org/)**
-
-演示账号（共享演示环境；自建部署不会自动创建该账号）：
-
-| 邮箱 | 密码 |
-|------|------|
-| admin@sub2api.org | admin123 |
 
 ## 项目概述
 

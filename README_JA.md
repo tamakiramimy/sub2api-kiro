@@ -187,6 +187,17 @@
 
 Sub2API は、AI 製品のサブスクリプションから API クォータを配分・管理するために設計された AI API ゲートウェイプラットフォームです。ユーザーはプラットフォームが生成した API キーを通じて上流の AI サービスにアクセスでき、プラットフォームは認証、課金、負荷分散、リクエスト転送を処理します。
 
+## Kiro 対応ディストリビューション
+
+このリポジトリは独立して保守されるディストリビューションです。[Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) の安定した更新を取り込みながら、Kiro のフルサポートを提供します。
+
+Kiro 固有の機能:
+
+- Kiro OAuth、AWS Builder ID、トークンインポート、API キー互換の上流接続に対応。
+- Kiro アカウントを OpenAI Responses および Chat Completions プロトコルへブリッジ。
+- Kiro トラフィック向けの Anthropic Prompt Cache 使用量エミュレーション。グループ単位の有効化と比率調整に対応。
+- GPT-5.6 Sol / Terra / Luna、Claude Opus 4.8、Claude Sonnet 5 の Kiro モデル互換エイリアスに対応。
+
 ## 機能
 
 - **マルチアカウント管理** - 複数の上流アカウントタイプ（OAuth、APIキー）をサポート
@@ -195,6 +206,9 @@ Sub2API は、AI 製品のサブスクリプションから API クォータを�
 - **スマートスケジューリング** - スティッキーセッション付きのインテリジェントなアカウント選択
 - **同時実行制御** - ユーザーごと・アカウントごとの同時実行数制限
 - **レート制限** - 設定可能なリクエスト数およびトークンレート制限
+- **Kiro チャネルサポート** - Kiro アカウントをネイティブ Anthropic、OpenAI Responses、Chat Completions 互換ゲートウェイで利用可能
+- **Kiro モデル互換性** - GPT-5.6、Claude Opus 4.8、Claude Sonnet 5 のモデルエイリアスに対応
+- **Kiro キャッシュエミュレーション** - Kiro グループ向けに Anthropic Prompt Cache 使用量をエミュレートし、グループ単位で比率を調整可能
 - **内蔵決済システム** - EasyPay、Alipay、WeChat Pay、Stripe に対応。ユーザーのセルフサービスチャージが可能で、別途決済サービスのデプロイは不要（[設定ガイド](docs/PAYMENT.md)）
 - **管理ダッシュボード** - 監視・管理のための Web インターフェース
 - **外部システム連携** - 外部システム（チケット管理など）を iframe 経由で管理ダッシュボードに埋め込み可能

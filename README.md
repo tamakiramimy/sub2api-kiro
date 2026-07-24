@@ -189,6 +189,17 @@ Model authenticity: no content intervention or secondary filtering — experienc
 
 Sub2API is an AI API gateway platform designed to distribute and manage API quotas from AI product subscriptions. Users can access upstream AI services through platform-generated API Keys, while the platform handles authentication, billing, load balancing, and request forwarding.
 
+## Kiro-Enabled Distribution
+
+This independent distribution tracks stable updates from [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) while maintaining first-class Kiro support.
+
+Kiro-specific capabilities include:
+
+- Kiro account integration through OAuth, AWS Builder ID, token import, and API-key-compatible upstream access.
+- OpenAI Responses and Chat Completions protocol bridging for Kiro accounts.
+- Anthropic Prompt Cache usage emulation for Kiro traffic, with per-group enablement and adjustable ratios.
+- Kiro model compatibility for GPT-5.6 Sol, Terra, and Luna; Claude Opus 4.8; and Claude Sonnet 5, including established model aliases.
+
 ## Features
 
 - **Multi-Account Management** - Support multiple upstream account types (OAuth, API Key)
@@ -197,6 +208,9 @@ Sub2API is an AI API gateway platform designed to distribute and manage API quot
 - **Smart Scheduling** - Intelligent account selection with sticky sessions
 - **Concurrency Control** - Per-user and per-account concurrency limits
 - **Rate Limiting** - Configurable request and token rate limits
+- **Kiro Channel Support** - Kiro accounts are available through native Anthropic, OpenAI Responses, and Chat Completions compatible gateways
+- **Kiro Model Compatibility** - Support for GPT-5.6, Claude Opus 4.8, and Claude Sonnet 5 model aliases
+- **Kiro Cache Emulation** - Simulate Anthropic Prompt Cache usage for Kiro groups with adjustable per-group ratios
 - **Built-in Payment System** - Supports EasyPay, Alipay, WeChat Pay, and Stripe for user self-service top-up, no separate payment service needed ([Configuration Guide](docs/PAYMENT.md))
 - **Admin Dashboard** - Web interface for monitoring and management
 - **External System Integration** - Embed external systems (e.g. ticketing) via iframe to extend the admin dashboard

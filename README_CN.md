@@ -192,6 +192,17 @@
 
 Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅的 API 配额。用户通过平台生成的 API Key 调用上游 AI 服务，平台负责鉴权、计费、负载均衡和请求转发。
 
+## Kiro 增强发行版
+
+本仓库是独立维护的发行版：持续同步 [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) 的稳定更新，同时提供完整的 Kiro 支持。
+
+Kiro 专属能力包括：
+
+- 支持 Kiro OAuth、AWS Builder ID、Token 导入，以及兼容 API Key 的上游接入。
+- Kiro 账号可通过 OpenAI Responses 和 Chat Completions 协议桥接使用。
+- 面向 Kiro 流量的 Anthropic Prompt Cache 用量模拟，支持按分组启用和调整模拟比例。
+- 支持 GPT-5.6 Sol、Terra、Luna，Claude Opus 4.8 与 Claude Sonnet 5 的 Kiro 模型兼容别名。
+
 ## 核心功能
 
 - **多账号管理** - 支持多种上游账号类型（OAuth、API Key）
@@ -200,6 +211,9 @@ Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅的
 - **智能调度** - 智能账号选择，支持粘性会话
 - **并发控制** - 用户级和账号级并发限制
 - **速率限制** - 可配置的请求和 Token 速率限制
+- **Kiro 渠道支持** - Kiro 账号可通过原生 Anthropic、OpenAI Responses 和 Chat Completions 兼容网关调用
+- **Kiro 模型兼容** - 支持 GPT-5.6、Claude Opus 4.8、Claude Sonnet 5 的模型别名
+- **Kiro 模拟缓存** - 为 Kiro 分组模拟 Anthropic Prompt Cache 用量，并支持按分组调整模拟比例
 - **内置支付系统** - 支持 EasyPay 易支付、支付宝官方、微信官方、Stripe，用户自助充值，无需独立部署支付服务（[配置指南](docs/PAYMENT_CN.md)）
 - **管理后台** - Web 界面进行监控和管理
 - **外部系统集成** - 支持通过 iframe 嵌入外部系统（如工单等），扩展管理后台功能

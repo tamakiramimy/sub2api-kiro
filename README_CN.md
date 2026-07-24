@@ -59,75 +59,6 @@ Kiro 专属能力包括：
 - **管理后台** - Web 界面进行监控和管理
 - **外部系统集成** - 支持通过 iframe 嵌入外部系统（如工单等），扩展管理后台功能
 
-## ❤️ 赞助商
-
-> [想出现在这里？](mailto:support@pincc.ai)
-
-<table>
-<tr>
-<td width="180" align="center" valign="middle"><a href="https://shop.pincc.ai/"><img src="assets/partners/logos/pincc-logo.png" alt="pincc" width="150"></a></td>
-<td valign="middle"><b><a href="https://shop.pincc.ai/">PinCC</a></b> 是基于 Sub2API 搭建的官方中转服务，提供 Claude Code、Codex、Gemini 等主流模型的稳定中转，开箱即用，免去自建部署与运维烦恼。</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://www.packyapi.com/register?aff=sub2api"><img src="assets/partners/logos/packycode.png" alt="PackyCode" width="150"></a></td>
-<td>感谢 PackyCode 赞助了本项目！PackyCode 是一家稳定、高效的API中转服务商，提供 Claude Code、Codex、Gemini 等多种中转服务。PackyCode 为本软件的用户提供了特别优惠，使用<a href="https://www.packyapi.com/register?aff=sub2api">此链接</a>注册并在充值时填写"sub2api"优惠码，首次充值可以享受9折优惠！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://ctok.ai"><img src="assets/partners/logos/ctok.png" alt="CTok" width="150"></a></td>
-<td>感谢 CTok.ai 赞助了本项目！CTok.ai 致力于打造一站式 AI 编程工具服务平台。我们提供 Claude Code 专业套餐及技术社群服务，同时支持 Google Gemini 和 OpenAI Codex。通过精心设计的套餐方案和专业的技术社群，为开发者提供稳定的服务保障和持续的技术支持，让 AI 辅助编程真正成为开发者的生产力工具。点击<a href="https://ctok.ai">这里</a>注册！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://aigocode.com/invite/SUB2API"><img src="assets/partners/logos/aigocode.png" alt="AIGoCode" width="150"></a></td>
-<td>感谢 AIGoCode 赞助了本项目！AIGoCode 是一站式集成 Claude Code、Codex 以及最新 Gemini 模型的综合平台，为您提供稳定、高效、高性价比的 AI 编程服务。平台提供灵活的订阅方案，零封号风险，免 VPN 直连，响应极速。AIGoCode 为 sub2api 用户准备了专属福利：通过<a href="https://aigocode.com/invite/SUB2API">此链接</a>注册，首次充值可额外获得 10% 赠送额度！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://apikey.fun/register?aff=SUB2API"><img src="assets/partners/logos/apikey-fun.png" alt="APIKEY.FUN" width="150"></a></td>
-<td>感谢 APIKEY.FUN 赞助了本项目！<a href="https://apikey.fun/register?aff=SUB2API">APIKEY.FUN</a> 是 sub2api 开源项目的核心贡献者之一，致力于提供开放、稳定、高性价比的 AI API 接入服务。平台支持 Claude、OpenAI、Gemini 等热门模型的 API 中转服务，价格低至官方原价的 7%。通过专属链接 <a href="https://apikey.fun/register?aff=SUB2API">APIKEY</a> 注册，可享受所有充值永久 95 折优惠。</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://code.silkapi.com/register?aff=SUB2API"><img src="assets/partners/logos/silkapi.png" alt="silkapi" width="150"></a></td>
-<td>感谢 丝绸API 赞助了本项目！ <a href="https://code.silkapi.com/register?aff=SUB2API">丝绸API</a> 是基于 Sub2API 搭建的中转服务，专注于提供 Codex 高速稳定API中转。</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://ylscode.com/"><img src="assets/partners/logos/ylscode.png" alt="ylscode" width="150"></a></td>
-<td>感谢 伊莉思Code 赞助了本项目！ <a href="https://ylscode.com/">伊莉思Code</a> 致力于构建安全的企业级Coding Agent生产力服务，提供稳定快速的 Codex / Claude / Gemini 订阅服务与即用即付API多种方案灵活选择，限时注册赠送 3 天 Codex 试用福利！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://www.aicodemirror.com/register?invitecode=KMVZQM"><img src="assets/partners/logos/AICodeMirror.jpg" alt="AICodeMirror" width="150"></a></td>
-<td>感谢 AICodeMirror 赞助了本项目！AICodeMirror 提供 Claude Code / Codex / Gemini CLI 官方高稳定性中转服务，企业级并发、快速开票、7×24 小时专属技术支持。Claude Code / Codex / Gemini 官方通道低至原价 38% / 2% / 9%，充值更享额外折扣！AICodeMirror 为 sub2api 用户提供专属福利：通过<a href="https://www.aicodemirror.com/register?invitecode=KMVZQM">此链接</a>注册，首次充值立享 8 折优惠，企业客户最高可享 75 折！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://shop.bmoplus.com/?utm_source=github"><img src="assets/partners/logos/bmoplus.jpg" alt="bmoplus" width="150"></a></td>
-<td>感谢 BmoPlus 赞助了本项目！BmoPlus 是一家专为AI订阅重度用户打造的可靠 AI 账号代充服务商，提供稳定的 ChatGPT Plus / ChatGPT Pro(全程质保) / Claude Pro / Super Grok / Gemini Pro 的官方代充&成品账号。 通过<a href="https://shop.bmoplus.com/?utm_source=github">BmoPlus AI成品号专卖/代充</a>注册下单的用户，可享GPT 官网订阅一折 的震撼价格！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://bestproxy.com/?keyword=a2e8iuol"><img src="assets/partners/logos/bestproxy.png" alt="bestproxy" width="150"></a></td>
-<td>感谢 Bestproxy 赞助了本项目！<a href="https://bestproxy.com/?keyword=a2e8iuol">Bestproxy</a> 是一家提供高纯度住宅IP，支持一号一IP独享，结合真实家庭网络与指纹隔离，可实现链路环境隔离，降低关联风控概率。</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://pateway.ai/?ch=1tsfr51"><img src="assets/partners/logos/pateway.png" alt="pateway" width="150"></a></td>
-<td>感谢 PatewayAI 赞助了本项目！PatewayAI 是一家面向重度 AI 开发者、专注官方直连的高品质模型 API 中转服务商。提供 Claude 全系列与 Codex 系列模型，100% 官方源直供，不掺假不注水，欢迎检验。计费透明，Token 级账单可逐笔核验。
-同时支持企业级高并发，并为企业客户提供了专业的管理平台，企业客户可签订正式合同并开具发票，更多详情进入官网获取联系方式。
-现在通过 <a href="https://pateway.ai/?ch=1tsfr51">此链接</a> 注册即送 $3 试用额度，用户充值低至 6 折，邀请好友双向赠送，邀请奖励可达 $150。</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://api.pptoken.org/register?promo=SUB2API"><img src="assets/partners/logos/pptoken.png" alt="pptoken" width="150"></a></td>
-<td>感谢 PPToken.org 赞助本项目！ <a href="https://api.pptoken.org/register?promo=SUB2API">PPToken.org</a> 主打 GPT 系列模型 API 中转服务，支持 Codex、Claude Code、OpenAI 兼容客户端及 Gemini CLI 等工具接入。充值 1:1，1 元=1 美元额度；GPT 模型最低 0.16 倍倍率，综合成本约为官方价格的 0.22 折，最快首字 Token 约 1 秒，适合开发者低成本、高响应速度接入 GPT 模型能力。技术支持： 7×24 小时真人响应（不是机器人），群内@技术，10 分钟内有回复 。赞助商福利：前 200 名用户通过 <a href="https://api.pptoken.org/register?promo=SUB2API">[专属注册链接]</a> 注册，输入优惠码 `SUB2API`，可领取 Codex / Claude Code 免费试用额度，无门槛、不绑卡。
-</td>
-</tr>
-</table>
-
 ## 生态项目
 
 围绕 Sub2API 的社区扩展与集成项目：
@@ -162,76 +93,7 @@ Nginx 默认会丢弃名称中含下划线的请求头（如 `session_id`），�
 
 ## 部署方式
 
-### 方式一：脚本安装（推荐）
-
-一键安装脚本，自动从 GitHub Releases 下载预编译的二进制文件。
-
-#### 前置条件
-
-- Linux 服务器（amd64 或 arm64）
-- PostgreSQL 15+（已安装并运行）
-- Redis 7+（已安装并运行）
-- Root 权限
-
-#### 安装步骤
-
-```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
-```
-
-脚本会自动：
-1. 检测系统架构
-2. 下载最新版本
-3. 安装二进制文件到 `/opt/sub2api`
-4. 创建 systemd 服务
-5. 配置系统用户和权限
-
-#### 安装后配置
-
-```bash
-# 1. 启动服务
-sudo systemctl start sub2api
-
-# 2. 设置开机自启
-sudo systemctl enable sub2api
-
-# 3. 在浏览器中打开设置向导
-# http://你的服务器IP:8080
-```
-
-设置向导将引导你完成：
-- 数据库配置
-- Redis 配置
-- 管理员账号创建
-
-#### 升级
-
-可以直接在 **管理后台** 左上角点击 **检测更新** 按钮进行在线升级。
-
-网页升级功能支持：
-- 自动检测新版本
-- 一键下载并应用更新
-- 支持回滚
-
-#### 常用命令
-
-```bash
-# 查看状态
-sudo systemctl status sub2api
-
-# 查看日志
-sudo journalctl -u sub2api -f
-
-# 重启服务
-sudo systemctl restart sub2api
-
-# 卸载
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash -s -- uninstall -y
-```
-
----
-
-### 方式二：Docker Compose（推荐）
+### 方式一：Docker Compose（推荐）
 
 使用 Docker Compose 部署，包含 PostgreSQL 和 Redis 容器。
 
@@ -249,7 +111,7 @@ curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install
 mkdir -p sub2api-deploy && cd sub2api-deploy
 
 # 下载并运行部署准备脚本
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh | bash
+curl -sSL https://raw.githubusercontent.com/tamakiramimy/sub2api-kiro/main/deploy/docker-deploy.sh | bash
 
 # 启动服务
 docker compose up -d
@@ -271,7 +133,7 @@ docker compose logs -f sub2api
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/Wei-Shaw/sub2api.git
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
 cd sub2api/deploy
 
 # 2. 复制环境配置文件
@@ -422,7 +284,7 @@ rm -rf data/ postgres_data/ redis_data/
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/Wei-Shaw/sub2api.git
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
 cd sub2api
 
 # 2. 安装 pnpm（如果还没有安装）

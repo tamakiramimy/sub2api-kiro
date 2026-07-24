@@ -59,75 +59,6 @@ Kiro 固有の機能:
 - **管理ダッシュボード** - 監視・管理のための Web インターフェース
 - **外部システム連携** - 外部システム（チケット管理など）を iframe 経由で管理ダッシュボードに埋め込み可能
 
-## ❤️ スポンサー
-
-> [こちらに掲載しませんか？](mailto:support@pincc.ai)
-
-<table>
-<tr>
-<td width="180" align="center" valign="middle"><a href="https://shop.pincc.ai/"><img src="assets/partners/logos/pincc-logo.png" alt="pincc" width="150"></a></td>
-<td valign="middle"><b><a href="https://shop.pincc.ai/">PinCC</a></b> は Sub2API 上に構築された公式リレーサービスで、Claude Code、Codex、Gemini などの人気モデルへの安定したアクセスを提供します。デプロイやメンテナンスは不要で、すぐにご利用いただけます。</td>
-</tr>
-<tr>
-<td width="180"><a href="https://www.packyapi.com/register?aff=sub2api"><img src="assets/partners/logos/packycode.png" alt="PackyCode" width="150"></a></td>
-<td>PackyCode のご支援に感謝します！PackyCode は Claude Code、Codex、Gemini などのリレーサービスを提供する信頼性の高い API 中継プラットフォームです。本ソフト利用者向けに特別割引があります：<a href="https://www.packyapi.com/register?aff=sub2api">このリンク</a>で登録し、チャージ時に「sub2api」クーポンを入力すると 10% オフになります。</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://ctok.ai"><img src="assets/partners/logos/ctok.png" alt="CTok" width="150"></a></td>
-<td>CTok.ai のご支援に感謝します！CTok.ai はワンストップ AI プログラミングツールサービスプラットフォームの構築に取り組んでいます。Claude Code の専用プランと技術コミュニティサービスを提供し、Google Gemini や OpenAI Codex もサポートしています。丁寧に設計されたプランと専門的な技術コミュニティを通じて、開発者に安定したサービス保証と継続的な技術サポートを提供し、AI アシスト プログラミングを真の生産性向上ツールにします。<a href="https://ctok.ai">こちら</a>から登録！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://aigocode.com/invite/SUB2API"><img src="assets/partners/logos/aigocode.png" alt="AIGoCode" width="150"></a></td>
-<td>AIGoCode のご支援に感謝します！AIGoCode は Claude Code、Codex、最新の Gemini モデルを統合したオールインワンプラットフォームで、安定的かつ効率的でコストパフォーマンスに優れた AI コーディングサービスを提供します。柔軟なサブスクリプションプラン、アカウント停止リスクゼロ、VPN 不要の直接アクセス、超高速レスポンスが特長です。AIGoCode は sub2api ユーザー向けに特別特典を用意しています：<a href="https://aigocode.com/invite/SUB2API">こちらのリンク</a>から登録すると、初回チャージ時に 10% のボーナスクレジットを追加プレゼント！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://apikey.fun/register?aff=SUB2API"><img src="assets/partners/logos/apikey-fun.png" alt="APIKEY.FUN" width="150"></a></td>
-<td>APIKEY.FUN のご支援に感謝します！<a href="https://apikey.fun/register?aff=SUB2API">APIKEY.FUN</a> は sub2api オープンソースプロジェクトのコアコントリビューターの一つであり、オープンで安定した、コストパフォーマンスに優れた AI API アクセスサービスの提供に取り組んでいます。プラットフォームは Claude、OpenAI、Gemini など人気モデルの API 中継サービスをサポートし、価格は公式料金のわずか 7% から。専用リンク <a href="https://apikey.fun/register?aff=SUB2API">APIKEY</a> から登録すると、すべてのチャージで永久 5% 割引をご利用いただけます。</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://code.silkapi.com/register?aff=SUB2API"><img src="assets/partners/logos/silkapi.png" alt="silkapi" width="150"></a></td>
-<td>SilkAPI のご支援に感謝します！<a href="https://code.silkapi.com/register?aff=SUB2API">SilkAPI</a> は Sub2API をベースに構築された中継サービスで、高速かつ安定した Codex API 中継の提供に特化しています。</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://ylscode.com/"><img src="assets/partners/logos/ylscode.png" alt="ylscode" width="150"></a></td>
-<td>YLS Code のご支援に感謝します！<a href="https://ylscode.com/">YLS Code</a> は安全なエンタープライズグレードの Coding Agent 生産性サービスの構築に取り組んでおり、安定かつ高速な Codex / Claude / Gemini サブスクリプションサービスと従量課金 API の柔軟なプランを提供しています。期間限定で新規登録者に 3 日間の Codex 試用特典をプレゼント中！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://www.aicodemirror.com/register?invitecode=KMVZQM"><img src="assets/partners/logos/AICodeMirror.jpg" alt="AICodeMirror" width="150"></a></td>
-<td>AICodeMirror のご支援に感謝します！AICodeMirror は Claude Code / Codex / Gemini CLI の公式高安定性リレーサービスを提供しており、エンタープライズグレードの同時実行、迅速な請求書発行、24時間年中無休の専属テクニカルサポートを備えています。Claude Code / Codex / Gemini の公式チャネルを定価の 38% / 2% / 9% で利用可能、チャージ時にはさらに追加割引！AICodeMirror は sub2api ユーザー向けに特別特典を提供中：<a href="https://www.aicodemirror.com/register?invitecode=KMVZQM">こちらのリンク</a>から登録すると、初回チャージが 20% オフ、法人のお客様は最大 25% オフ！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://shop.bmoplus.com/?utm_source=github"><img src="assets/partners/logos/bmoplus.jpg" alt="bmoplus" width="150"></a></td>
-<td>本プロジェクトにご支援いただいた BmoPlus に感謝いたします！BmoPlusは、AIサブスクリプションのヘビーユーザー向けに特化した信頼性の高いAIアカウントサービスプロバイダーであり、安定した ChatGPT Plus / ChatGPT Pro (完全保証) / Claude Pro / Super Grok / Gemini Pro の公式代行チャージおよび即納アカウントを提供しています。こちらの<a href="https://shop.bmoplus.com/?utm_source=github">BmoPlus AIアカウント専門店/代行チャージ</a>経由でご登録・ご注文いただいたユーザー様は、GPTを 公式サイト価格の約1割（90% OFF） という驚異的な価格でご利用いただけます！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://bestproxy.com/?keyword=a2e8iuol"><img src="assets/partners/logos/bestproxy.png" alt="bestproxy" width="150"></a></td>
-<td>Bestproxy のご支援に感謝します！<a href="https://bestproxy.com/?keyword=a2e8iuol">Bestproxy</a> は高純度の住宅IPを提供し、1アカウント1IP専有をサポートしています。実際の家庭ネットワークとフィンガープリント分離を組み合わせることで、リンク環境の分離を実現し、関連付けによるリスク管理の確率を低減します。</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://pateway.ai/?ch=1tsfr51"><img src="assets/partners/logos/pateway.png" alt="pateway" width="150"></a></td>
-<td>PatewayAI のご支援に感謝します！PatewayAI は、ヘビーAI開発者向けに公式直結を重視した高品質モデルAPIリレーサービスプロバイダーです。Claude 全シリーズおよび Codex シリーズモデルを提供し、100%公式ソースから直接供給 — 偽りなし、水増しなし、検証歓迎。課金は完全透明で、トークン単位の請求書を1件ずつ監査可能です。
-エンタープライズ級の高同時接続にも対応し、法人顧客向けに専用管理プラットフォームを提供しています。法人顧客は正式な契約を締結し、請求書の発行が可能です。詳細は公式サイトでお問い合わせください。
-<a href="https://pateway.ai/?ch=1tsfr51">こちらのリンク</a>から登録すると、$3 のトライアルクレジットがもらえます。チャージは最大40%オフ、友達紹介で双方にボーナス付与 — 紹介報酬は最大 $150。</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://api.pptoken.org/register?promo=SUB2API"><img src="assets/partners/logos/pptoken.png" alt="pptoken" width="150"></a></td>
-<td>PPToken.org のご支援に感謝します！<a href="https://api.pptoken.org/register?promo=SUB2API">PPToken.org</a> は GPT シリーズモデルの API 中継サービスを専門としており、Codex、Claude Code、OpenAI 互換クライアント、Gemini CLI などのツール接続をサポートしています。チャージは 1:1（1元＝1ドル分のクレジット）、GPT モデルは最低 0.16 倍のレート倍率で、総合コストは公式価格の約 2.2% 、最速ファーストトークンは約1秒 — 開発者が低コスト・高速レスポンスで GPT モデル機能にアクセスするのに最適です。テクニカルサポート：24時間365日リアルな人間が対応（ボットではありません）、グループ内で @技術 すれば 10 分以内に返信。スポンサー特典：先着 200 名のユーザーが<a href="https://api.pptoken.org/register?promo=SUB2API">専用登録リンク</a>から登録し、プロモコード `SUB2API` を入力すると、Codex / Claude Code の無料トライアルクレジットを獲得できます — 最低利用額なし、カード登録不要。
-</td>
-</tr>
-
-</table>
-
 ## エコシステム
 
 Sub2API を拡張・統合するコミュニティプロジェクト:
@@ -162,76 +93,7 @@ Nginx はデフォルトでアンダースコアを含むヘッダー（例: `se
 
 ## デプロイ
 
-### 方法1: スクリプトによるインストール（推奨）
-
-GitHub Releases からビルド済みバイナリをダウンロードするワンクリックインストールスクリプトです。
-
-#### 前提条件
-
-- Linux サーバー（amd64 または arm64）
-- PostgreSQL 15+（インストール済みかつ稼働中）
-- Redis 7+（インストール済みかつ稼働中）
-- root 権限
-
-#### インストール手順
-
-```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
-```
-
-スクリプトは以下を実行します:
-1. システムアーキテクチャの検出
-2. 最新リリースのダウンロード
-3. バイナリを `/opt/sub2api` にインストール
-4. systemd サービスの作成
-5. システムユーザーと権限の設定
-
-#### インストール後の作業
-
-```bash
-# 1. サービスを起動
-sudo systemctl start sub2api
-
-# 2. 起動時の自動起動を有効化
-sudo systemctl enable sub2api
-
-# 3. ブラウザでセットアップウィザードを開く
-# http://YOUR_SERVER_IP:8080
-```
-
-セットアップウィザードでは以下の設定を行います:
-- データベース設定
-- Redis 設定
-- 管理者アカウントの作成
-
-#### アップグレード
-
-**管理ダッシュボード**の左上にある**アップデートを確認**ボタンをクリックすることで、ダッシュボードから直接アップグレードできます。
-
-Web インターフェースでは以下が可能です:
-- 新しいバージョンの自動確認
-- ワンクリックでのアップデートのダウンロードと適用
-- 必要に応じたロールバック
-
-#### よく使うコマンド
-
-```bash
-# ステータスを確認
-sudo systemctl status sub2api
-
-# ログを表示
-sudo journalctl -u sub2api -f
-
-# サービスを再起動
-sudo systemctl restart sub2api
-
-# アンインストール
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash -s -- uninstall -y
-```
-
----
-
-### 方法2: Docker Compose（推奨）
+### 方法1: Docker Compose（推奨）
 
 PostgreSQL と Redis のコンテナを含む Docker Compose でデプロイします。
 
@@ -249,7 +111,7 @@ PostgreSQL と Redis のコンテナを含む Docker Compose でデプロイし�
 mkdir -p sub2api-deploy && cd sub2api-deploy
 
 # デプロイ準備スクリプトをダウンロードして実行
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh | bash
+curl -sSL https://raw.githubusercontent.com/tamakiramimy/sub2api-kiro/main/deploy/docker-deploy.sh | bash
 
 # サービスを起動
 docker compose up -d
@@ -271,7 +133,7 @@ docker compose logs -f sub2api
 
 ```bash
 # 1. リポジトリをクローン
-git clone https://github.com/Wei-Shaw/sub2api.git
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
 cd sub2api/deploy
 
 # 2. 環境設定ファイルをコピー
@@ -410,7 +272,7 @@ rm -rf data/ postgres_data/ redis_data/
 
 ```bash
 # 1. リポジトリをクローン
-git clone https://github.com/Wei-Shaw/sub2api.git
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
 cd sub2api
 
 # 2. pnpm をインストール（未インストールの場合）

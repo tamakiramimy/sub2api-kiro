@@ -59,76 +59,6 @@ Kiro-specific capabilities include:
 - **Admin Dashboard** - Web interface for monitoring and management
 - **External System Integration** - Embed external systems (e.g. ticketing) via iframe to extend the admin dashboard
 
-## ❤️ Sponsors
-
-> [Want to appear here?](mailto:support@pincc.ai)
-
-<table>
-<tr>
-<td width="180" align="center" valign="middle"><a href="https://shop.pincc.ai/"><img src="assets/partners/logos/pincc-logo.png" alt="pincc" width="150"></a></td>
-<td valign="middle"><b><a href="https://shop.pincc.ai/">PinCC</a></b> is the official relay service built on Sub2API, offering stable access to Claude Code, Codex, Gemini and other popular models — ready to use, no deployment or maintenance required.</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://www.packyapi.com/register?aff=sub2api"><img src="assets/partners/logos/packycode.png" alt="PackyCode" width="150"></a></td>
-<td>Thanks to PackyCode for sponsoring this project! PackyCode is a reliable and efficient API relay service provider, offering relay services for Claude Code, Codex, Gemini, and more. PackyCode provides special discounts for our software users: register using <a href="https://www.packyapi.com/register?aff=sub2api">this link</a> and enter the "sub2api" promo code during first recharge to get 10% off.</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://ctok.ai"><img src="assets/partners/logos/ctok.png" alt="CTok" width="150"></a></td>
-<td>Thanks to CTok.ai for sponsoring this project! CTok.ai is dedicated to building a one-stop AI programming tool service platform. We offer professional Claude Code packages and technical community services, with support for Google Gemini and OpenAI Codex. Through carefully designed plans and a professional tech community, we provide developers with reliable service guarantees and continuous technical support, making AI-assisted programming a true productivity tool. Click <a href="https://ctok.ai">here</a> to register!</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://aigocode.com/invite/SUB2API"><img src="assets/partners/logos/aigocode.png" alt="AIGoCode" width="150"></a></td>
-<td>Thanks to AIGoCode for sponsoring this project! AIGoCode is an all-in-one platform that integrates Claude Code, Codex, and the latest Gemini models, providing you with stable, efficient, and highly cost-effective AI coding services. The platform offers flexible subscription plans, zero risk of account suspension, direct access with no VPN required, and lightning-fast responses. AIGoCode has prepared a special benefit for sub2api users: if you register via <a href="https://aigocode.com/invite/SUB2API">this link</a>, you'll receive an extra 10% bonus credit on your first top-up!</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://apikey.fun/register?aff=SUB2API"><img src="assets/partners/logos/apikey-fun.png" alt="APIKEY.FUN" width="150"></a></td>
-<td>Thanks to APIKEY.FUN for sponsoring this project! <a href="https://apikey.fun/register?aff=SUB2API">APIKEY.FUN</a> is one of the core contributors to the sub2api open-source project, dedicated to providing open, stable, and cost-effective AI API access. The platform supports API relay services for Claude, OpenAI, Gemini, and other popular models, with pricing starting from as low as 7% of the original rate. Register via the exclusive link: <a href="https://apikey.fun/register?aff=SUB2API">APIKEY</a> to enjoy a permanent 5% discount on all recharges.</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://code.silkapi.com/register?aff=SUB2API"><img src="assets/partners/logos/silkapi.png" alt="silkapi" width="150"></a></td>
-<td>Thanks to SilkAPI for sponsoring this project! <a href="https://code.silkapi.com/register?aff=SUB2API">SilkAPI</a> is a relay service built on Sub2API, specializing in providing high-speed and stable Codex API relay.</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://ylscode.com/"><img src="assets/partners/logos/ylscode.png" alt="ylscode" width="150"></a></td>
-<td>Thanks to YLS Code for sponsoring this project! <a href="https://ylscode.com/">YLS Code</a> is dedicated to building secure enterprise-grade Coding Agent productivity services, offering stable and fast Codex / Claude / Gemini subscription services along with pay-as-you-go API options for flexible choices. Register now for a limited-time 3-day Codex trial bonus!</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://www.aicodemirror.com/register?invitecode=KMVZQM"><img src="assets/partners/logos/AICodeMirror.jpg" alt="AICodeMirror" width="150"></a></td>
-<td>Thanks to AICodeMirror for sponsoring this project! AICodeMirror provides official high-stability relay services for Claude Code / Codex / Gemini CLI, with enterprise-grade concurrency, fast invoicing, and 24/7 dedicated technical support. Claude Code / Codex / Gemini official channels at 38% / 2% / 9% of original price, with extra discounts on top-ups! AICodeMirror offers special benefits for sub2api users: register via <a href="https://www.aicodemirror.com/register?invitecode=KMVZQM">this link</a> to enjoy 20% off your first top-up, and enterprise customers can get up to 25% off!</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://shop.bmoplus.com/?utm_source=github"><img src="assets/partners/logos/bmoplus.jpg" alt="bmoplus" width="150"></a></td>
-<td>Huge thanks to BmoPlus for sponsoring this project! BmoPlus is a highly reliable AI account provider built strictly for heavy AI users and developers. They offer rock-solid, ready-to-use accounts and official top-up services for ChatGPT Plus / ChatGPT Pro (Full Warranty) / Claude Pro / Super Grok / Gemini Pro. By registering and ordering through <a href="https://shop.bmoplus.com/?utm_source=github">BmoPlus - Premium AI Accounts & Top-ups</a>, users can unlock the mind-blowing rate of 10% of the official GPT subscription price (90% OFF)</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://bestproxy.com/?keyword=a2e8iuol"><img src="assets/partners/logos/bestproxy.png" alt="bestproxy" width="150"></a></td>
-<td>Thanks to Bestproxy for sponsoring this project! <a href="https://bestproxy.com/?keyword=a2e8iuol">Bestproxy</a> provides high-purity residential IPs with dedicated one-IP-per-account support. By combining real home networks with fingerprint isolation, it enables link environment isolation and reduces the probability of association-based risk control.</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://pateway.ai/?ch=1tsfr51"><img src="assets/partners/logos/pateway.png" alt="pateway" width="150"></a></td>
-<td>Thanks to PatewayAI for sponsoring this project! PatewayAI is a premium model API relay service provider built for heavy AI developers, focused on direct official connections. Offering the full Claude series and Codex series models, 100% sourced directly from official providers — no dilution, no substitution, open to verification. Billing is fully transparent with token-level invoices that can be audited line by line.
-Enterprise-grade high concurrency is also supported, with a dedicated management platform for enterprise clients. Enterprise customers can sign formal contracts and receive invoices. Visit the official website for more details and contact information.
-Register now via <a href="https://pateway.ai/?ch=1tsfr51">this link</a> to receive $3 in trial credits. User top-ups start as low as 60% off, and referring friends earns both parties rewards — referral bonuses up to $150.</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://api.pptoken.org/register?promo=SUB2API"><img src="assets/partners/logos/pptoken.png" alt="pptoken" width="150"></a></td>
-<td>Thanks to PPToken.org for sponsoring this project! <a href="https://api.pptoken.org/register?promo=SUB2API">PPToken.org</a> specializes in GPT model API relay services, supporting Codex, Claude Code, OpenAI-compatible clients, and Gemini CLI integration. Top-ups are 1:1 (¥1 = $1 credit); GPT models start at 0.16x rate multiplier, with overall cost at roughly 2.2% of official pricing and first-token latency around 1 second — ideal for developers seeking low-cost, high-speed access to GPT model capabilities. Technical support: 24/7 real human responses (no bots), @tech in the group chat and get a reply within 10 minutes. Sponsor benefit: the first 200 users who register via the <a href="https://api.pptoken.org/register?promo=SUB2API">exclusive registration link</a> and enter promo code `SUB2API` can claim free Codex / Claude Code trial credits — no minimum spend, no card required.
-</td>
-</tr>
-
-</table>
-
 ## Ecosystem
 
 Community projects that extend or integrate with Sub2API:
@@ -163,76 +93,7 @@ Nginx drops headers containing underscores by default (e.g. `session_id`), which
 
 ## Deployment
 
-### Method 1: Script Installation (Recommended)
-
-One-click installation script that downloads pre-built binaries from GitHub Releases.
-
-#### Prerequisites
-
-- Linux server (amd64 or arm64)
-- PostgreSQL 15+ (installed and running)
-- Redis 7+ (installed and running)
-- Root privileges
-
-#### Installation Steps
-
-```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
-```
-
-The script will:
-1. Detect your system architecture
-2. Download the latest release
-3. Install binary to `/opt/sub2api`
-4. Create systemd service
-5. Configure system user and permissions
-
-#### Post-Installation
-
-```bash
-# 1. Start the service
-sudo systemctl start sub2api
-
-# 2. Enable auto-start on boot
-sudo systemctl enable sub2api
-
-# 3. Open Setup Wizard in browser
-# http://YOUR_SERVER_IP:8080
-```
-
-The Setup Wizard will guide you through:
-- Database configuration
-- Redis configuration
-- Admin account creation
-
-#### Upgrade
-
-You can upgrade directly from the **Admin Dashboard** by clicking the **Check for Updates** button in the top-left corner.
-
-The web interface will:
-- Check for new versions automatically
-- Download and apply updates with one click
-- Support rollback if needed
-
-#### Useful Commands
-
-```bash
-# Check status
-sudo systemctl status sub2api
-
-# View logs
-sudo journalctl -u sub2api -f
-
-# Restart service
-sudo systemctl restart sub2api
-
-# Uninstall
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash -s -- uninstall -y
-```
-
----
-
-### Method 2: Docker Compose (Recommended)
+### Method 1: Docker Compose (Recommended)
 
 Deploy with Docker Compose, including PostgreSQL and Redis containers.
 
@@ -250,7 +111,7 @@ Use the automated deployment script for easy setup:
 mkdir -p sub2api-deploy && cd sub2api-deploy
 
 # Download and run deployment preparation script
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh | bash
+curl -sSL https://raw.githubusercontent.com/tamakiramimy/sub2api-kiro/main/deploy/docker-deploy.sh | bash
 
 # Start services
 docker compose up -d
@@ -272,7 +133,7 @@ If you prefer manual setup:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Wei-Shaw/sub2api.git
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
 cd sub2api/deploy
 
 # 2. Copy environment configuration
@@ -411,7 +272,7 @@ Build and run from source code for development or customization.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Wei-Shaw/sub2api.git
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
 cd sub2api
 
 # 2. Install pnpm (if not already installed)

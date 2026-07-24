@@ -253,6 +253,7 @@ func ProvideAccountTestService(
 	geminiTokenProvider *GeminiTokenProvider,
 	claudeTokenProvider *ClaudeTokenProvider,
 	grokTokenProvider *GrokTokenProvider,
+	kiroTokenProvider *KiroTokenProvider,
 	antigravityGatewayService *AntigravityGatewayService,
 	httpUpstream HTTPUpstream,
 	cfg *config.Config,
@@ -274,6 +275,7 @@ func ProvideAccountTestService(
 	service.agentIdentityWS = openAIGatewayService
 	service.SetSettingService(settingService)
 	service.SetPluginManager(pluginManager)
+	service.SetKiroTokenProvider(kiroTokenProvider)
 	return service
 }
 

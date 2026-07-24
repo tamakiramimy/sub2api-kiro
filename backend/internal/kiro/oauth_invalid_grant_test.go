@@ -52,6 +52,46 @@ func TestRefreshIDCTokenInvalidGrantReturnsTypedError(t *testing.T) {
 	require.Contains(t, invalid.Body, "invalid_grant")
 }
 
+func TestExchangeIDCAuthCodeInvalidGrantReturnsAuthorizationCodeError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/token", r.URL.Path)
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"invalid_grant","error_description":"Invalid token or code provided"}`))
+	}))
+	defer server.Close()
+
+	previous := oidcEndpointOverride
+	oidcEndpointOverride = server.URL
+	t.Cleanup(func() { oidcEndpointOverride = previous })
+
+	_, err := ExchangeIDCAuthCode(context.Background(), "", "client-id", "client-secret", "expired-code", "verifier", "http://127.0.0.1:9876/oauth/callback", "us-east-1", BuilderIDStartURL)
+	require.Error(t, err)
+
+	var invalid *AuthorizationCodeInvalidError
+	require.True(t, errors.As(err, &invalid))
+	require.Contains(t, invalid.Error(), "authorization code invalid or expired")
+}
+
+func TestCreateSocialTokenInvalidGrantReturnsAuthorizationCodeError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/oauth/token", r.URL.Path)
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"invalid_grant","error_description":"Invalid token or code provided"}`))
+	}))
+	defer server.Close()
+
+	previous := socialAuthEndpointURL
+	socialAuthEndpointURL = server.URL
+	t.Cleanup(func() { socialAuthEndpointURL = previous })
+
+	_, err := CreateSocialToken(context.Background(), "", "expired-code", "verifier", "http://localhost:49153")
+	require.Error(t, err)
+
+	var invalid *AuthorizationCodeInvalidError
+	require.True(t, errors.As(err, &invalid))
+	require.Contains(t, invalid.Error(), "authorization code invalid or expired")
+}
+
 func TestExchangeIDCAuthCodePreservesProfileArn(t *testing.T) {
 	const profileArn = "arn:aws:codewhisperer:us-east-1:123456789012:profile/EXCHANGE"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

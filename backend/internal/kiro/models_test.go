@@ -12,8 +12,9 @@ func TestDefaultModels_MatchesKiroReferenceModelsPlusGPTExtension(t *testing.T) 
 		ids = append(ids, model.ID)
 	}
 
-	// 基线为 myfork 参考实现的 16 个 Claude 模型，额外主动扩展了 Kiro 近期新增的 3 个
-	// OpenAI GPT-5.6 代理模型（sol/terra/luna）——myfork 回退时还没有这 3 个模型。
+	// 基线为经过真实 Kiro 上游验证的 Claude 模型，加上 Kiro 近期新增的 3 个
+	// OpenAI GPT-5.6 代理模型（sol/terra/luna）。Sonnet 5 的 Kiro modelId
+	// 是 claude-sonnet-5，对外兼容别名保持 claude-sonnet-5-0。
 	require.Equal(t, []string{
 		"claude-opus-4-8",
 		"claude-opus-4-8-thinking",
@@ -39,11 +40,12 @@ func TestDefaultModels_MatchesKiroReferenceModelsPlusGPTExtension(t *testing.T) 
 	require.Contains(t, ids, "claude-sonnet-4-6")
 	require.Contains(t, ids, "claude-opus-4-7")
 	require.Contains(t, ids, "claude-opus-4-8")
-	require.Contains(t, ids, "claude-sonnet-5-0")
 	require.Contains(t, ids, "claude-haiku-4-5-20251001-thinking")
 	require.Contains(t, ids, "gpt-5.6-sol")
 	require.Contains(t, ids, "gpt-5.6-terra")
 	require.Contains(t, ids, "gpt-5.6-luna")
+	require.Contains(t, ids, "claude-sonnet-5-0")
+	require.Contains(t, ids, "claude-sonnet-5-0-thinking")
 	require.NotContains(t, ids, "auto")
 	require.NotContains(t, ids, "claude-sonnet-4")
 	require.NotContains(t, ids, "gpt-4o")

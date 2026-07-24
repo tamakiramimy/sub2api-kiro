@@ -15,6 +15,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	kiropkg "github.com/Wei-Shaw/sub2api/internal/kiro"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
@@ -1183,6 +1184,13 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		writeGrokModelsList(c, xai.DefaultModelIDs())
 		return
 	}
+	if platform == service.PlatformKiro {
+		c.JSON(http.StatusOK, gin.H{
+			"object": "list",
+			"data":   kiropkg.DefaultModels,
+		})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"object": "list",
@@ -1521,6 +1529,12 @@ func defaultModelIDsForPlatform(platform string) []string {
 			}
 		}
 		return ids
+	case service.PlatformKiro:
+		ids := make([]string, 0, len(kiropkg.DefaultModels))
+		for _, model := range kiropkg.DefaultModels {
+			ids = append(ids, model.ID)
+		}
+		return ids
 	default:
 		ids := make([]string, 0, len(claude.DefaultModels))
 		for _, model := range claude.DefaultModels {
@@ -1550,7 +1564,6 @@ func mergeModelIDs(primary, secondary []string) []string {
 }
 
 // AntigravityModels 返回 Antigravity 支持的全部模型
-// GET /antigravity/models
 func (h *GatewayHandler) AntigravityModels(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"object": "list",

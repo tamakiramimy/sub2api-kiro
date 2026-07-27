@@ -10,7 +10,7 @@
 
 **Kiro-Enhanced AI API Gateway**
 
-**GPT-5.6 Sol / Terra / Luna | Claude Opus 4.8 | Claude Sonnet 5**
+**GPT-5.6 Sol / Terra / Luna | Claude Opus 5 | Claude Sonnet 5**
 
 English | [中文](README_CN.md) | [日本語](README_JA.md)
 
@@ -29,7 +29,7 @@ Kiro-specific capabilities include:
 - Kiro channel support, including OAuth / AWS Builder ID / token import and API-key-compatible upstream access.
 - OpenAI Responses and Chat Completions protocol bridging for Kiro accounts.
 - Anthropic Prompt Cache usage emulation for Kiro traffic, with per-group enablement and adjustable ratios.
-- Kiro model compatibility for GPT-5.6 Sol, Terra, and Luna; Claude Opus 4.8; and Claude Sonnet 5, including established model aliases.
+- Kiro model compatibility for GPT-5.6 Sol, Terra, and Luna; Claude Opus 5 and Opus 4.8; and Claude Sonnet 5, including established model aliases.
 
 ## Kiro Screenshots
 
@@ -51,7 +51,7 @@ Kiro-specific capabilities include:
 - **Concurrency Control** - Per-user and per-account concurrency limits
 - **Rate Limiting** - Configurable request and token rate limits
 - **Kiro Channel Support** - Kiro accounts are available through native Anthropic, OpenAI Responses, and Chat Completions compatible gateways
-- **Kiro Model Compatibility** - Support for GPT-5.6, Claude Opus 4.8, and Claude Sonnet 5 model aliases
+- **Kiro Model Compatibility** - Support for GPT-5.6, Claude Opus 5, Claude Opus 4.8, and Claude Sonnet 5 model aliases
 - **Kiro Cache Emulation** - Simulate Anthropic Prompt Cache usage for Kiro groups with adjustable per-group emulation ratio
 - **Built-in Payment System** - Supports EasyPay, Alipay, WeChat Pay, and Stripe for user self-service top-up, no separate payment service needed ([Configuration Guide](docs/PAYMENT.md))
 - **Admin Dashboard** - Web interface for monitoring and management

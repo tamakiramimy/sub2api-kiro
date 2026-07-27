@@ -537,6 +537,7 @@ func TestAccountGetModelMapping_KiroNormalizesLegacySonnet5Aliases(t *testing.T)
 		Platform: PlatformKiro,
 		Credentials: map[string]any{
 			"model_mapping": map[string]any{
+				"claude-opus-5-0":   "claude-opus-5.0",
 				"claude-sonnet-5-0": "claude-sonnet-5.0",
 				"claude-sonnet-4-6": "claude-sonnet-4.6",
 			},
@@ -544,6 +545,9 @@ func TestAccountGetModelMapping_KiroNormalizesLegacySonnet5Aliases(t *testing.T)
 	}
 
 	mapping := account.GetModelMapping()
+	if mapping["claude-opus-5-0"] != "claude-opus-5" {
+		t.Fatalf("expected Kiro Opus 5 mapping to normalize, got %q", mapping["claude-opus-5-0"])
+	}
 	if mapping["claude-sonnet-5-0"] != "claude-sonnet-5" {
 		t.Fatalf("expected legacy Kiro Sonnet 5 mapping to normalize, got %q", mapping["claude-sonnet-5-0"])
 	}

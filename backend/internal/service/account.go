@@ -617,7 +617,7 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 	}
 	if len(result) > 0 {
 		if a.Platform == domain.PlatformKiro {
-			normalizeKiroSonnet5Mappings(result)
+			normalizeKiroClaude5Mappings(result)
 		}
 		if a.Platform == domain.PlatformAntigravity {
 			ensureAntigravityDefaultPassthroughs(result, []string{
@@ -640,16 +640,21 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 	return nil
 }
 
-func normalizeKiroSonnet5Mappings(mapping map[string]string) {
-	for _, model := range []string{
-		"claude-sonnet-5-0",
-		"claude-sonnet-5-0-thinking",
-		"claude-sonnet-5.0",
-		"claude-sonnet-5",
-		"claude-sonnet-5-thinking",
+func normalizeKiroClaude5Mappings(mapping map[string]string) {
+	for model, canonical := range map[string]string{
+		"claude-opus-5-0":            "claude-opus-5",
+		"claude-opus-5-0-thinking":   "claude-opus-5",
+		"claude-opus-5.0":            "claude-opus-5",
+		"claude-opus-5":              "claude-opus-5",
+		"claude-opus-5-thinking":     "claude-opus-5",
+		"claude-sonnet-5-0":          "claude-sonnet-5",
+		"claude-sonnet-5-0-thinking": "claude-sonnet-5",
+		"claude-sonnet-5.0":          "claude-sonnet-5",
+		"claude-sonnet-5":            "claude-sonnet-5",
+		"claude-sonnet-5-thinking":   "claude-sonnet-5",
 	} {
 		if _, exists := mapping[model]; exists {
-			mapping[model] = "claude-sonnet-5"
+			mapping[model] = canonical
 		}
 	}
 }

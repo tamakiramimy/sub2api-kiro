@@ -10,7 +10,7 @@
 
 **Kiro 強化 AI API ゲートウェイ**
 
-**GPT-5.6 Sol / Terra / Luna | Claude Opus 4.8 | Claude Sonnet 5**
+**GPT-5.6 Sol / Terra / Luna | Claude Opus 5 | Claude Sonnet 5**
 
 [English](README.md) | [中文](README_CN.md) | 日本語
 
@@ -29,7 +29,7 @@ Kiro 固有の機能:
 - OAuth / AWS Builder ID / トークンインポート、および API キー互換の上流接続を含む Kiro チャネルサポート。
 - Kiro アカウントを OpenAI Responses および Chat Completions プロトコルへブリッジ。
 - Kiro トラフィック向けの Anthropic Prompt Cache 使用量エミュレーション。グループ単位の有効化と比率調整に対応。
-- GPT-5.6 Sol / Terra / Luna、Claude Opus 4.8、Claude Sonnet 5 の Kiro モデル互換エイリアスに対応。
+- GPT-5.6 Sol / Terra / Luna、Claude Opus 5、Claude Opus 4.8、Claude Sonnet 5 の Kiro モデル互換エイリアスに対応。
 
 ## Kiro スクリーンショット
 
@@ -51,7 +51,7 @@ Kiro 固有の機能:
 - **同時実行制御** - ユーザーごと・アカウントごとの同時実行数制限
 - **レート制限** - 設定可能なリクエスト数およびトークンレート制限
 - **Kiro チャネルサポート** - Kiro アカウントをネイティブ Anthropic、OpenAI Responses、Chat Completions 互換ゲートウェイで利用可能
-- **Kiro モデル互換性** - GPT-5.6、Claude Opus 4.8、Claude Sonnet 5 のモデルエイリアスに対応
+- **Kiro モデル互換性** - GPT-5.6、Claude Opus 5、Claude Opus 4.8、Claude Sonnet 5 のモデルエイリアスに対応
 - **Kiro キャッシュエミュレーション** - Kiro グループ向けに Anthropic Prompt Cache 使用量をエミュレートし、グループ単位で比率を調整可能
 - **内蔵決済システム** - EasyPay、Alipay、WeChat Pay、Stripe に対応。ユーザーのセルフサービスチャージが可能で、別途決済サービスのデプロイは不要（[設定ガイド](docs/PAYMENT.md)）
 - **管理ダッシュボード** - 監視・管理のための Web インターフェース

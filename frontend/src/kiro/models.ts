@@ -1,5 +1,7 @@
 /** Kiro 默认模型映射；其键同时是白名单、分组和 API Key 对外可见的模型目录。 */
 const kiroDefaultMappings: Array<{ from: string; to: string }> = [
+  { from: 'claude-opus-5-0', to: 'claude-opus-5' },
+  { from: 'claude-opus-5-0-thinking', to: 'claude-opus-5' },
   { from: 'claude-opus-4-8', to: 'claude-opus-4.8' },
   { from: 'claude-opus-4-8-thinking', to: 'claude-opus-4.8' },
   { from: 'claude-opus-4-7', to: 'claude-opus-4.7' },
@@ -29,21 +31,26 @@ const kiroDefaultMappings: Array<{ from: string; to: string }> = [
  */
 export const kiroModels = kiroDefaultMappings.map(({ from }) => from)
 
-const legacyKiroSonnet5ModelIDs = new Set([
-  'claude-sonnet-5-0',
-  'claude-sonnet-5-0-thinking',
-  'claude-sonnet-5.0',
-  'claude-sonnet-5',
-  'claude-sonnet-5-thinking'
+const kiroClaude5CanonicalModelIDs = new Map([
+  ['claude-opus-5-0', 'claude-opus-5'],
+  ['claude-opus-5-0-thinking', 'claude-opus-5'],
+  ['claude-opus-5.0', 'claude-opus-5'],
+  ['claude-opus-5', 'claude-opus-5'],
+  ['claude-opus-5-thinking', 'claude-opus-5'],
+  ['claude-sonnet-5-0', 'claude-sonnet-5'],
+  ['claude-sonnet-5-0-thinking', 'claude-sonnet-5'],
+  ['claude-sonnet-5.0', 'claude-sonnet-5'],
+  ['claude-sonnet-5', 'claude-sonnet-5'],
+  ['claude-sonnet-5-thinking', 'claude-sonnet-5']
 ])
 
 export function sanitizeKiroModelMapping(rawMapping?: Record<string, unknown>): Record<string, unknown> {
   if (!rawMapping || typeof rawMapping !== 'object') return {}
   return Object.fromEntries(
-    Object.entries(rawMapping).map(([model, target]) => [
-      model,
-      legacyKiroSonnet5ModelIDs.has(model.trim()) ? 'claude-sonnet-5' : target
-    ])
+    Object.entries(rawMapping).map(([model, target]) => {
+      const canonical = kiroClaude5CanonicalModelIDs.get(model.trim())
+      return [model, canonical ?? target]
+    })
   )
 }
 

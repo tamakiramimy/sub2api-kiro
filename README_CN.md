@@ -10,7 +10,7 @@
 
 **Kiro 增强 AI API 网关**
 
-**GPT-5.6 Sol / Terra / Luna | Claude Opus 4.8 | Claude Sonnet 5**
+**GPT-5.6 Sol / Terra / Luna | Claude Opus 5 | Claude Sonnet 5**
 
 [English](README.md) | 中文 | [日本語](README_JA.md)
 
@@ -29,7 +29,7 @@ Kiro 专属能力包括：
 - Kiro 渠道支持，包括 OAuth / AWS Builder ID / Token 导入，以及兼容 API Key 的上游接入。
 - Kiro 账号可通过 OpenAI Responses 和 Chat Completions 协议桥接使用。
 - 面向 Kiro 流量的 Anthropic Prompt Cache 用量模拟，支持按分组启用和调整模拟比例。
-- 支持 GPT-5.6 Sol、Terra、Luna，Claude Opus 4.8 与 Claude Sonnet 5 的 Kiro 模型兼容别名。
+- 支持 GPT-5.6 Sol、Terra、Luna，Claude Opus 5、Opus 4.8 与 Claude Sonnet 5 的 Kiro 模型兼容别名。
 
 ## Kiro 功能截图
 
@@ -51,7 +51,7 @@ Kiro 专属能力包括：
 - **并发控制** - 用户级和账号级并发限制
 - **速率限制** - 可配置的请求和 Token 速率限制
 - **Kiro 渠道支持** - Kiro 账号可通过原生 Anthropic、OpenAI Responses 和 Chat Completions 兼容网关调用
-- **Kiro 模型兼容** - 支持 GPT-5.6、Claude Opus 4.8、Claude Sonnet 5 的模型别名
+- **Kiro 模型兼容** - 支持 GPT-5.6、Claude Opus 5、Claude Opus 4.8、Claude Sonnet 5 的模型别名
 - **Kiro 模拟缓存** - 为 Kiro 分组模拟 Anthropic Prompt Cache 用量，并支持按分组调整模拟比例
 - **内置支付系统** - 支持 EasyPay 易支付、支付宝官方、微信官方、Stripe，用户自助充值，无需独立部署支付服务（[配置指南](docs/PAYMENT_CN.md)）
 - **管理后台** - Web 界面进行监控和管理

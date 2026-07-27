@@ -42,9 +42,11 @@ describe('useModelWhitelist', () => {
     expect(models).toContain('gemini-3-pro-image')
   })
 
-  it('Kiro 模型列表与映射预设都包含 GPT-5.6 三个变体', () => {
+  it('Kiro 模型列表与映射预设都包含 Claude Opus 5 与 GPT-5.6 三个变体', () => {
     const models = getModelsByPlatform('kiro')
 
+	  expect(models).toContain('claude-opus-5-0')
+	  expect(models).toContain('claude-opus-5-0-thinking')
     expect(models).toContain('gpt-5.6-sol')
     expect(models).toContain('gpt-5.6-terra')
     expect(models).toContain('gpt-5.6-luna')
@@ -67,9 +69,11 @@ describe('useModelWhitelist', () => {
 
   it('会将历史错误的Sonnet 5 .0目标规范化为Kiro正确ID', () => {
     expect(sanitizeKiroModelMapping({
+		'claude-opus-5-0': 'claude-opus-5.0',
       'claude-sonnet-5-0': 'claude-sonnet-5.0',
       'claude-sonnet-4-6': 'claude-sonnet-4.6'
     })).toEqual({
+		'claude-opus-5-0': 'claude-opus-5',
         'claude-sonnet-5-0': 'claude-sonnet-5',
         'claude-sonnet-4-6': 'claude-sonnet-4.6'
     })

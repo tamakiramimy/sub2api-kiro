@@ -111,8 +111,8 @@ cd sub2api-kiro/deploy
 cp .env.example .env
 chmod 600 .env
 
-# Build the local Kiro image and start services
-docker compose -f docker-compose.local.yml up -d --build
+# Pull the published Kiro image and start services
+docker compose -f docker-compose.local.yml up -d
 
 # View logs
 docker compose -f docker-compose.local.yml logs -f sub2api
@@ -172,10 +172,10 @@ mkdir -p data postgres_data redis_data
 
 # 5. Start all services
 # Option A: Local directory version (recommended - easy migration)
-docker compose -f docker-compose.local.yml up -d --build
+docker compose -f docker-compose.local.yml up -d
 
 # Option B: Named volumes version (simple setup)
-docker compose up -d --build
+docker compose up -d
 
 # 6. Check status
 docker compose -f docker-compose.local.yml ps
@@ -205,8 +205,8 @@ docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
 #### Upgrade
 
 ```bash
-# Rebuild the local image and recreate the application container
-docker compose -f docker-compose.local.yml build --pull sub2api
+# Pull the latest published image and recreate the application container
+docker compose -f docker-compose.local.yml pull sub2api
 docker compose -f docker-compose.local.yml up -d
 ```
 

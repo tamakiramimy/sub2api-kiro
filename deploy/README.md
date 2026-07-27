@@ -46,7 +46,7 @@ See [APPLE_CONTAINER.md](./APPLE_CONTAINER.md) for configuration, upgrades, pers
 
 ## Docker Deployment (Recommended)
 
-Clone this distribution and build the Docker image locally:
+Clone this distribution to obtain the Docker Compose configuration; it pulls the published Docker Hub image by default:
 
 ```bash
 # Clone repository
@@ -67,8 +67,8 @@ echo "TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}" >> .env
 # Create data directories
 mkdir -p data postgres_data redis_data
 
-# Build the local Kiro image and start all services
-docker compose -f docker-compose.local.yml up -d --build
+# Pull the published Kiro image and start all services
+docker compose -f docker-compose.local.yml up -d
 
 # View logs (check for auto-generated admin password)
 docker compose -f docker-compose.local.yml logs -f sub2api
@@ -153,9 +153,8 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 # Restart Sub2API only
 docker compose -f docker-compose.local.yml restart sub2api
 
-# Rebuild after updating the local source checkout
-git pull --ff-only
-docker compose -f docker-compose.local.yml build --pull sub2api
+# Pull the latest published image
+docker compose -f docker-compose.local.yml pull sub2api
 docker compose -f docker-compose.local.yml up -d
 
 # Remove all data (caution!)
@@ -178,9 +177,8 @@ docker compose logs -f sub2api
 # Restart Sub2API only
 docker compose restart sub2api
 
-# Rebuild after updating the local source checkout
-git pull --ff-only
-docker compose build --pull sub2api
+# Pull the latest published image
+docker compose pull sub2api
 docker compose up -d
 
 # Remove all data (caution!)

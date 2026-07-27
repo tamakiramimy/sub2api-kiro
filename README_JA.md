@@ -111,8 +111,8 @@ cd sub2api-kiro/deploy
 cp .env.example .env
 chmod 600 .env
 
-# ローカル Kiro イメージをビルドしてサービスを起動
-docker compose -f docker-compose.local.yml up -d --build
+# 公開済み Kiro イメージをプルしてサービスを起動
+docker compose -f docker-compose.local.yml up -d
 
 # ログを表示
 docker compose -f docker-compose.local.yml logs -f sub2api
@@ -172,10 +172,10 @@ mkdir -p data postgres_data redis_data
 
 # 5. すべてのサービスを起動
 # オプション A: ローカルディレクトリバージョン（推奨 - 移行が容易）
-docker compose -f docker-compose.local.yml up -d --build
+docker compose -f docker-compose.local.yml up -d
 
 # オプション B: 名前付きボリュームバージョン（シンプルなセットアップ）
-docker compose up -d --build
+docker compose up -d
 
 # 6. ステータスを確認
 docker compose -f docker-compose.local.yml ps
@@ -205,8 +205,8 @@ docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
 #### アップグレード
 
 ```bash
-# ローカルイメージを再ビルドしてアプリケーションコンテナを再作成
-docker compose -f docker-compose.local.yml build --pull sub2api
+# 最新の公開イメージをプルしてアプリケーションコンテナを再作成
+docker compose -f docker-compose.local.yml pull sub2api
 docker compose -f docker-compose.local.yml up -d
 ```
 

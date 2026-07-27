@@ -111,8 +111,8 @@ cd sub2api-kiro/deploy
 cp .env.example .env
 chmod 600 .env
 
-# 构建本地 Kiro 镜像并启动服务
-docker compose -f docker-compose.local.yml up -d --build
+# 拉取已发布的 Kiro 镜像并启动服务
+docker compose -f docker-compose.local.yml up -d
 
 # 查看日志
 docker compose -f docker-compose.local.yml logs -f sub2api
@@ -172,10 +172,10 @@ mkdir -p data postgres_data redis_data
 
 # 5. 启动所有服务
 # 选项 A：本地目录版（推荐 - 易于迁移）
-docker compose -f docker-compose.local.yml up -d --build
+docker compose -f docker-compose.local.yml up -d
 
 # 选项 B：命名卷版（简单设置）
-docker compose up -d --build
+docker compose up -d
 
 # 6. 查看状态
 docker compose -f docker-compose.local.yml ps
@@ -217,8 +217,8 @@ docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
 #### 升级
 
 ```bash
-# 重建本地镜像并重建应用容器
-docker compose -f docker-compose.local.yml build --pull sub2api
+# 拉取最新已发布镜像并重建应用容器
+docker compose -f docker-compose.local.yml pull sub2api
 docker compose -f docker-compose.local.yml up -d
 ```
 

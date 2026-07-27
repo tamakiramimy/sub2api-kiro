@@ -16,10 +16,7 @@ services:
   # Sub2API Application
   # ===========================================================================
   sub2api:
-    image: ${SUB2API_IMAGE:-sub2api-kiro:latest}
-    build:
-      context: ..
-      dockerfile: Dockerfile
+    image: ${SUB2API_IMAGE:-tamakiramimy/sub2api-kiro:latest}
     container_name: sub2api
     restart: unless-stopped
     ulimits:

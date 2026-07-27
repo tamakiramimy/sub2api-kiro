@@ -231,6 +231,8 @@ type kiroSemanticEvent struct {
 
 func MapModel(model string) string {
 	switch strings.TrimSpace(strings.ToLower(model)) {
+	case "claude-opus-5-0", "claude-opus-5-0-thinking", "claude-opus-5.0", "claude-opus-5", "claude-opus-5-thinking":
+		return "claude-opus-5"
 	case "claude-opus-4-7", "claude-opus-4-7-thinking", "claude-opus-4.7":
 		return "claude-opus-4.7"
 	case "claude-opus-4-8", "claude-opus-4-8-thinking", "claude-opus-4.8":

@@ -135,6 +135,8 @@ export default {
         overloaded: 'Overloaded',
         tempUnschedulable: 'Temp Unschedulable',
         quotaExceeded: 'Quota Exceeded',
+        kiroCreditsExhausted: 'Kiro Credits Exhausted',
+        kiroOverageActive: 'Kiro Overage Active',
         unschedulable: 'Unschedulable',
         rateLimitedUntil: 'Rate limited and removed from scheduling. Auto resumes at {time}',
         rateLimitedAutoResume: 'Auto resumes in {time}',
@@ -1342,7 +1344,12 @@ export default {
         grokLastProbe: 'Probe {time}',
         grokLastHeadersSeen: 'Headers {time}',
         passiveSampled: 'Passive',
-        activeQuery: 'Query'
+        activeQuery: 'Query',
+        kiroCredit: 'Credit',
+        kiroBonus: 'Bonus',
+        kiroUsed: '{used} / {limit}',
+        kiroDaysRemaining: '{days}d left',
+        kiroOverage: 'Overage {used}, charge {charge}'
       },
       openaiQuotaReset: {
         count: 'Credits',

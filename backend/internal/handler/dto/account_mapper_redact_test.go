@@ -3,6 +3,7 @@ package dto
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -64,4 +65,28 @@ func TestAccountFromServiceShallow_NilCredentialsOmitsStatus(t *testing.T) {
 	require.NotNil(t, got)
 	require.Nil(t, got.Credentials)
 	require.Nil(t, got.CredentialsStatus)
+}
+
+func TestAccountFromServiceShallow_MapsKiroRuntimeState(t *testing.T) {
+	resetAt := time.Date(2026, time.August, 1, 0, 0, 0, 0, time.UTC)
+	src := &service.Account{
+		ID:                    7,
+		Platform:              "kiro",
+		Type:                  "oauth",
+		KiroQuotaState:        "credits_exhausted",
+		KiroQuotaReason:       "credits_exhausted",
+		KiroQuotaResetAt:      &resetAt,
+		KiroRuntimeState:      "cooldown",
+		KiroRuntimeReason:     "429",
+		KiroRuntimeResetAt:    &resetAt,
+	}
+
+	got := AccountFromServiceShallow(src)
+
+	require.Equal(t, "credits_exhausted", got.KiroQuotaState)
+	require.Equal(t, "credits_exhausted", got.KiroQuotaReason)
+	require.Equal(t, &resetAt, got.KiroQuotaResetAt)
+	require.Equal(t, "cooldown", got.KiroRuntimeState)
+	require.Equal(t, "429", got.KiroRuntimeReason)
+	require.Equal(t, &resetAt, got.KiroRuntimeResetAt)
 }

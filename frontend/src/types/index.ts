@@ -971,6 +971,14 @@ export interface Account {
   temp_unschedulable_until: string | null
   temp_unschedulable_reason: string | null
 
+  // Kiro usage and cooldown state derived from the server runtime cache.
+  kiro_quota_state?: string
+  kiro_quota_reason?: string
+  kiro_quota_reset_at?: string | null
+  kiro_runtime_state?: string
+  kiro_runtime_reason?: string
+  kiro_runtime_reset_at?: string | null
+
   // Session window fields (5-hour window)
   session_window_start: string | null
   session_window_end: string | null
@@ -1109,6 +1117,21 @@ export interface GrokBillingSummary {
   failed_windows?: string[]
 }
 
+export interface KiroCreditProgress {
+  current_usage: number
+  usage_limit: number
+  percentage_used: number
+  days_remaining?: number
+  expiry_date?: string | null
+}
+
+export interface KiroOverageInfo {
+  current_overages: number
+  overage_charges: number
+  currency_code?: string
+  currency_symbol?: string
+}
+
 export interface AccountUsageInfo {
   source?: 'passive' | 'active'
   updated_at: string | null
@@ -1144,6 +1167,19 @@ export interface AccountUsageInfo {
     amount?: number
     minimum_balance?: number
   }> | null
+  kiro_subscription_name?: string
+  kiro_subscription_type?: string
+  kiro_reset_at?: string | null
+  kiro_overages_enabled?: boolean
+  kiro_credit?: KiroCreditProgress | null
+  kiro_bonus?: KiroCreditProgress | null
+  kiro_overage?: KiroOverageInfo | null
+  kiro_quota_state?: string
+  kiro_quota_reason?: string
+  kiro_quota_reset_at?: string | null
+  kiro_runtime_state?: string
+  kiro_runtime_reason?: string
+  kiro_runtime_reset_at?: string | null
   // Antigravity 403 forbidden 状态
   is_forbidden?: boolean
   forbidden_reason?: string

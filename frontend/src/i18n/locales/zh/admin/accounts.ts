@@ -285,6 +285,8 @@ export default {
         overloaded: '过载中',
         tempUnschedulable: '临时不可调度',
         quotaExceeded: '配额超限',
+        kiroCreditsExhausted: 'Kiro 额度耗尽',
+        kiroOverageActive: 'Kiro 超额计费中',
         unschedulable: '不可调度',
         rateLimitedUntil: '限流中，当前不参与调度，预计 {time} 自动恢复',
         rateLimitedAutoResume: '{time} 自动恢复',
@@ -362,7 +364,12 @@ export default {
         grokLastProbe: '探测 {time}',
         grokLastHeadersSeen: '响应头 {time}',
         passiveSampled: '被动采样',
-        activeQuery: '查询'
+        activeQuery: '查询',
+        kiroCredit: '额度',
+        kiroBonus: 'Bonus',
+        kiroUsed: '{used} / {limit}',
+        kiroDaysRemaining: '剩余 {days} 天',
+        kiroOverage: '超额 {used}，费用 {charge}'
       },
       openaiQuotaReset: {
         count: '次数',

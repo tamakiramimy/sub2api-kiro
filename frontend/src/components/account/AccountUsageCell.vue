@@ -190,6 +190,76 @@
       </div>
     </template>
 
+    <!-- Kiro OAuth accounts: credits, bonus, and overage from getUsageLimits -->
+    <template v-else-if="account.platform === 'kiro' && account.type === 'oauth'">
+      <div v-if="loading" class="space-y-1.5">
+        <div class="flex items-center gap-1">
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+        </div>
+      </div>
+      <div v-else-if="error" class="text-xs text-red-500">
+        {{ error }}
+      </div>
+      <div v-else-if="usageInfo" class="space-y-1">
+        <div v-if="kiroSubscriptionLabel" class="truncate text-[10px] font-medium text-gray-700 dark:text-gray-300" :title="kiroSubscriptionLabel">
+          {{ kiroSubscriptionLabel }}
+        </div>
+        <div v-if="usageInfo.error" class="truncate text-xs text-amber-600 dark:text-amber-400 max-w-[200px]" :title="usageInfo.error">
+          {{ usageInfo.error }}
+        </div>
+        <template v-if="usageInfo.kiro_credit">
+          <UsageProgressBar
+            :label="t('admin.accounts.usageWindow.kiroCredit')"
+            :utilization="usageInfo.kiro_credit.percentage_used"
+            :resets-at="usageInfo.kiro_reset_at"
+            color="indigo"
+          />
+          <div class="pl-[33px] text-[10px] text-gray-500 dark:text-gray-400">
+            {{ formatKiroCredit(usageInfo.kiro_credit) }}
+          </div>
+        </template>
+        <template v-if="usageInfo.kiro_bonus">
+          <UsageProgressBar
+            :label="t('admin.accounts.usageWindow.kiroBonus')"
+            :utilization="usageInfo.kiro_bonus.percentage_used"
+            :resets-at="usageInfo.kiro_bonus.expiry_date"
+            color="emerald"
+          />
+          <div class="pl-[33px] text-[10px] text-gray-500 dark:text-gray-400">
+            {{ formatKiroCredit(usageInfo.kiro_bonus) }}{{ kiroBonusRemaining }}
+          </div>
+        </template>
+        <div v-if="kiroOverageLabel" class="text-[10px] text-amber-600 dark:text-amber-400">
+          {{ kiroOverageLabel }}
+        </div>
+        <button
+          type="button"
+          class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="activeQueryLoading"
+          @click="loadActiveUsage"
+        >
+          <svg
+            class="h-2.5 w-2.5"
+            :class="{ 'animate-spin': activeQueryLoading }"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+          {{ t('admin.accounts.usageWindow.activeQuery') }}
+        </button>
+      </div>
+      <div v-else class="text-xs text-gray-400">-</div>
+    </template>
+
     <!-- Antigravity OAuth accounts: fetch usage from API -->
     <template v-else-if="account.platform === 'antigravity' && account.type === 'oauth'">
       <!-- 账户类型徽章 -->
@@ -646,6 +716,19 @@ const props = withDefaults(
   }
 )
 
+type KiroUsageRuntimeState = {
+  kiro_quota_state?: string
+  kiro_quota_reason?: string
+  kiro_quota_reset_at?: string | null
+  kiro_runtime_state?: string
+  kiro_runtime_reason?: string
+  kiro_runtime_reset_at?: string | null
+}
+
+const emit = defineEmits<{
+  (e: 'kiro-usage-state', state: KiroUsageRuntimeState): void
+}>()
+
 const { t } = useI18n()
 const desktopViewportQuery = '(min-width: 768px)'
 
@@ -689,6 +772,9 @@ const shouldFetchUsage = computed(() => {
     return props.account.type === 'oauth'
   }
   if (props.account.platform === 'openai') {
+    return props.account.type === 'oauth'
+  }
+  if (props.account.platform === 'kiro') {
     return props.account.type === 'oauth'
   }
   return false
@@ -802,6 +888,31 @@ const aiCreditsDisplay = computed(() => {
   const total = credits.reduce((sum, credit) => sum + (credit.amount ?? 0), 0)
   if (total <= 0) return null
   return total.toFixed(0)
+})
+
+const kiroSubscriptionLabel = computed(() => usageInfo.value?.kiro_subscription_name?.trim() ?? '')
+
+const formatKiroCredit = (credit: NonNullable<AccountUsageInfo['kiro_credit']>) =>
+  t('admin.accounts.usageWindow.kiroUsed', {
+    used: formatCompactNumber(credit.current_usage),
+    limit: formatCompactNumber(credit.usage_limit)
+  })
+
+const kiroBonusRemaining = computed(() => {
+  const days = usageInfo.value?.kiro_bonus?.days_remaining
+  return typeof days === 'number' && days > 0
+    ? ` (${t('admin.accounts.usageWindow.kiroDaysRemaining', { days })})`
+    : ''
+})
+
+const kiroOverageLabel = computed(() => {
+  const overage = usageInfo.value?.kiro_overage
+  if (!overage || (overage.current_overages <= 0 && overage.overage_charges <= 0)) return ''
+  const symbol = overage.currency_symbol || overage.currency_code || ''
+  return t('admin.accounts.usageWindow.kiroOverage', {
+    used: formatCompactNumber(overage.current_overages),
+    charge: `${symbol}${overage.overage_charges.toFixed(2)}`
+  })
 })
 
 // Antigravity 账户类型（从 load_code_assist 响应中提取）
@@ -1262,6 +1373,7 @@ const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?
     const cached = _usageCache.get(props.account.id)
     if (cached && Date.now() - cached.ts < USAGE_CACHE_TTL) {
       usageInfo.value = cached.data
+      emitKiroUsageState(cached.data)
       loading.value = false
       return
     }
@@ -1278,6 +1390,7 @@ const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?
     if (!unmounted.value) {
       usageInfo.value = result
       _usageCache.set(props.account.id, { data: result, ts: Date.now() })
+      emitKiroUsageState(result)
     }
   } catch (e: any) {
     if (!unmounted.value) {
@@ -1342,12 +1455,27 @@ const attachVisibilityObserver = () => {
 const loadActiveUsage = async () => {
   activeQueryLoading.value = true
   try {
-    usageInfo.value = await adminAPI.accounts.getUsage(props.account.id, 'active', true)
+    const result = await adminAPI.accounts.getUsage(props.account.id, 'active', true)
+    usageInfo.value = result
+    _usageCache.set(props.account.id, { data: result, ts: Date.now() })
+    emitKiroUsageState(result)
   } catch (e: any) {
     console.error('Failed to load active usage:', e)
   } finally {
     activeQueryLoading.value = false
   }
+}
+
+const emitKiroUsageState = (usage: AccountUsageInfo) => {
+  if (props.account.platform !== 'kiro') return
+  emit('kiro-usage-state', {
+    kiro_quota_state: usage.kiro_quota_state,
+    kiro_quota_reason: usage.kiro_quota_reason,
+    kiro_quota_reset_at: usage.kiro_quota_reset_at,
+    kiro_runtime_state: usage.kiro_runtime_state,
+    kiro_runtime_reason: usage.kiro_runtime_reason,
+    kiro_runtime_reset_at: usage.kiro_runtime_reset_at
+  })
 }
 
 const handleGrokProbed = (result: GrokQuotaProbeResult) => {

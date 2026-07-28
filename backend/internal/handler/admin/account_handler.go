@@ -210,6 +210,10 @@ type AccountSchedulerGroupScore struct {
 const accountListGroupUngroupedQueryValue = "ungrouped"
 
 func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, account *service.Account) AccountWithConcurrency {
+	if account != nil && h.accountUsageService != nil {
+		h.accountUsageService.EnrichAccountWithKiroRuntimeState(ctx, account)
+	}
+
 	item := AccountWithConcurrency{
 		Account:            dto.AccountFromService(account),
 		CurrentConcurrency: 0,

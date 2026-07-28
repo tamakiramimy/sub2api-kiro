@@ -299,6 +299,15 @@ const isQuotaExceeded = computed(() => {
   )
 })
 
+const isKiroQuotaExhausted = computed(() => {
+  if (props.account.platform !== 'kiro') return false
+  return ['credits_exhausted', 'overage_exhausted'].includes(props.account.kiro_quota_state ?? '')
+})
+
+const isKiroOverageActive = computed(() => {
+  return props.account.platform === 'kiro' && props.account.kiro_quota_state === 'overage_active'
+})
+
 // Computed: countdown text for rate limit (429)
 const rateLimitCountdown = computed(() => {
   return formatCountdown(props.account.rate_limit_reset_at)
@@ -322,6 +331,12 @@ const statusClass = computed(() => {
   if (isTempUnschedulable.value) {
     return 'badge-warning'
   }
+  if (isKiroQuotaExhausted.value) {
+    return 'badge-danger'
+  }
+  if (isKiroOverageActive.value) {
+    return 'badge-warning'
+  }
   if (props.account.status !== 'active') {
     return props.account.status === 'error' ? 'badge-danger' : 'badge-gray'
   }
@@ -341,6 +356,12 @@ const statusText = computed(() => {
   }
   if (isTempUnschedulable.value) {
     return t('admin.accounts.status.tempUnschedulable')
+  }
+  if (isKiroQuotaExhausted.value) {
+    return t('admin.accounts.status.kiroCreditsExhausted')
+  }
+  if (isKiroOverageActive.value) {
+    return t('admin.accounts.status.kiroOverageActive')
   }
   if (props.account.status !== 'active') {
     return t(`admin.accounts.status.${props.account.status}`)

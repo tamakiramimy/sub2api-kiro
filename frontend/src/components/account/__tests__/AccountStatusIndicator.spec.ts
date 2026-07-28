@@ -158,6 +158,42 @@ describe('AccountStatusIndicator', () => {
     expect(wrapper.text()).toContain('admin.accounts.status.creditsExhausted')
   })
 
+  it('Kiro 主额度与 overage 均耗尽时显示不可用状态', () => {
+    const wrapper = mount(AccountStatusIndicator, {
+      props: {
+        account: makeAccount({
+          platform: 'kiro',
+          kiro_quota_state: 'credits_exhausted'
+        })
+      },
+      global: {
+        stubs: {
+          Icon: true
+        }
+      }
+    })
+
+    expect(wrapper.find('.badge-danger').text()).toBe('admin.accounts.status.kiroCreditsExhausted')
+  })
+
+  it('Kiro 开启 overage 时保持启用并显示警告状态', () => {
+    const wrapper = mount(AccountStatusIndicator, {
+      props: {
+        account: makeAccount({
+          platform: 'kiro',
+          kiro_quota_state: 'overage_active'
+        })
+      },
+      global: {
+        stubs: {
+          Icon: true
+        }
+      }
+    })
+
+    expect(wrapper.find('.badge-warning').text()).toBe('admin.accounts.status.kiroOverageActive')
+  })
+
   it('模型限流 + overages 启用 + AICredits key 生效 → 普通限流样式（积分耗尽，无 ⚡）', () => {
     const wrapper = mount(AccountStatusIndicator, {
       props: {

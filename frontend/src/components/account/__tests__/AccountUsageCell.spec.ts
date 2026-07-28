@@ -149,6 +149,61 @@ describe('AccountUsageCell', () => {
     expect(wrapper.text()).toContain('25')
   })
 
+  it('Kiro OAuth 会显示套餐、额度、Bonus，并回传额度耗尽状态', async () => {
+    getUsage.mockResolvedValue({
+      kiro_subscription_name: 'KIRO PRO+',
+      kiro_reset_at: '2026-04-01T00:00:00Z',
+      kiro_credit: {
+        current_usage: 2000,
+        usage_limit: 2000,
+        percentage_used: 100
+      },
+      kiro_bonus: {
+        current_usage: 25,
+        usage_limit: 500,
+        percentage_used: 5,
+        days_remaining: 7,
+        expiry_date: '2026-03-22T00:00:00Z'
+      },
+      kiro_quota_state: 'credits_exhausted',
+      kiro_quota_reset_at: '2026-04-01T00:00:00Z'
+    })
+
+    const wrapper = mount(AccountUsageCell, {
+      props: {
+        account: makeAccount({
+          id: 1003,
+          platform: 'kiro',
+          type: 'oauth'
+        })
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt'],
+            template: '<div class="usage-bar">{{ label }}|{{ utilization }}|{{ resetsAt }}</div>'
+          },
+          AccountQuotaInfo: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(getUsage).toHaveBeenCalledWith(1003)
+    expect(wrapper.text()).toContain('KIRO PRO+')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.kiroCredit|100|2026-04-01T00:00:00Z')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.kiroBonus|5|2026-03-22T00:00:00Z')
+    expect(wrapper.emitted('kiro-usage-state')?.[0]).toEqual([{
+      kiro_quota_state: 'credits_exhausted',
+      kiro_quota_reason: undefined,
+      kiro_quota_reset_at: '2026-04-01T00:00:00Z',
+      kiro_runtime_state: undefined,
+      kiro_runtime_reason: undefined,
+      kiro_runtime_reset_at: undefined
+    }])
+  })
+
 
   it('OpenAI OAuth 快照已过期时首屏会重新请求 usage', async () => {
     getUsage.mockResolvedValue({

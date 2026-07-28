@@ -249,6 +249,10 @@ func (h *AccountHandler) accountListResponseFromService(account *service.Account
 }
 
 func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, account *service.Account) AccountWithConcurrency {
+	if account != nil && h.accountUsageService != nil {
+		h.accountUsageService.EnrichAccountWithKiroRuntimeState(ctx, account)
+	}
+
 	item := AccountWithConcurrency{
 		Account:            h.accountResponseFromService(account),
 		CurrentConcurrency: 0,

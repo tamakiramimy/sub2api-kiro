@@ -236,6 +236,8 @@ export default {
         overloaded: 'Overloaded',
         tempUnschedulable: 'Temp Unschedulable',
         quotaExceeded: 'Quota Exceeded',
+        kiroCreditsExhausted: 'Kiro Credits Exhausted',
+        kiroOverageActive: 'Kiro Overage Active',
         unschedulable: 'Unschedulable',
         rateLimitedUntil: 'Rate limited and removed from scheduling. Auto resumes at {time}',
         rateLimitedAutoResume: 'Auto resumes in {time}',
@@ -1657,7 +1659,12 @@ export default {
         passiveSampled: 'Passive',
         activeQuery: 'Query',
         estimatedTotalCost: 'Est. total ${cost}',
-        estimatedTotalCostTooltip: 'Estimated total cost at 100% utilization, based on current window cost and utilization'
+        estimatedTotalCostTooltip: 'Estimated total cost at 100% utilization, based on current window cost and utilization',
+        kiroCredit: 'Credit',
+        kiroBonus: 'Bonus',
+        kiroUsed: '{used} / {limit}',
+        kiroDaysRemaining: '{days}d left',
+        kiroOverage: 'Overage {used}, charge {charge}'
       },
       openaiReferral: {
         available: 'Invites left',

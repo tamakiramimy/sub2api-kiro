@@ -590,6 +590,9 @@ func setKiroQuotaStateFromUsage(info *UsageInfo) {
 	if info.KiroCredit != nil && info.KiroCredit.UsageLimit > 0 {
 		creditExhausted = info.KiroCredit.CurrentUsage >= info.KiroCredit.UsageLimit
 	}
+	bonusAvailable := info.KiroBonus != nil &&
+		info.KiroBonus.UsageLimit > info.KiroBonus.CurrentUsage &&
+		(info.KiroBonus.ExpiryDate == nil || info.KiroBonus.ExpiryDate.After(time.Now()))
 	overageActive := info.KiroOverage != nil &&
 		(info.KiroOverage.CurrentOverages > 0 || info.KiroOverage.OverageCharges > 0)
 
@@ -598,7 +601,7 @@ func setKiroQuotaStateFromUsage(info *UsageInfo) {
 		info.KiroQuotaState = kiroQuotaStateOverageActive
 		info.KiroQuotaReason = "overages_enabled"
 		info.KiroQuotaResetAt = info.KiroResetAt
-	case creditExhausted:
+	case creditExhausted && !bonusAvailable:
 		info.KiroQuotaState = kiroQuotaStateCreditsExhausted
 		info.KiroQuotaReason = "credits_exhausted"
 		info.KiroQuotaResetAt = info.KiroResetAt

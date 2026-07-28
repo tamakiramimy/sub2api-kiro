@@ -546,6 +546,29 @@ func TestMapKiroUsageToInfo_CreditsExhaustedWithoutOverages(t *testing.T) {
 	require.NotNil(t, info.KiroQuotaResetAt)
 }
 
+func TestMapKiroUsageToInfo_CreditExhaustedWithAvailableBonusRemainsUsable(t *testing.T) {
+	bonusExpiry := time.Now().Add(24 * time.Hour)
+	info := mapKiroUsageToInfo(&kiroUsageLimitsResponse{
+		OverageConfiguration: kiroOverageConfiguration{OverageStatus: "DISABLED"},
+		UsageBreakdownList: []kiroUsageBreakdown{
+			{
+				ResourceType:              "CREDIT",
+				CurrentUsageWithPrecision: kiroFloatPtr(2000),
+				UsageLimitWithPrecision:   kiroFloatPtr(2000),
+				FreeTrialInfo: &kiroFreeTrialInfo{
+					FreeTrialStatus:           "ACTIVE",
+					FreeTrialExpiry:           bonusExpiry.Format(time.RFC3339),
+					CurrentUsageWithPrecision: kiroFloatPtr(25),
+					UsageLimitWithPrecision:   kiroFloatPtr(500),
+				},
+			},
+		},
+	})
+
+	require.Equal(t, kiroQuotaStateNormal, info.KiroQuotaState)
+	require.NotNil(t, info.KiroBonus)
+}
+
 func TestAccountUsageService_EnrichAccountWithKiroRuntimeState(t *testing.T) {
 	svc := NewAccountUsageService(nil, nil, nil, nil, nil, nil, nil, nil, NewUsageCache(), nil, nil).
 		SetKiroCooldownStore(&kiroUsageCooldownStore{

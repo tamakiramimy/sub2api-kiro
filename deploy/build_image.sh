@@ -142,6 +142,10 @@ create_manifest() {
 create_secondary_manifest() {
     local image="$1"
 
+    # docker manifest create keeps local definitions. Remove stale local copies
+    # so repeated releases can replace both the timestamp and latest manifests.
+    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest rm "${image}:${VERSION}" >/dev/null 2>&1 || true
+    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest rm "${image}:latest" >/dev/null 2>&1 || true
     DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create \
         "${image}:${VERSION}" \
         "${image}:amd64-${VERSION}" \

@@ -62,7 +62,7 @@ func TestBuildKiroPayloadBasic(t *testing.T) {
 	require.Equal(t, "I will follow these instructions.", gjson.GetBytes(payload, "conversationState.history.1.assistantResponseMessage.content").String())
 }
 
-func TestBuildKiroPayloadAlwaysIgnoresClientConversationMetadata(t *testing.T) {
+func TestBuildKiroPayloadIgnoresClientContinuationMetadata(t *testing.T) {
 	body := []byte(`{
 		"model":"claude-sonnet-4-5",
 		"messages":[{"role":"user","content":"hello","additional_kwargs":{"conversationId":"client-conv","continuationId":"client-cont"}}]
@@ -74,6 +74,99 @@ func TestBuildKiroPayloadAlwaysIgnoresClientConversationMetadata(t *testing.T) {
 	require.NotEmpty(t, conversationID)
 	require.NotEqual(t, "client-conv", conversationID)
 	require.False(t, gjson.GetBytes(result.Payload, "conversationState.agentContinuationId").Exists())
+}
+
+func TestBuildKiroPayloadReplaysHistoryDespiteClientContinuationMetadata(t *testing.T) {
+	body := []byte(`{
+		"model":"claude-sonnet-4-5",
+		"messages":[
+			{"role":"user","content":"first","additional_kwargs":{"conversationId":"old-conv","continuationId":"old-cont"}},
+			{"role":"assistant","content":"first reply"},
+			{"role":"user","content":"continue","additional_kwargs":{"conversationId":"current-conv","continuationId":"current-cont"}}
+		]
+	}`)
+
+	result, err := BuildKiroPayloadWithContext(body, "claude-sonnet-4.5", "", "AI_EDITOR", nil)
+	require.NoError(t, err)
+	require.NotEqual(t, "current-conv", gjson.GetBytes(result.Payload, "conversationState.conversationId").String())
+	require.False(t, gjson.GetBytes(result.Payload, "conversationState.agentContinuationId").Exists())
+	require.NotEmpty(t, gjson.GetBytes(result.Payload, "conversationState.history").Array())
+}
+
+func TestBuildKiroPayloadReplaysHistoryForToolResultTurn(t *testing.T) {
+	body := []byte(`{
+		"model":"claude-opus-5",
+		"messages":[
+			{"role":"user","content":"inspect the project"},
+			{"role":"assistant","content":[{"type":"tool_use","id":"toolu_read","name":"Read","input":{"file_path":"main.go"}}]},
+			{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_read","content":"package main"}],"additional_kwargs":{"conversationId":"conv-tool","continuationId":"cont-tool"}}
+		]
+	}`)
+
+	result, err := BuildKiroPayloadWithContext(body, "claude-opus-5", "", "AI_EDITOR", nil)
+	require.NoError(t, err)
+	require.NotEqual(t, "conv-tool", gjson.GetBytes(result.Payload, "conversationState.conversationId").String())
+	require.False(t, gjson.GetBytes(result.Payload, "conversationState.agentContinuationId").Exists())
+	require.NotEmpty(t, gjson.GetBytes(result.Payload, "conversationState.history").Array())
+	require.Equal(t, "toolu_read", gjson.GetBytes(result.Payload, "conversationState.currentMessage.userInputMessage.userInputMessageContext.toolResults.0.toolUseId").String())
+}
+
+func TestBuildKiroPayloadWithContinuationReplaysFullHistory(t *testing.T) {
+	body := []byte(`{
+		"model":"claude-opus-5",
+		"system":"You are an agent.",
+		"messages":[
+			{"role":"user","content":"inspect the project"},
+			{"role":"assistant","content":[{"type":"tool_use","id":"toolu_read","name":"Read","input":{"file_path":"main.go"}}]},
+			{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_read","content":"package main"}]}
+		]
+	}`)
+
+	result, err := BuildKiroPayloadWithContinuation(body, "claude-opus-5", "", "AI_EDITOR", nil, &KiroContinuation{
+		ConversationID:      "kiro-conversation",
+		AgentContinuationID: "kiro-continuation",
+	})
+	require.NoError(t, err)
+	require.NotEqual(t, "kiro-conversation", gjson.GetBytes(result.Payload, "conversationState.conversationId").String())
+	require.False(t, gjson.GetBytes(result.Payload, "conversationState.agentContinuationId").Exists())
+	require.NotEmpty(t, gjson.GetBytes(result.Payload, "conversationState.history").Array())
+	require.Equal(t, "toolu_read", gjson.GetBytes(result.Payload, "conversationState.currentMessage.userInputMessage.userInputMessageContext.toolResults.0.toolUseId").String())
+}
+
+func TestBuildKiroPayloadFoldsInlineSystemMessageIntoLeadingPrompt(t *testing.T) {
+	body := []byte(`{
+		"model":"claude-opus-5",
+		"system":"Base policy",
+		"messages":[
+			{"role":"user","content":"inspect the project"},
+			{"role":"system","content":[{"type":"text","text":"Use the supplied tools and continue until the task is complete."}]},
+			{"role":"assistant","content":[{"type":"tool_use","id":"toolu_read","name":"Read","input":{"file_path":"main.go"}}]},
+			{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_read","content":"package main"}]}
+		],
+		"tools":[{"name":"Read","description":"Read a file","input_schema":{"type":"object"}}]
+	}`)
+
+	result, err := BuildKiroPayloadWithContext(body, "claude-opus-5", "", "AI_EDITOR", nil)
+	require.NoError(t, err)
+	payload := result.Payload
+	require.Contains(t, gjson.GetBytes(payload, "conversationState.history.0.userInputMessage.content").String(), "Base policy")
+	require.Contains(t, gjson.GetBytes(payload, "conversationState.history.0.userInputMessage.content").String(), "continue until the task is complete")
+	require.Equal(t, "toolu_read", gjson.GetBytes(payload, "conversationState.currentMessage.userInputMessage.userInputMessageContext.toolResults.0.toolUseId").String())
+	require.Equal(t, int64(1), gjson.GetBytes(payload, "conversationState.currentMessage.userInputMessage.userInputMessageContext.tools.#").Int())
+}
+
+func TestBuildKiroPayloadPreservesResponsesInputTextToolResult(t *testing.T) {
+	body := []byte(`{
+		"model":"gpt-5.6-sol",
+		"messages":[
+			{"role":"assistant","content":[{"type":"tool_use","id":"toolu_exec","name":"exec","input":{"cmd":"pwd"}}]},
+			{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_exec","content":[{"type":"input_text","text":"/workspace"}]}]}
+		]
+	}`)
+
+	result, err := BuildKiroPayloadWithContext(body, "gpt-5.6-sol", "", "AI_EDITOR", nil)
+	require.NoError(t, err)
+	require.Equal(t, "/workspace", gjson.GetBytes(result.Payload, "conversationState.currentMessage.userInputMessage.userInputMessageContext.toolResults.0.content.0.text").String())
 }
 
 func TestBuildKiroPayloadDoesNotInsertUserDotBeforeLeadingAssistant(t *testing.T) {
@@ -259,6 +352,8 @@ func TestBuildKiroPayloadInjectsChunkedWritePolicyIntoSystemPrompt(t *testing.T)
 	require.Contains(t, systemContent, "Follow user instructions.")
 	require.Contains(t, systemContent, systemChunkedWritePolicy)
 	require.Equal(t, 1, strings.Count(systemContent, systemChunkedWritePolicy))
+	require.Contains(t, systemContent, systemAutonomousCompletionPolicy)
+	require.Equal(t, 1, strings.Count(systemContent, systemAutonomousCompletionPolicy))
 }
 
 func TestBuildKiroPayloadInjectsThinkingIntoHistory(t *testing.T) {
@@ -528,6 +623,28 @@ func TestParseNonStreamingEventStreamExtractsEmbeddedToolCall(t *testing.T) {
 	require.Equal(t, "golang concurrency", content[1].Get("input.query").String())
 }
 
+func TestParseNonStreamingEventStreamExtractsXMLInvokeToolCall(t *testing.T) {
+	stream := bytes.NewBuffer(nil)
+	_, _ = stream.Write(buildEventStreamFrame(t, "assistantResponseEvent", map[string]any{
+		"assistantResponseEvent": map[string]any{
+			"content": "Before <invoke name=\"bash\">\n<parameter name=\"command\">ls -la /workspace</parameter>\n<parameter name=\"description\">List files</parameter>\n</invoke> After",
+		},
+	}))
+
+	result, err := ParseNonStreamingEventStreamWithContext(stream, "claude-sonnet-4-5", KiroRequestContext{ToolNameMap: map[string]string{"bash": "Bash"}})
+	require.NoError(t, err)
+	require.Equal(t, "tool_use", result.StopReason)
+	require.NotContains(t, string(result.ResponseBody), "<invoke")
+
+	content := gjson.GetBytes(result.ResponseBody, "content").Array()
+	require.Len(t, content, 2)
+	require.Equal(t, "Before  After", content[0].Get("text").String())
+	require.Equal(t, "tool_use", content[1].Get("type").String())
+	require.Equal(t, "Bash", content[1].Get("name").String())
+	require.Equal(t, "ls -la /workspace", content[1].Get("input.command").String())
+	require.Equal(t, "List files", content[1].Get("input.description").String())
+}
+
 func TestParseNonStreamingEventStreamDeduplicatesToolUsesByContent(t *testing.T) {
 	stream := bytes.NewBuffer(nil)
 	_, _ = stream.Write(buildEventStreamFrame(t, "assistantResponseEvent", map[string]any{
@@ -620,6 +737,24 @@ func TestParseNonStreamingEventStreamThinkingOnlyResponse(t *testing.T) {
 	require.Equal(t, "", gjson.GetBytes(result.ResponseBody, "content.1.text").String())
 }
 
+func TestParseNonStreamingEventStreamExtractsContinuation(t *testing.T) {
+	stream := bytes.NewBuffer(nil)
+	_, _ = stream.Write(buildEventStreamFrame(t, "messageMetadataEvent", map[string]any{
+		"messageMetadataEvent": map[string]any{
+			"conversationId":      "kiro-conversation-1",
+			"agentContinuationId": "kiro-continuation-1",
+		},
+	}))
+	_, _ = stream.Write(buildEventStreamFrame(t, "assistantResponseEvent", map[string]any{
+		"assistantResponseEvent": map[string]any{"content": "done"},
+	}))
+
+	result, err := ParseNonStreamingEventStreamWithContext(stream, "claude-opus-5", KiroRequestContext{})
+	require.NoError(t, err)
+	require.Equal(t, "kiro-conversation-1", result.Continuation.ConversationID)
+	require.Equal(t, "kiro-continuation-1", result.Continuation.AgentContinuationID)
+}
+
 func TestStreamEventStreamAsAnthropicExtractsEmbeddedToolCall(t *testing.T) {
 	stream := bytes.NewBuffer(nil)
 	_, _ = stream.Write(buildEventStreamFrame(t, "assistantResponseEvent", map[string]any{
@@ -644,6 +779,82 @@ func TestStreamEventStreamAsAnthropicExtractsEmbeddedToolCall(t *testing.T) {
 	require.Contains(t, output, `"text":" After"`)
 	require.Contains(t, output, `"name":"remote_web_search"`)
 	require.Contains(t, output, `"partial_json":"{\"query\":\"golang\"}"`)
+}
+
+func TestStreamEventStreamAsAnthropicConvertsXMLInvokeToToolUse(t *testing.T) {
+	stream := bytes.NewBuffer(nil)
+	_, _ = stream.Write(buildEventStreamFrame(t, "assistantResponseEvent", map[string]any{
+		"assistantResponseEvent": map[string]any{
+			"content": "<invoke name=\"bash\">\n<parameter name=\"command\">ls -la /workspace</parameter>\n",
+		},
+	}))
+	_, _ = stream.Write(buildEventStreamFrame(t, "assistantResponseEvent", map[string]any{
+		"assistantResponseEvent": map[string]any{
+			"content": "<parameter name=\"description\">List files</parameter>\n</invoke>",
+		},
+	}))
+	_, _ = stream.Write(buildEventStreamFrame(t, "messageStopEvent", map[string]any{
+		"messageStopEvent": map[string]any{"stop_reason": "end_turn"},
+	}))
+
+	var out bytes.Buffer
+	result, err := StreamEventStreamAsAnthropicWithContext(
+		context.Background(), stream, &out, "claude-sonnet-4-5", 9, KiroRequestContext{ToolNameMap: map[string]string{"bash": "Bash"}},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "tool_use", result.StopReason)
+
+	output := out.String()
+	require.NotContains(t, output, "<invoke")
+	require.Contains(t, output, `"name":"Bash"`)
+	require.Contains(t, output, `"partial_json":"{\"command\":\"ls -la /workspace\",\"description\":\"List files\"}"`)
+	require.Contains(t, output, `"stop_reason":"tool_use"`)
+}
+
+func TestStreamEventStreamAsAnthropicExtractsContinuation(t *testing.T) {
+	stream := bytes.NewBuffer(nil)
+	_, _ = stream.Write(buildEventStreamFrame(t, "messageMetadataEvent", map[string]any{
+		"messageMetadataEvent": map[string]any{
+			"session": map[string]any{
+				"conversationId":      "kiro-conversation-2",
+				"agentContinuationId": "kiro-continuation-2",
+			},
+		},
+	}))
+	_, _ = stream.Write(buildEventStreamFrame(t, "assistantResponseEvent", map[string]any{
+		"assistantResponseEvent": map[string]any{"content": "done"},
+	}))
+
+	var out bytes.Buffer
+	result, err := StreamEventStreamAsAnthropicWithContext(context.Background(), stream, &out, "claude-opus-5", 9, KiroRequestContext{})
+	require.NoError(t, err)
+	require.Equal(t, "kiro-conversation-2", result.Continuation.ConversationID)
+	require.Equal(t, "kiro-continuation-2", result.Continuation.AgentContinuationID)
+}
+
+func TestStreamEventStreamAsAnthropicCoalescesAdjacentReasoningEvents(t *testing.T) {
+	stream := bytes.NewBuffer(nil)
+	for _, text := range []string{"first reasoning fragment", "second reasoning fragment"} {
+		_, _ = stream.Write(buildEventStreamFrame(t, "reasoningContentEvent", map[string]any{
+			"reasoningContentEvent": map[string]any{"text": text},
+		}))
+	}
+	_, _ = stream.Write(buildEventStreamFrame(t, "assistantResponseEvent", map[string]any{
+		"assistantResponseEvent": map[string]any{"content": "I will now edit the game files."},
+	}))
+
+	var out bytes.Buffer
+	_, err := StreamEventStreamAsAnthropicWithContext(
+		context.Background(), stream, &out, "claude-opus-5", 9, KiroRequestContext{ThinkingEnabled: true},
+	)
+	require.NoError(t, err)
+
+	output := out.String()
+	require.Equal(t, 1, strings.Count(output, `"type":"thinking"`))
+	require.Equal(t, 2, strings.Count(output, `"type":"thinking_delta"`))
+	require.Equal(t, 1, strings.Count(output, `"type":"signature_delta"`))
+	require.Contains(t, output, `"text":"I will now edit the g"`)
+	require.Contains(t, output, `"text":"ame files."`)
 }
 
 func TestStreamEventStreamAsAnthropicSkipsLeadingWhitespaceOnlyChunk(t *testing.T) {
@@ -777,8 +988,10 @@ func TestStreamEventStreamAsAnthropicStreamsToolUseFragments(t *testing.T) {
 
 	output := out.String()
 	require.Equal(t, 1, strings.Count(output, `"id":"toolu_stream"`))
-	require.Contains(t, output, `"partial_json":"{\"path\":\"/tmp/a.txt\","`)
-	require.Contains(t, output, `"partial_json":"\"content\":\"hello\"}"`)
+	// Tool input is emitted only after all source fragments form one valid JSON
+	// object. Exposing the first fragment lets a client execute a truncated tool
+	// call and ends the multi-step agent loop prematurely.
+	require.Contains(t, output, `"partial_json":"{\"content\":\"hello\",\"path\":\"/tmp/a.txt\"}"`)
 	require.Contains(t, output, `event: content_block_stop`)
 }
 
@@ -796,8 +1009,34 @@ func TestStreamEventStreamAsAnthropicStreamsIncompleteToolUseFragment(t *testing
 	var out bytes.Buffer
 	result, err := StreamEventStreamAsAnthropicWithContext(context.Background(), stream, &out, "claude-sonnet-4-5", 9, KiroRequestContext{})
 	require.NoError(t, err)
+	require.Equal(t, "end_turn", result.StopReason)
+	require.NotContains(t, out.String(), `"id":"toolu_incomplete"`)
+	require.NotContains(t, out.String(), `"type":"input_json_delta"`)
+}
+
+func TestStreamEventStreamAsAnthropicKeepsToolNameFromSeparateStartFrame(t *testing.T) {
+	stream := bytes.NewBuffer(nil)
+	_, _ = stream.Write(buildEventStreamFrame(t, "toolUseEvent", map[string]any{
+		"toolUseEvent": map[string]any{
+			"toolUseId": "toolu_separate_name",
+			"name":      "write_to_file",
+		},
+	}))
+	_, _ = stream.Write(buildEventStreamFrame(t, "toolUseEvent", map[string]any{
+		"toolUseEvent": map[string]any{
+			"toolUseId": "toolu_separate_name",
+			"input":     `{"path":"main.go","content":"package main"}`,
+			"stop":      true,
+		},
+	}))
+
+	var out bytes.Buffer
+	result, err := StreamEventStreamAsAnthropicWithContext(context.Background(), stream, &out, "claude-sonnet-4-5", 9, KiroRequestContext{})
+	require.NoError(t, err)
 	require.Equal(t, "tool_use", result.StopReason)
-	require.Contains(t, out.String(), `"partial_json":"{\"path\":"`)
+	require.Contains(t, out.String(), `"id":"toolu_separate_name"`)
+	require.Contains(t, out.String(), `"name":"write_to_file"`)
+	require.Contains(t, out.String(), `"partial_json":"{\"content\":\"package main\",\"path\":\"main.go\"}"`)
 }
 
 func TestStreamEventStreamAsAnthropicStopsPreviousToolWhenIDChanges(t *testing.T) {
@@ -1016,13 +1255,13 @@ func TestStreamEventStreamAsAnthropicThinkingOnlyResponse(t *testing.T) {
 	var out bytes.Buffer
 	result, err := StreamEventStreamAsAnthropicWithContext(context.Background(), stream, &out, "claude-sonnet-4-5", 9, KiroRequestContext{ThinkingEnabled: true})
 	require.NoError(t, err)
-	require.Equal(t, "max_tokens", result.StopReason)
+	require.Equal(t, "end_turn", result.StopReason)
 
 	output := out.String()
 	require.Contains(t, output, `"type":"thinking"`)
 	require.Contains(t, output, `"type":"thinking_delta"`)
 	require.Contains(t, output, `"thinking":"I should think first."`)
-	require.Contains(t, output, `"text":" "`)
+	require.Contains(t, output, `"stop_reason":"end_turn"`)
 	require.Contains(t, output, `event: message_delta`)
 	require.Contains(t, output, `event: message_stop`)
 }

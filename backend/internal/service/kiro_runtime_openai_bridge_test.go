@@ -16,6 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 // buildKiroBridgeEventStreamFrame constructs a single AWS event-stream framed
@@ -78,6 +79,55 @@ func kiroBridgeSuccessEventStream(t *testing.T) []byte {
 		"messageStopEvent": map[string]any{"stop_reason": "end_turn"},
 	}))
 	return stream.Bytes()
+}
+
+func TestOpenKiroAnthropicStreamResponseReplaysHistoryForNextTurn(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	stream := bytes.NewBuffer(nil)
+	_, _ = stream.Write(buildKiroBridgeEventStreamFrame(t, "messageMetadataEvent", map[string]any{
+		"messageMetadataEvent": map[string]any{
+			"conversationId":      "kiro-server-conversation",
+			"agentContinuationId": "kiro-server-continuation",
+		},
+	}))
+	_, _ = stream.Write(buildKiroBridgeEventStreamFrame(t, "assistantResponseEvent", map[string]any{
+		"assistantResponseEvent": map[string]any{"content": "I will continue the task."},
+	}))
+	_, _ = stream.Write(buildKiroBridgeEventStreamFrame(t, "messageStopEvent", map[string]any{
+		"messageStopEvent": map[string]any{"stop_reason": "end_turn"},
+	}))
+
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/vnd.amazon.eventstream"}},
+		Body:       io.NopCloser(bytes.NewReader(stream.Bytes())),
+	}}
+	continuationStore := &memoryKiroContinuationStore{}
+	svc := &GatewayService{
+		httpUpstream:          upstream,
+		kiroCooldownStore:     &kiroUsageCooldownStore{},
+		kiroContinuationStore: continuationStore,
+	}
+	account := kiroBridgeTestAccount()
+	body := []byte(`{"model":"claude-opus-5","metadata":{"user_id":"{\"session_id\":\"desktop-session-bridge\",\"device_id\":\"device-bridge\"}"},"messages":[{"role":"user","content":"inspect the project"}],"stream":true}`)
+	parsed, err := ParseGatewayRequest(NewRequestBodyRef(body), "anthropic")
+	require.NoError(t, err)
+	groupID := int64(3)
+	parsed.GroupID = &groupID
+	parsed.SessionContext = &SessionContext{APIKeyID: 77, ClientIP: "10.0.0.1", UserAgent: "Claude/1.0"}
+
+	resp, _, err := svc.openKiroAnthropicStreamResponse(context.Background(), account, parsed, body, "claude-opus-5", "claude-opus-5", nil, nil)
+	require.NoError(t, err)
+	_, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+
+	nextPayload, err := svc.buildKiroPayloadForAccount(context.Background(), account, parsed, body, "claude-opus-5", "token", "claude-opus-5", nil)
+	require.NoError(t, err)
+	require.NotEqual(t, "kiro-server-conversation", gjson.GetBytes(nextPayload.Payload, "conversationState.conversationId").String())
+	require.False(t, gjson.GetBytes(nextPayload.Payload, "conversationState.agentContinuationId").Exists())
+	require.NotEmpty(t, gjson.GetBytes(nextPayload.Payload, "conversationState.history").Array())
 }
 
 // TestForwardKiroAsResponses_StreamingSuccess verifies that a Kiro account can

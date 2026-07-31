@@ -714,6 +714,7 @@ type GatewayService struct {
 	userPlatformQuotaRepo UserPlatformQuotaRepository
 	kiroTokenProvider     *KiroTokenProvider
 	kiroCooldownStore     KiroCooldownStore
+	kiroContinuationStore KiroContinuationStore
 }
 
 // NewGatewayService creates a new GatewayService
@@ -809,6 +810,15 @@ func (s *GatewayService) SetKiroTokenProvider(provider *KiroTokenProvider) *Gate
 func (s *GatewayService) SetKiroCooldownStore(store KiroCooldownStore) *GatewayService {
 	if s != nil {
 		s.kiroCooldownStore = store
+	}
+	return s
+}
+
+// SetKiroContinuationStore injects the optional Redis-backed Kiro agent state
+// cache. A nil store preserves stateless replay behavior.
+func (s *GatewayService) SetKiroContinuationStore(store KiroContinuationStore) *GatewayService {
+	if s != nil {
+		s.kiroContinuationStore = store
 	}
 	return s
 }

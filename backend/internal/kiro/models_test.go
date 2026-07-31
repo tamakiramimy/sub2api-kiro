@@ -14,15 +14,19 @@ func TestDefaultModels_MatchesKiroReferenceModelsPlusGPTExtension(t *testing.T) 
 
 	// 基线为经过真实 Kiro 上游验证的 Claude 模型，加上 Kiro 近期新增的 3 个
 	// OpenAI GPT-5.6 代理模型（sol/terra/luna）。Sonnet 5 的 Kiro modelId
-	// 是 claude-sonnet-5，Opus 5 的 Kiro modelId 是 claude-opus-5；两者对外
-	// 兼容别名分别保持 claude-sonnet-5-0 和 claude-opus-5-0。
+	// 是 claude-sonnet-5，Opus 5 的 Kiro modelId 是 claude-opus-5；两者同时
+	// 对外暴露 canonical ID 与 -0 兼容别名。
 	require.Equal(t, []string{
+		"claude-opus-5",
+		"claude-opus-5-thinking",
 		"claude-opus-5-0",
 		"claude-opus-5-0-thinking",
 		"claude-opus-4-8",
 		"claude-opus-4-8-thinking",
 		"claude-opus-4-7",
 		"claude-opus-4-7-thinking",
+		"claude-sonnet-5",
+		"claude-sonnet-5-thinking",
 		"claude-sonnet-5-0",
 		"claude-sonnet-5-0-thinking",
 		"claude-opus-4-6",
@@ -43,12 +47,16 @@ func TestDefaultModels_MatchesKiroReferenceModelsPlusGPTExtension(t *testing.T) 
 	require.Contains(t, ids, "claude-sonnet-4-6")
 	require.Contains(t, ids, "claude-opus-4-7")
 	require.Contains(t, ids, "claude-opus-4-8")
+	require.Contains(t, ids, "claude-opus-5")
+	require.Contains(t, ids, "claude-opus-5-thinking")
 	require.Contains(t, ids, "claude-opus-5-0")
 	require.Contains(t, ids, "claude-opus-5-0-thinking")
 	require.Contains(t, ids, "claude-haiku-4-5-20251001-thinking")
 	require.Contains(t, ids, "gpt-5.6-sol")
 	require.Contains(t, ids, "gpt-5.6-terra")
 	require.Contains(t, ids, "gpt-5.6-luna")
+	require.Contains(t, ids, "claude-sonnet-5")
+	require.Contains(t, ids, "claude-sonnet-5-thinking")
 	require.Contains(t, ids, "claude-sonnet-5-0")
 	require.Contains(t, ids, "claude-sonnet-5-0-thinking")
 	require.NotContains(t, ids, "auto")

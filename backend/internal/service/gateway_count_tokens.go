@@ -80,9 +80,11 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 		}
 	}
 
-	// Antigravity 账户不支持 count_tokens，返回 404 让客户端 fallback 到本地估算。
+	// Antigravity 和 Kiro 账户不支持 count_tokens，返回 404 让客户端 fallback 到本地估算。
+	// Kiro OAuth 将该探测请求拒绝为 401；若继续转发会被统一认证错误策略误判为
+	// 账号失效并写入临时冷却，继而阻塞实际 messages 请求。
 	// 返回 nil 避免 handler 层记录为错误，也不设置 ops 上游错误上下文。
-	if account.Platform == PlatformAntigravity {
+	if account.Platform == PlatformAntigravity || account.Platform == PlatformKiro {
 		s.countTokensError(c, http.StatusNotFound, "not_found_error", "count_tokens endpoint is not supported for this platform")
 		return nil
 	}

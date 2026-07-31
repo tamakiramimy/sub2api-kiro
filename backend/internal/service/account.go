@@ -657,6 +657,20 @@ func normalizeKiroClaude5Mappings(mapping map[string]string) {
 			mapping[model] = canonical
 		}
 	}
+	for legacyModel, clientModel := range map[string]string{
+		"claude-opus-5-0":            "claude-opus-5",
+		"claude-opus-5-0-thinking":   "claude-opus-5-thinking",
+		"claude-opus-5.0":            "claude-opus-5",
+		"claude-sonnet-5-0":          "claude-sonnet-5",
+		"claude-sonnet-5-0-thinking": "claude-sonnet-5-thinking",
+		"claude-sonnet-5.0":          "claude-sonnet-5",
+	} {
+		if _, legacyExists := mapping[legacyModel]; legacyExists {
+			if _, clientExists := mapping[clientModel]; !clientExists {
+				mapping[clientModel] = strings.TrimSuffix(clientModel, "-thinking")
+			}
+		}
+	}
 }
 
 func mapPtr(m map[string]any) uintptr {

@@ -45,13 +45,17 @@ describe('useModelWhitelist', () => {
   it('Kiro 模型列表与映射预设都包含 Claude Opus 5 与 GPT-5.6 三个变体', () => {
     const models = getModelsByPlatform('kiro')
 
-	  expect(models).toContain('claude-opus-5-0')
-	  expect(models).toContain('claude-opus-5-0-thinking')
+    expect(models).toContain('claude-opus-5')
+    expect(models).toContain('claude-opus-5-thinking')
+    expect(models).toContain('claude-opus-5-0')
+    expect(models).toContain('claude-opus-5-0-thinking')
     expect(models).toContain('gpt-5.6-sol')
     expect(models).toContain('gpt-5.6-terra')
     expect(models).toContain('gpt-5.6-luna')
-      expect(models).toContain('claude-sonnet-5-0')
-      expect(models).toContain('claude-sonnet-5-0-thinking')
+    expect(models).toContain('claude-sonnet-5')
+    expect(models).toContain('claude-sonnet-5-thinking')
+    expect(models).toContain('claude-sonnet-5-0')
+    expect(models).toContain('claude-sonnet-5-0-thinking')
   })
 
   it('完整 Kiro 默认映射会同时覆盖 GPT 与 Claude 模型', () => {
@@ -73,9 +77,11 @@ describe('useModelWhitelist', () => {
       'claude-sonnet-5-0': 'claude-sonnet-5.0',
       'claude-sonnet-4-6': 'claude-sonnet-4.6'
     })).toEqual({
-		'claude-opus-5-0': 'claude-opus-5',
-        'claude-sonnet-5-0': 'claude-sonnet-5',
-        'claude-sonnet-4-6': 'claude-sonnet-4.6'
+      'claude-opus-5-0': 'claude-opus-5',
+      'claude-sonnet-5-0': 'claude-sonnet-5',
+      'claude-sonnet-4-6': 'claude-sonnet-4.6',
+      'claude-opus-5': 'claude-opus-5',
+      'claude-sonnet-5': 'claude-sonnet-5'
     })
   })
 

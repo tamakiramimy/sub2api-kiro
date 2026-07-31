@@ -13,9 +13,13 @@ export VERSION="$(tr -d '\n' < backend/cmd/server/VERSION)"
 
 发布时应同时保留架构专用标签和多架构标签：
 
-- `${VERSION}-amd64`、`amd64`
-- `${VERSION}-arm64`、`arm64`
+- `amd64-${VERSION}`、`amd64-latest`
+- `arm64-${VERSION}`、`arm64-latest`
 - `${VERSION}`、`latest`（包含 AMD64 与 ARM64 的 OCI manifest）
+
+当前发行版本格式为 `YYYYMMDD_HHMMSS`，例如 `20260731_092100`。Docker
+引用只能有一个 tag 分隔冒号，因此架构 latest 标签必须写为
+`image:arm64-latest`，不能写成 `image:arm64:latest`。
 
 使用密码标准输入登录，避免密码进入命令行参数：
 
@@ -73,7 +77,7 @@ docker buildx build --progress=plain --platform linux/amd64 --push \
   --build-arg NPM_CONFIG_REGISTRY=https://registry.npmmirror.com \
   --build-arg GOPROXY=https://mirrors.aliyun.com/goproxy/,direct \
   --build-arg GOSUMDB=off \
-  --tag "${IMAGE}:${VERSION}-amd64" --tag "${IMAGE}:amd64" .
+  --tag "${IMAGE}:amd64-${VERSION}" --tag "${IMAGE}:amd64-latest" .
 
 docker buildx build --progress=plain --platform linux/arm64 --push \
   --build-arg VERSION="$VERSION" \
@@ -82,11 +86,15 @@ docker buildx build --progress=plain --platform linux/arm64 --push \
   --build-arg NPM_CONFIG_REGISTRY=https://registry.npmmirror.com \
   --build-arg GOPROXY=https://mirrors.aliyun.com/goproxy/,direct \
   --build-arg GOSUMDB=off \
-  --tag "${IMAGE}:${VERSION}-arm64" --tag "${IMAGE}:arm64" .
+  --tag "${IMAGE}:arm64-${VERSION}" --tag "${IMAGE}:arm64-latest" .
 
 docker buildx imagetools create \
   --tag "${IMAGE}:${VERSION}" --tag "${IMAGE}:latest" \
-  "${IMAGE}:${VERSION}-amd64" "${IMAGE}:${VERSION}-arm64"
+  "${IMAGE}:amd64-${VERSION}" "${IMAGE}:arm64-${VERSION}"
+
+构建多个 Registry 时，只在主 Registry 执行上述 AMD64 和 ARM64 两次构建。
+随后从主 Registry 拉取各架构镜像、打目标 Registry 标签并推送，再在目标
+Registry 创建多架构 manifest；不要为第二个 Registry 重复编译。
 ```
 
 ## 发布后验证

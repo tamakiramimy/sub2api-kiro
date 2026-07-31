@@ -14,7 +14,38 @@ func TestAccountKiroDefaultMappingRestrictsUnsupportedModels(t *testing.T) {
 	require.False(t, account.IsModelSupported("gpt-4o"))
 	require.False(t, account.IsModelSupported("kiro-gpt-4o"))
 	require.False(t, account.IsModelSupported("auto"))
+	require.True(t, account.IsModelSupported("claude-opus-5"))
+	require.True(t, account.IsModelSupported("claude-opus-5-thinking"))
+	require.True(t, account.IsModelSupported("claude-sonnet-5"))
+	require.True(t, account.IsModelSupported("claude-sonnet-5-thinking"))
+	require.Equal(t, "claude-opus-5", account.GetMappedModel("claude-opus-5-thinking"))
+	require.Equal(t, "claude-sonnet-5", account.GetMappedModel("claude-sonnet-5-thinking"))
 	require.Equal(t, "claude-sonnet-4.6", account.GetMappedModel("claude-sonnet-4-6"))
+}
+
+func TestAccountKiroLegacyClaude5MappingsExposeCanonicalClientIDs(t *testing.T) {
+	account := &Account{
+		Platform: PlatformKiro,
+		Credentials: map[string]any{
+			"model_mapping": map[string]any{
+				"claude-opus-5-0":            "claude-opus-5.0",
+				"claude-opus-5-0-thinking":   "claude-opus-5.0",
+				"claude-sonnet-5-0":          "claude-sonnet-5.0",
+				"claude-sonnet-5-0-thinking": "claude-sonnet-5.0",
+			},
+		},
+	}
+
+	for _, model := range []string{
+		"claude-opus-5",
+		"claude-opus-5-thinking",
+		"claude-sonnet-5",
+		"claude-sonnet-5-thinking",
+	} {
+		require.True(t, account.IsModelSupported(model), model)
+	}
+	require.Equal(t, "claude-opus-5", account.GetMappedModel("claude-opus-5-thinking"))
+	require.Equal(t, "claude-sonnet-5", account.GetMappedModel("claude-sonnet-5-thinking"))
 }
 
 func TestGatewayServiceCalculateTokenCost_KiroAutoUsesConservativeFallback(t *testing.T) {

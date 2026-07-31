@@ -1341,6 +1341,43 @@ func TestAPIKeyAuthUsageStillTouchesLastUsed(t *testing.T) {
 	require.Equal(t, 1, touchCalls)
 }
 
+func TestAPIKeyAuthModelsListSkipsBilling(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	user := &service.User{
+		ID:          7,
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     0,
+		Concurrency: 3,
+	}
+	apiKey := &service.APIKey{
+		ID:     100,
+		UserID: user.ID,
+		Key:    "models-list-auth-only",
+		Status: service.StatusActive,
+		User:   user,
+	}
+	apiKeyRepo := &stubApiKeyRepo{
+		getByKey: func(context.Context, string) (*service.APIKey, error) {
+			clone := *apiKey
+			return &clone, nil
+		},
+	}
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	router := newAuthTestRouter(apiKeyService, nil, cfg)
+
+	for _, path := range []string{"/v1/models", "/models"} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.Header.Set("x-api-key", apiKey.Key)
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code, path)
+	}
+}
+
 func TestAPIKeyAuthAllowsBalanceBelowMinimumReserve(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -1508,6 +1545,8 @@ func newAuthTestRouter(apiKeyService *service.APIKeyService, subscriptionService
 	router.GET("/t", ok)
 	router.POST("/v1/responses", ok)
 	router.POST("/v1/messages", ok)
+	router.GET("/v1/models", ok)
+	router.GET("/models", ok)
 	router.GET("/v1/usage", ok)
 	router.GET("/v1/sub2api/billing", ok)
 	return router

@@ -139,6 +139,21 @@ create_manifest() {
         "${image}:arm64-${VERSION}"
 }
 
+create_secondary_manifest() {
+    local image="$1"
+
+    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create \
+        "${image}:${VERSION}" \
+        "${image}:amd64-${VERSION}" \
+        "${image}:arm64-${VERSION}"
+    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push "${image}:${VERSION}"
+    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create \
+        "${image}:latest" \
+        "${image}:amd64-${VERSION}" \
+        "${image}:arm64-${VERSION}"
+    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push "${image}:latest"
+}
+
 # These are the only two compilation steps in publish mode.
 build_architecture amd64
 build_architecture arm64
@@ -147,7 +162,7 @@ create_manifest "${PRIMARY_IMAGE}"
 # Secondary registry receives copied architecture tags and a manifest only.
 copy_architecture amd64
 copy_architecture arm64
-create_manifest "${SECONDARY_IMAGE}"
+create_secondary_manifest "${SECONDARY_IMAGE}"
 
 docker buildx imagetools inspect "${PRIMARY_IMAGE}:${VERSION}"
-docker buildx imagetools inspect "${SECONDARY_IMAGE}:${VERSION}"
+DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "${SECONDARY_IMAGE}:${VERSION}"

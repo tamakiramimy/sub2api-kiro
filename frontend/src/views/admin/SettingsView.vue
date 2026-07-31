@@ -723,6 +723,62 @@
                     </div>
                   </div>
 
+                  <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+                    <div class="flex items-center justify-between gap-4">
+                      <div>
+                        <label class="font-medium text-gray-900 dark:text-white">
+                          {{ t("admin.settings.streamRetry.kiroOverride") }}
+                        </label>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          {{ t("admin.settings.streamRetry.kiroOverrideHint") }}
+                        </p>
+                      </div>
+                      <Toggle v-model="streamRetryForm.kiro_override_enabled" />
+                    </div>
+
+                    <div
+                      v-if="streamRetryForm.kiro_override_enabled"
+                      class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3"
+                    >
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {{ t("admin.settings.streamRetry.ttftTimeoutSeconds") }}
+                        </label>
+                        <input
+                          v-model.number="streamRetryForm.kiro_ttft_timeout_seconds"
+                          type="number"
+                          min="0"
+                          max="300"
+                          class="input w-full"
+                        />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {{ t("admin.settings.streamRetry.chunkGapWarnSeconds") }}
+                        </label>
+                        <input
+                          v-model.number="streamRetryForm.kiro_chunk_gap_warn_seconds"
+                          type="number"
+                          min="0"
+                          max="120"
+                          class="input w-full"
+                        />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {{ t("admin.settings.streamRetry.chunkGapTimeoutSeconds") }}
+                        </label>
+                        <input
+                          v-model.number="streamRetryForm.kiro_chunk_gap_timeout_seconds"
+                          type="number"
+                          min="0"
+                          max="300"
+                          class="input w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <!-- Runtime metrics -->
                   <div
                     class="rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-400"
@@ -8050,6 +8106,15 @@ const streamRetryForm = reactive({
   chunk_gap_timeout_seconds: 30,
   retry_max: 2,
   retry_backoff_ms: 1000,
+  platform_overrides: {} as Record<string, {
+    ttft_timeout_seconds?: number | null;
+    chunk_gap_warn_seconds?: number | null;
+    chunk_gap_timeout_seconds?: number | null;
+  }>,
+  kiro_override_enabled: false,
+  kiro_ttft_timeout_seconds: 120,
+  kiro_chunk_gap_warn_seconds: 30,
+  kiro_chunk_gap_timeout_seconds: 120,
 });
 const streamRetryMetrics = ref({
   ttft_timeout_total: 0,
@@ -10755,6 +10820,16 @@ async function loadStreamRetrySettings() {
   try {
     const settings = await adminAPI.settings.getStreamRetrySettings();
     Object.assign(streamRetryForm, settings);
+    const kiroOverride = settings.platform_overrides?.kiro;
+    streamRetryForm.kiro_override_enabled = Boolean(kiroOverride);
+    if (kiroOverride) {
+      streamRetryForm.kiro_ttft_timeout_seconds =
+        kiroOverride.ttft_timeout_seconds ?? 120;
+      streamRetryForm.kiro_chunk_gap_warn_seconds =
+        kiroOverride.chunk_gap_warn_seconds ?? 30;
+      streamRetryForm.kiro_chunk_gap_timeout_seconds =
+        kiroOverride.chunk_gap_timeout_seconds ?? 120;
+    }
   } catch (_error: unknown) {
     // Silent fail - settings will use defaults
   } finally {
@@ -10770,6 +10845,16 @@ async function loadStreamRetrySettings() {
 async function saveStreamRetrySettings() {
   streamRetrySaving.value = true;
   try {
+    const platformOverrides = { ...streamRetryForm.platform_overrides };
+    if (streamRetryForm.kiro_override_enabled) {
+      platformOverrides.kiro = {
+        ttft_timeout_seconds: streamRetryForm.kiro_ttft_timeout_seconds,
+        chunk_gap_warn_seconds: streamRetryForm.kiro_chunk_gap_warn_seconds,
+        chunk_gap_timeout_seconds: streamRetryForm.kiro_chunk_gap_timeout_seconds,
+      };
+    } else {
+      delete platformOverrides.kiro;
+    }
     const updated = await adminAPI.settings.updateStreamRetrySettings({
       enabled: streamRetryForm.enabled,
       ttft_timeout_seconds: streamRetryForm.ttft_timeout_seconds,
@@ -10777,6 +10862,7 @@ async function saveStreamRetrySettings() {
       chunk_gap_timeout_seconds: streamRetryForm.chunk_gap_timeout_seconds,
       retry_max: streamRetryForm.retry_max,
       retry_backoff_ms: streamRetryForm.retry_backoff_ms,
+      platform_overrides: platformOverrides,
     });
     Object.assign(streamRetryForm, updated);
     appStore.showSuccess(t("admin.settings.streamRetry.saved"));

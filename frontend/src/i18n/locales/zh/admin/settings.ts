@@ -981,6 +981,8 @@ export default {
         chunkGapWarnSecondsHint: '当上游事件间隔超过此值时记录告警。仅用于观测，不触发故障转移。0 = 禁用。',
         chunkGapTimeoutSeconds: '数据块间隔超时（秒）',
         chunkGapTimeoutSecondsHint: '当上游事件间隔超过此值时故障转移。必须大于告警阈值。0 = 禁用（10-300 秒）。',
+        kiroOverride: 'Kiro 专属超时覆盖',
+        kiroOverrideHint: '仅覆盖 Kiro 的流式阈值。Opus 5 长推理和工具调用可能长时间没有事件，建议使用 120 / 30 / 120 秒。',
         retryMax: '最大故障转移次数',
         retryBackoffMs: '重试退避（毫秒）',
         metricsTitle: '运行计数器（自启动以来）',

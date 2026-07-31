@@ -989,6 +989,8 @@ export default {
         chunkGapTimeoutSecondsHint: 'Fail over when the gap between upstream events exceeds this. Must be greater than the warning threshold. 0 = disabled (10-300s).',
         retryMax: 'Max Failover Attempts',
         retryBackoffMs: 'Retry Backoff (ms)',
+        kiroOverride: 'Kiro-Specific Timeout Override',
+        kiroOverrideHint: 'Overrides stream thresholds for Kiro only. Opus 5 reasoning and tool calls can be silent for longer; 120 / 30 / 120 seconds is recommended.',
         metricsTitle: 'Runtime counters (since start)',
         saved: 'Stream retry settings saved',
         saveFailed: 'Failed to save stream retry settings'

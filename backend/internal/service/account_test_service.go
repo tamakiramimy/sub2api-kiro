@@ -409,6 +409,7 @@ func (s *AccountTestService) testKiroAccountConnection(c *gin.Context, account *
 	buildResult, err := (&GatewayService{}).buildKiroPayloadForAccount(
 		ctx,
 		account,
+		nil,
 		testBody,
 		upstreamModel,
 		accessToken,

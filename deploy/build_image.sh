@@ -139,23 +139,29 @@ create_manifest() {
         "${image}:arm64-${VERSION}"
 }
 
+quay_docker() {
+    env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
+        -u http_proxy -u https_proxy -u all_proxy \
+        DOCKER_CLI_EXPERIMENTAL=enabled docker "$@"
+}
+
 create_secondary_manifest() {
     local image="$1"
 
     # docker manifest create keeps local definitions. Remove stale local copies
     # so repeated releases can replace both the timestamp and latest manifests.
-    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest rm "${image}:${VERSION}" >/dev/null 2>&1 || true
-    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest rm "${image}:latest" >/dev/null 2>&1 || true
-    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create \
+    quay_docker manifest rm "${image}:${VERSION}" >/dev/null 2>&1 || true
+    quay_docker manifest rm "${image}:latest" >/dev/null 2>&1 || true
+    quay_docker manifest create \
         "${image}:${VERSION}" \
         "${image}:amd64-${VERSION}" \
         "${image}:arm64-${VERSION}"
-    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push "${image}:${VERSION}"
-    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create \
+    quay_docker manifest push "${image}:${VERSION}"
+    quay_docker manifest create \
         "${image}:latest" \
         "${image}:amd64-${VERSION}" \
         "${image}:arm64-${VERSION}"
-    DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push "${image}:latest"
+    quay_docker manifest push "${image}:latest"
 }
 
 # These are the only two compilation steps in publish mode.
@@ -169,4 +175,4 @@ copy_architecture arm64
 create_secondary_manifest "${SECONDARY_IMAGE}"
 
 docker buildx imagetools inspect "${PRIMARY_IMAGE}:${VERSION}"
-DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "${SECONDARY_IMAGE}:${VERSION}"
+quay_docker manifest inspect "${SECONDARY_IMAGE}:${VERSION}"

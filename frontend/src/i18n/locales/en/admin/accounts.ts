@@ -707,7 +707,7 @@ export default {
           stickyBufferPlaceholder: 'Default: 20% of base RPM',
           stickyBufferHint: 'Extra requests allowed for sticky sessions after exceeding base RPM. Leave empty to use default (20% of base RPM, min 1)',
           userMsgQueue: 'User Message Rate Control',
-          userMsgQueueHint: 'Rate-limit user messages to avoid triggering upstream RPM limits',
+          userMsgQueueHint: 'Control user-message delivery to avoid upstream RPM limits and concurrent Kiro stateless replays',
           umqModeOff: 'Off',
           umqModeThrottle: 'Throttle',
           umqModeSerialize: 'Serialize',

@@ -767,7 +767,7 @@ export default {
           stickyBufferPlaceholder: '默认: base RPM 的 20%',
           stickyBufferHint: '超过 base RPM 后，粘性会话额外允许的请求数。为空则使用默认值（base RPM 的 20%，最小为 1）',
           userMsgQueue: '用户消息限速',
-          userMsgQueueHint: '对用户消息施加发送限制，避免触发上游 RPM 限制',
+          userMsgQueueHint: '对用户消息施加发送限制，避免上游 RPM 限制和 Kiro 无状态重放并发',
           umqModeOff: '关闭',
           umqModeThrottle: '软性限速',
           umqModeSerialize: '串行队列',

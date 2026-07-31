@@ -2297,11 +2297,14 @@ func (h *GatewayHandler) submitUsageRecordTask(parent context.Context, task serv
 // getUserMsgQueueMode 获取当前请求的 UMQ 模式
 // 返回 "serialize" | "throttle" | ""
 func (h *GatewayHandler) getUserMsgQueueMode(account *service.Account, parsed *service.ParsedRequest) string {
-	if h.userMsgQueueHelper == nil {
+	if h.userMsgQueueHelper == nil || account == nil {
 		return ""
 	}
-	// 仅适用于 Anthropic OAuth/SetupToken 账号
-	if !account.IsAnthropicOAuthOrSetupToken() {
+	// Kiro OAuth 与 Anthropic OAuth/SetupToken 都需要避免同一账号的真实用户消息
+	// 并发重放；Kiro 的无状态重放在并发时会显著放大上游延迟。
+	isSupportedAccount := account.IsAnthropicOAuthOrSetupToken() ||
+		(account.Platform == service.PlatformKiro && account.Type == service.AccountTypeOAuth)
+	if !isSupportedAccount {
 		return ""
 	}
 	if !service.IsRealUserMessage(parsed) {

@@ -248,6 +248,7 @@ func (s *GatewayService) forwardKiroMessages(ctx context.Context, c *gin.Context
 		})
 		return nil, err
 	}
+	s.saveKiroContinuation(ctx, account, parsed, parseResult.Continuation)
 
 	c.Header("Content-Type", "application/json")
 	if requestID := resp.Header.Get("x-request-id"); requestID != "" {
@@ -320,10 +321,13 @@ func (s *GatewayService) openKiroAnthropicStreamResponse(ctx context.Context, ac
 
 	go func() {
 		defer func() { _ = resp.Body.Close() }()
-		_, streamErr := kiropkg.StreamEventStreamAsAnthropicWithContext(ctx, resp.Body, pw, mappedModel, inputTokens, requestCtx)
+		streamResult, streamErr := kiropkg.StreamEventStreamAsAnthropicWithContext(ctx, resp.Body, pw, mappedModel, inputTokens, requestCtx)
 		if streamErr != nil {
 			_ = pw.CloseWithError(streamErr)
 			return
+		}
+		if streamResult != nil {
+			s.saveKiroContinuation(ctx, account, parsed, streamResult.Continuation)
 		}
 		_ = pw.Close()
 	}()
@@ -350,7 +354,7 @@ func (s *GatewayService) executeKiroUpstreamWithParsed(ctx context.Context, acco
 
 	modelID := kiropkg.MapModel(mappedModel)
 	currentToken := token
-	buildResult, err := s.buildKiroPayloadForAccount(ctx, account, anthropicBody, modelID, currentToken, requestModel, headers)
+	buildResult, err := s.buildKiroPayloadForAccount(ctx, account, parsed, anthropicBody, modelID, currentToken, requestModel, headers)
 	if err != nil {
 		return nil, requestCtx, err
 	}
@@ -454,7 +458,7 @@ func (s *GatewayService) executeKiroUpstreamWithParsed(ctx context.Context, acco
 					if refreshErr == nil && strings.TrimSpace(refreshedToken) != "" {
 						currentToken = refreshedToken
 						accountKey = buildKiroAccountKey(account)
-						buildResult, err = s.buildKiroPayloadForAccount(ctx, account, anthropicBody, modelID, currentToken, requestModel, headers)
+						buildResult, err = s.buildKiroPayloadForAccount(ctx, account, parsed, anthropicBody, modelID, currentToken, requestModel, headers)
 						if err != nil {
 							return nil, requestCtx, err
 						}
@@ -514,13 +518,13 @@ func buildKiroEndpoints(account *Account) []kiroEndpointConfig {
 	}
 }
 
-func (s *GatewayService) buildKiroPayloadForAccount(ctx context.Context, account *Account, anthropicBody []byte, modelID, token, requestModel string, headers http.Header) (*kiropkg.KiroBuildResult, error) {
+func (s *GatewayService) buildKiroPayloadForAccount(ctx context.Context, account *Account, parsed *ParsedRequest, anthropicBody []byte, modelID, token, requestModel string, headers http.Header) (*kiropkg.KiroBuildResult, error) {
 	_ = s
-	_ = ctx
 	_ = token
 	profileArn := resolveKiroPayloadProfileArn(account)
 	anthropicBody = prepareKiroPayloadBodyForRequestModel(anthropicBody, requestModel)
-	return kiropkg.BuildKiroPayloadWithContext(anthropicBody, modelID, profileArn, "AI_EDITOR", headers)
+	continuation := s.loadKiroContinuation(ctx, account, parsed)
+	return kiropkg.BuildKiroPayloadWithContinuation(anthropicBody, modelID, profileArn, "AI_EDITOR", headers, continuation)
 }
 
 func logKiroStatelessReplay(account *Account, payload []byte) {

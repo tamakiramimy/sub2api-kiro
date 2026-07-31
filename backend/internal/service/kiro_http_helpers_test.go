@@ -135,6 +135,7 @@ func TestBuildKiroPayloadForAccountPropagatesThinkingHeaders(t *testing.T) {
 	buildResult, err := (&GatewayService{}).buildKiroPayloadForAccount(
 		context.Background(),
 		account,
+		nil,
 		body,
 		"claude-sonnet-4.6",
 		"kiro-access-token",
@@ -161,6 +162,7 @@ func TestBuildKiroPayloadForAccountPreservesThinkingAliasAfterMapping(t *testing
 	buildResult, err := (&GatewayService{}).buildKiroPayloadForAccount(
 		context.Background(),
 		account,
+		nil,
 		body,
 		"claude-opus-4.6",
 		"kiro-access-token",
@@ -199,6 +201,7 @@ func TestBuildKiroPayloadForAccountMapsOpus47ToDottedModelID(t *testing.T) {
 	buildResult, err := (&GatewayService{}).buildKiroPayloadForAccount(
 		context.Background(),
 		account,
+		nil,
 		body,
 		modelID,
 		"kiro-access-token",
@@ -225,6 +228,7 @@ func TestBuildKiroPayloadForAccountDoesNotEnableThinkingForNonThinkingAlias(t *t
 	buildResult, err := (&GatewayService{}).buildKiroPayloadForAccount(
 		context.Background(),
 		account,
+		nil,
 		body,
 		"claude-opus-4.6",
 		"kiro-access-token",

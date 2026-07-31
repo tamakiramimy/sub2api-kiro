@@ -8,6 +8,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	kirocontinuation "github.com/Wei-Shaw/sub2api/internal/kiro/continuation"
 	kirocooldown "github.com/Wei-Shaw/sub2api/internal/kiro/cooldown"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
@@ -375,6 +376,11 @@ func ProvideKiroCooldownStore(redisClient *redis.Client) KiroCooldownStore {
 	return kirocooldown.NewStore(redisClient)
 }
 
+// ProvideKiroContinuationStore creates the Redis-backed Kiro agent state cache.
+func ProvideKiroContinuationStore(redisClient *redis.Client) KiroContinuationStore {
+	return kirocontinuation.NewStore(redisClient)
+}
+
 // ProvideGatewayService creates GatewayService and injects Kiro-specific runtime dependencies
 // that cannot be constructor params without breaking existing call sites (tests etc.).
 func ProvideGatewayService(
@@ -408,6 +414,7 @@ func ProvideGatewayService(
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
 	kiroTokenProvider *KiroTokenProvider,
 	kiroCooldownStore KiroCooldownStore,
+	kiroContinuationStore KiroContinuationStore,
 ) *GatewayService {
 	svc := NewGatewayService(
 		accountRepo,
@@ -441,6 +448,7 @@ func ProvideGatewayService(
 	)
 	svc.SetKiroTokenProvider(kiroTokenProvider)
 	svc.SetKiroCooldownStore(kiroCooldownStore)
+	svc.SetKiroContinuationStore(kiroContinuationStore)
 	return svc
 }
 
@@ -991,6 +999,7 @@ var ProviderSet = wire.NewSet(
 	ProvideGrokTokenProvider,
 	ProvideKiroTokenProvider,
 	ProvideKiroCooldownStore,
+	ProvideKiroContinuationStore,
 	ProvideOpenAITokenProvider,
 	ProvideOpenAIQuotaService,
 	ProvideOpenAIQuotaAutoResetService,

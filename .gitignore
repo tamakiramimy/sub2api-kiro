@@ -157,3 +157,6 @@ frontend/coverage/
 aicodex
 output/
 .codegraph/
+frontend/pnpm-lock.yaml
+frontend/pnpm-workspace.yaml
+frontend/pnpm-lock.yaml

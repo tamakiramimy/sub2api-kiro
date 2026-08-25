@@ -198,6 +198,11 @@ func (p *KiroTokenProvider) ForceRefreshAccessToken(ctx context.Context, account
 	if err := p.cacheAccessToken(ctx, account, accessToken); err != nil {
 		return "", err
 	}
+	if strings.TrimSpace(account.GetCredential("profile_arn")) == "" {
+		// best-effort：profileArn 解析失败（如 Builder ID 账号不支持
+		// ListAvailableProfiles）不影响 token 刷新主流程。
+		_, _ = resolveKiroProfileArn(ctx, p.accountRepo, account, kiroAPIRegion(account), accessToken, false)
+	}
 	return accessToken, nil
 }
 

@@ -39,12 +39,12 @@ var (
 	streamingSDKVersions = []string{"1.0.34"}
 	osTypes              = []string{"darwin", "win32"}
 	osVersions           = map[string][]string{
-		"darwin": {"24.6.0"},
-		"win32":  {"10.0.22631"},
+		"darwin": {"24.6.0", "25.6.0"},
+		"win32":  {"10.0.22631", "10.0.26100"},
 	}
 	nodeVersions = []string{"22.22.0"}
 	kiroVersions = []string{
-		"0.11.132", "0.11.131", "0.11.130",
+		"0.12.333", "0.12.332", "0.12.331",
 	}
 )
 

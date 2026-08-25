@@ -31,6 +31,16 @@ type stubOpenAIAccountRepo struct {
 	accounts []Account
 }
 
+func (r *stubOpenAIAccountRepo) UpdateCredentials(_ context.Context, id int64, credentials map[string]any) error {
+	for i := range r.accounts {
+		if r.accounts[i].ID == id {
+			r.accounts[i].Credentials = shallowCopyMap(credentials)
+			return nil
+		}
+	}
+	return errors.New("account not found")
+}
+
 type snapshotUpdateAccountRepo struct {
 	stubOpenAIAccountRepo
 	updateExtraCalls chan map[string]any

@@ -12,9 +12,7 @@ import (
 	"strings"
 	"time"
 
-	kiropkg "github.com/Wei-Shaw/sub2api/internal/kiro"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/httpclient"
-	"github.com/google/uuid"
 )
 
 const (
@@ -161,8 +159,22 @@ func (s *AccountUsageService) fetchAndCacheKiroUsage(ctx context.Context, accoun
 
 	region := kiroAPIRegion(account)
 	profileArn := strings.TrimSpace(account.GetCredential("profile_arn"))
+	if profileArn == "" {
+		// AWS 自 2026-08 起要求 getUsageLimits 必须携带有效 profileArn，
+		// 凭证中缺失时通过 ListAvailableProfiles 动态解析并回写。
+		if resolved, err := resolveKiroProfileArn(ctx, s.accountRepo, account, region, token, false); err == nil {
+			profileArn = resolved
+		}
+	}
 
 	resp, err := s.requestKiroUsageLimits(ctx, account, region, profileArn, token)
+	if err != nil && profileArn != "" && isKiroProfileArnRejected(err) {
+		// 已存储的 profileArn 过期或与账号不匹配时上游同样返回 403/400，
+		// 强制重新解析后用新值重试一次。
+		if resolved, resolveErr := resolveKiroProfileArn(ctx, s.accountRepo, account, region, token, true); resolveErr == nil && resolved != "" && resolved != profileArn {
+			resp, err = s.requestKiroUsageLimits(ctx, account, region, resolved, token)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +183,16 @@ func (s *AccountUsageService) fetchAndCacheKiroUsage(ctx context.Context, accoun
 	usage.Source = source
 	s.storeKiroUsageSnapshot(account.ID, usage)
 	return usage, nil
+}
+
+// isKiroProfileArnRejected 判断用量请求的失败是否由 profileArn 缺失/失效引起。
+// 注意 scope 仅限 getUsageLimits：聊天路径的同类错误含义不同（可能是真封禁），不可复用。
+func isKiroProfileArnRejected(err error) bool {
+	if err == nil {
+		return false
+	}
+	category := classifyKiroError(err).Category
+	return category == kiroErrorUsageForbidden || category == kiroErrorProfileError
 }
 
 func (s *AccountUsageService) storeKiroUsageSnapshot(accountID int64, usage *UsageInfo) {
@@ -275,24 +297,7 @@ func (s *AccountUsageService) requestKiroUsageLimits(ctx context.Context, accoun
 }
 
 func (s *AccountUsageService) applyKiroRuntimeHeaders(req *http.Request, account *Account, token string) {
-	if req == nil {
-		return
-	}
-	accountKey := buildKiroAccountKey(account)
-	machineID := buildKiroMachineID(account)
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(token))
-	req.Header.Set("User-Agent", kiropkg.BuildRuntimeUserAgent(accountKey, machineID))
-	req.Header.Set("X-Amz-User-Agent", kiropkg.BuildRuntimeAmzUserAgent(accountKey, machineID))
-	req.Header.Set("x-amzn-kiro-agent-mode", "vibe")
-	req.Header.Set("x-amzn-codewhisperer-optout", "true")
-	req.Header.Set("Amz-Sdk-Request", "attempt=1; max=3")
-	req.Header.Set("Amz-Sdk-Invocation-Id", uuid.NewString())
-
-	if account == nil {
-		return
-	}
-	applyKiroConditionalHeaders(req, account)
+	setKiroRuntimeHeaders(req, account, token)
 }
 
 func accountProxyURL(account *Account) string {
@@ -531,8 +536,13 @@ func buildKiroDegradedUsage(err error) *UsageInfo {
 		info.ErrorCode = errorCodeNetworkError
 		info.KiroQuotaState = kiroQuotaStateOverageExhausted
 		info.KiroQuotaReason = classification.Message
-	case kiroErrorSuspended, kiroErrorUsageForbidden, kiroErrorProfileError:
+	case kiroErrorSuspended:
 		info.ErrorCode = errorCodeForbidden
+	case kiroErrorUsageForbidden, kiroErrorProfileError:
+		// 用量接口的 403/profile 错误通常是 profileArn 缺失或失效，不代表
+		// 账号被封（聊天接口可能完全正常），降级为中性错误，仅展示"用量未知"，
+		// 避免误导为封号或触发重新授权。
+		info.ErrorCode = errorCodeNetworkError
 	default:
 		info.ErrorCode = errorCodeNetworkError
 	}

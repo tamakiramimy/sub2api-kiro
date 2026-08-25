@@ -252,19 +252,27 @@ func TestAccountUsageService_GetUsage_KiroBuilderIDWithoutProfileArnOmitsProfile
 	repo := &stubOpenAIAccountRepo{accounts: []Account{account}}
 	svc := NewAccountUsageService(repo, nil, nil, nil, nil, nil, nil, nil, NewUsageCache(), nil, nil)
 
+	const resolvedArn = "arn:aws:codewhisperer:us-east-1:123456789012:profile/TESTARN001"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/getUsageLimits", r.URL.Path)
-		require.Empty(t, r.URL.Query().Get("profileArn"))
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
-			"subscriptionInfo": {"subscriptionTitle":"KIRO PRO+"},
-			"usageBreakdownList": [{
-				"currency":"USD",
-				"currentUsageWithPrecision":42,
-				"usageLimitWithPrecision":2000,
-				"resourceType":"CREDIT"
-			}]
-		}`))
+		switch r.URL.Path {
+		case "/ListAvailableProfiles":
+			_, _ = w.Write([]byte(`{"profiles":[{"arn":"` + resolvedArn + `","profileName":"KiroProfile-us-east-1"}]}`))
+		case "/getUsageLimits":
+			// 凭证缺失 profileArn 时应先解析再在用量请求中带上
+			require.Equal(t, resolvedArn, r.URL.Query().Get("profileArn"))
+			_, _ = w.Write([]byte(`{
+				"subscriptionInfo": {"subscriptionTitle":"KIRO PRO+"},
+				"usageBreakdownList": [{
+					"currency":"USD",
+					"currentUsageWithPrecision":42,
+					"usageLimitWithPrecision":2000,
+					"resourceType":"CREDIT"
+				}]
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 	defer server.Close()
 
@@ -390,20 +398,27 @@ func TestAccountUsageService_GetUsage_KiroOmitsProfileArnAndUsesDefaultRegionWit
 	repo := &stubOpenAIAccountRepo{accounts: []Account{account}}
 	svc := NewAccountUsageService(repo, nil, nil, nil, nil, nil, nil, nil, NewUsageCache(), nil, nil)
 
+	const resolvedArn = "arn:aws:codewhisperer:us-east-1:123456789012:profile/TESTARN002"
 	gotRegions := make([]string, 0, 2)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/getUsageLimits", r.URL.Path)
-		require.Empty(t, r.URL.Query().Get("profileArn"))
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
-			"subscriptionInfo": {"subscriptionTitle":"KIRO PRO+"},
-			"usageBreakdownList": [{
-				"currency":"USD",
-				"currentUsageWithPrecision":7,
-				"usageLimitWithPrecision":2000,
-				"resourceType":"CREDIT"
-			}]
-		}`))
+		switch r.URL.Path {
+		case "/ListAvailableProfiles":
+			_, _ = w.Write([]byte(`{"profiles":[{"arn":"` + resolvedArn + `","profileName":"KiroProfile-us-east-1"}]}`))
+		case "/getUsageLimits":
+			require.Equal(t, resolvedArn, r.URL.Query().Get("profileArn"))
+			_, _ = w.Write([]byte(`{
+				"subscriptionInfo": {"subscriptionTitle":"KIRO PRO+"},
+				"usageBreakdownList": [{
+					"currency":"USD",
+					"currentUsageWithPrecision":7,
+					"usageLimitWithPrecision":2000,
+					"resourceType":"CREDIT"
+				}]
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 	defer server.Close()
 
@@ -417,7 +432,60 @@ func TestAccountUsageService_GetUsage_KiroOmitsProfileArnAndUsesDefaultRegionWit
 	usage, err := svc.GetUsage(context.Background(), account.ID)
 	require.NoError(t, err)
 	require.NotNil(t, usage)
-	require.Equal(t, []string{kiroDefaultRegion}, gotRegions)
+	// profile 解析与用量查询都走默认数据面 region
+	require.Equal(t, []string{kiroDefaultRegion, kiroDefaultRegion}, gotRegions)
+	require.Equal(t, resolvedArn, repo.accounts[0].GetCredential("profile_arn"))
+}
+
+func TestAccountUsageService_GetUsage_KiroRefreshesRejectedProfileArn(t *testing.T) {
+	const staleArn = "arn:aws:codewhisperer:us-east-1:123456789012:profile/STALE"
+	const resolvedArn = "arn:aws:codewhisperer:us-east-1:123456789012:profile/CURRENT"
+	account := Account{
+		ID:       711,
+		Platform: PlatformKiro,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token": "kiro-access-token",
+			"provider":     "AWS",
+			"auth_method":  "idc",
+			"profile_arn":  staleArn,
+		},
+	}
+	repo := &stubOpenAIAccountRepo{accounts: []Account{account}}
+	svc := NewAccountUsageService(repo, nil, nil, nil, nil, nil, nil, nil, NewUsageCache(), nil, nil)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/getUsageLimits":
+			switch r.URL.Query().Get("profileArn") {
+			case staleArn:
+				http.Error(w, `{"message":"User is not authorized to make this call"}`, http.StatusForbidden)
+			case resolvedArn:
+				_, _ = w.Write([]byte(`{
+					"subscriptionInfo": {"subscriptionTitle":"KIRO PRO+"},
+					"usageBreakdownList": [{"currency":"USD","currentUsageWithPrecision":80,"usageLimitWithPrecision":2000,"resourceType":"CREDIT"}]
+				}`))
+			default:
+				w.WriteHeader(http.StatusBadRequest)
+			}
+		case "/ListAvailableProfiles":
+			_, _ = w.Write([]byte(`{"profiles":[{"arn":"` + resolvedArn + `"}]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	prevResolver := resolveKiroRuntimeEndpoint
+	resolveKiroRuntimeEndpoint = func(_ string) string { return server.URL }
+	defer func() { resolveKiroRuntimeEndpoint = prevResolver }()
+
+	usage, err := svc.GetUsage(context.Background(), account.ID)
+	require.NoError(t, err)
+	require.NotNil(t, usage.KiroCredit)
+	require.Equal(t, 80.0, usage.KiroCredit.CurrentUsage)
+	require.Equal(t, resolvedArn, repo.accounts[0].GetCredential("profile_arn"))
 }
 
 func TestAccountUsageService_GetUsage_KiroIncludesRuntimeCooldownState(t *testing.T) {
@@ -473,7 +541,7 @@ func TestBuildKiroDegradedUsage_ClassifiesProfileError(t *testing.T) {
 		Body:       `{"message":"profileArn is required for this request."}`,
 	})
 
-	require.Equal(t, errorCodeForbidden, info.ErrorCode)
+	require.Equal(t, errorCodeNetworkError, info.ErrorCode)
 	require.False(t, info.NeedsReauth)
 }
 
@@ -516,13 +584,15 @@ func TestAccountUsageService_GetUsage_KiroCachesErrorSnapshotWhenRefreshFailsWit
 	firstUsage, err := svc.GetUsage(context.Background(), account.ID)
 	require.NoError(t, err)
 	require.NotNil(t, firstUsage)
-	require.Equal(t, errorCodeForbidden, firstUsage.ErrorCode)
+	require.Equal(t, errorCodeNetworkError, firstUsage.ErrorCode)
 
 	secondUsage, err := svc.GetUsage(context.Background(), account.ID)
 	require.NoError(t, err)
 	require.NotNil(t, secondUsage)
-	require.Equal(t, errorCodeForbidden, secondUsage.ErrorCode)
-	require.Equal(t, 1, requestCount)
+	require.Equal(t, errorCodeNetworkError, secondUsage.ErrorCode)
+	// 首次查询会先尝试 ListAvailableProfiles 解析 profileArn（同样 403 失败），
+	// 再调用 getUsageLimits，共 2 次请求；第二次 GetUsage 命中错误缓存，不再打上游。
+	require.Equal(t, 2, requestCount)
 }
 
 func TestMapKiroUsageToInfo_CreditsExhaustedWithoutOverages(t *testing.T) {

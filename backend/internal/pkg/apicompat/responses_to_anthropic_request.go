@@ -181,13 +181,12 @@ func convertResponsesInputToAnthropic(instructions string, inputRaw json.RawMess
 				Content: blockJSON,
 			})
 
-		case item.Type == "function_call_output":
-			// function_call_output → user message with tool_result block
-			contentJSON := responsesFunctionOutputToAnthropicContent(item)
+		case item.Type == "function_call_output" || item.Type == "custom_tool_call_output":
+			// *_call_output → user message with tool_result block
 			block := AnthropicContentBlock{
 				Type:      "tool_result",
 				ToolUseID: fromResponsesCallIDToAnthropic(item.CallID),
-				Content:   contentJSON,
+				Content:   responsesFunctionOutputToAnthropicContent(item),
 			}
 			blockJSON, _ := json.Marshal([]AnthropicContentBlock{block})
 			messages = append(messages, AnthropicMessage{
@@ -287,10 +286,14 @@ func convertResponsesInputToAnthropic(instructions string, inputRaw json.RawMess
 	return system, messages, nil
 }
 
+// responsesFunctionOutputToAnthropicContent renders a tool result as Anthropic
+// tool_result content. A plain string stays a string; a content-part array is
+// rehydrated into typed text/image blocks so multimodal tool results survive the
+// conversion instead of being flattened into raw JSON text.
 func responsesFunctionOutputToAnthropicContent(item ResponsesInputItem) json.RawMessage {
 	if len(item.outputRaw) == 0 {
-		output := item.Output
-		if output == "" {
+		output := strings.TrimSpace(item.Output)
+		if output == "" || output == "null" || output == `""` {
 			output = "(empty)"
 		}
 		content, _ := json.Marshal(output)
@@ -322,6 +325,8 @@ func responsesFunctionOutputToAnthropicContent(item ResponsesInputItem) json.Raw
 		}
 	}
 
+	// Object form, or an array we could not map to any block: fall back to the
+	// raw text so the model still sees the tool result.
 	content, _ := json.Marshal(item.Output)
 	return content
 }

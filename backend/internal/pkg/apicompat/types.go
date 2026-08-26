@@ -4,7 +4,10 @@
 // formats can be served through a unified gateway.
 package apicompat
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 // ---------------------------------------------------------------------------
 // Anthropic Messages API types
@@ -259,8 +262,66 @@ type ResponsesInputItem struct {
 	Arguments string `json:"arguments,omitempty"`
 	ID        string `json:"id,omitempty"`
 
-	// type=function_call_output
-	Output string `json:"output,omitempty"`
+	// type=function_call_output / custom_tool_call_output
+	// Output is the string form of the tool result. Newer Codex clients may send
+	// it as a content-part array (e.g. [{"type":"input_text","text":"..."}]) for
+	// multimodal tool results; that raw form is preserved in outputRaw and
+	// rehydrated by the Anthropic converter / re-emitted verbatim on marshal.
+	Output    string `json:"output,omitempty"`
+	outputRaw json.RawMessage
+}
+
+// UnmarshalJSON accepts both shapes of the polymorphic `output` field. A JSON
+// string decodes straight into Output; anything else (array/object/number) is
+// kept verbatim in outputRaw so no information is lost, with Output holding the
+// raw text as a best-effort fallback for string-only consumers.
+//
+// Without this, a single array-form function_call_output made the whole input
+// array fail to decode ("cannot unmarshal array into ... .output of type
+// string"), which surfaced to clients as a 502.
+func (i *ResponsesInputItem) UnmarshalJSON(data []byte) error {
+	type alias ResponsesInputItem
+	var wire struct {
+		*alias
+		Output json.RawMessage `json:"output"`
+	}
+
+	*i = ResponsesInputItem{}
+	wire.alias = (*alias)(i)
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+
+	output := bytes.TrimSpace(wire.Output)
+	if len(output) == 0 || bytes.Equal(output, []byte("null")) {
+		return nil
+	}
+	if err := json.Unmarshal(output, &i.Output); err == nil {
+		return nil
+	}
+
+	i.outputRaw = append(i.outputRaw[:0], output...)
+	i.Output = string(output)
+	return nil
+}
+
+// MarshalJSON re-emits a non-string `output` in its original shape. Paths that
+// decode the input array, trim it and marshal it back (continuation trimming,
+// todo-guard injection) would otherwise turn an array into a JSON string and
+// corrupt the outbound request. Items built in-process have an empty outputRaw
+// and serialise byte-for-byte as before.
+func (i ResponsesInputItem) MarshalJSON() ([]byte, error) {
+	type alias ResponsesInputItem
+	if len(i.outputRaw) == 0 {
+		return json.Marshal(alias(i))
+	}
+
+	clone := i
+	clone.Output = ""
+	return json.Marshal(struct {
+		alias
+		Output json.RawMessage `json:"output,omitempty"`
+	}{alias: alias(clone), Output: i.outputRaw})
 }
 
 // ResponsesContentPart is a typed content part in a Responses message.

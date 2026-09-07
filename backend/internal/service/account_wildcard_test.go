@@ -636,8 +636,10 @@ func TestAccountGetModelMapping_KiroOnlyLegacySonnet5MappingNormalizes(t *testin
 	}
 
 	mapping := account.GetModelMapping()
-	if len(mapping) != 1 || mapping["claude-sonnet-5-0"] != "claude-sonnet-5" {
-		t.Fatalf("expected only normalized Kiro Sonnet 5 mapping, got %#v", mapping)
+	if len(mapping) != 2 ||
+		mapping["claude-sonnet-5-0"] != "claude-sonnet-5" ||
+		mapping["claude-sonnet-5"] != "claude-sonnet-5" {
+		t.Fatalf("expected normalized Kiro Sonnet 5 compatibility and canonical mappings, got %#v", mapping)
 	}
 }
 

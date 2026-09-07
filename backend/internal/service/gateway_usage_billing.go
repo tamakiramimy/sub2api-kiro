@@ -639,6 +639,7 @@ type recordUsageOpts struct {
 	// Kiro 账号在上游返回 auto 等无法定价模型时使用保守计费兜底。
 	IsKiroAccount bool
 }
+
 // RecordUsage 记录使用量并扣费（或更新订阅用量）
 func (s *GatewayService) RecordUsage(ctx context.Context, input *RecordUsageInput) error {
 	return s.recordUsageCore(ctx, &recordUsageCoreInput{

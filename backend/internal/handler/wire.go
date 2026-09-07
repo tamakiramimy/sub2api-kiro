@@ -23,6 +23,7 @@ func ProvideAdminHandlers(
 	geminiOAuthHandler *admin.GeminiOAuthHandler,
 	antigravityOAuthHandler *admin.AntigravityOAuthHandler,
 	grokOAuthHandler *admin.GrokOAuthHandler,
+	cnProviderHandler *admin.CNProviderHandler,
 	kiroOAuthHandler *admin.KiroOAuthHandler,
 	proxyHandler *admin.ProxyHandler,
 	redeemHandler *admin.RedeemHandler,
@@ -35,6 +36,7 @@ func ProvideAdminHandlers(
 	userAttributeHandler *admin.UserAttributeHandler,
 	errorPassthroughHandler *admin.ErrorPassthroughHandler,
 	tlsFingerprintProfileHandler *admin.TLSFingerprintProfileHandler,
+	pluginHandler *admin.PluginHandler,
 	apiKeyHandler *admin.AdminAPIKeyHandler,
 	scheduledTestHandler *admin.ScheduledTestHandler,
 	channelHandler *admin.ChannelHandler,
@@ -47,8 +49,10 @@ func ProvideAdminHandlers(
 	complianceHandler *admin.ComplianceHandler,
 	auditLogHandler *admin.AuditLogHandler,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
+	ollamaCloudUsage *service.OllamaCloudUsageService,
 ) *AdminHandlers {
 	accountHandler.SetUpstreamBillingProbeService(upstreamBillingProbe)
+	accountHandler.SetOllamaCloudUsageService(ollamaCloudUsage)
 	return &AdminHandlers{
 		Dashboard:              dashboardHandler,
 		User:                   userHandler,
@@ -62,6 +66,7 @@ func ProvideAdminHandlers(
 		GeminiOAuth:            geminiOAuthHandler,
 		AntigravityOAuth:       antigravityOAuthHandler,
 		GrokOAuth:              grokOAuthHandler,
+		CNProvider:             cnProviderHandler,
 		KiroOAuth:              kiroOAuthHandler,
 		Proxy:                  proxyHandler,
 		Redeem:                 redeemHandler,
@@ -74,6 +79,7 @@ func ProvideAdminHandlers(
 		UserAttribute:          userAttributeHandler,
 		ErrorPassthrough:       errorPassthroughHandler,
 		TLSFingerprintProfile:  tlsFingerprintProfileHandler,
+		Plugin:                 pluginHandler,
 		APIKey:                 apiKeyHandler,
 		ScheduledTest:          scheduledTestHandler,
 		Channel:                channelHandler,
@@ -115,6 +121,7 @@ func ProvideGatewayHandler(
 
 func ProvideOpenAIGatewayHandler(
 	gatewayService *service.OpenAIGatewayService,
+	pluginManager *service.PluginManager,
 	concurrencyService *service.ConcurrencyService,
 	billingCacheService *service.BillingCacheService,
 	apiKeyService *service.APIKeyService,
@@ -126,6 +133,7 @@ func ProvideOpenAIGatewayHandler(
 	cfg *config.Config,
 	coordinator *securityaudit.Coordinator,
 ) *OpenAIGatewayHandler {
+	gatewayService.SetPluginManager(pluginManager)
 	h := NewOpenAIGatewayHandler(gatewayService, concurrencyService, billingCacheService, apiKeyService,
 		usageRecordWorkerPool, errorPassthroughService, contentModerationService, opsService, cfg)
 	h.securityAuditCoordinator = coordinator
@@ -157,9 +165,10 @@ func ProvideSettingHandler(settingService *service.SettingService, buildInfo Bui
 }
 
 // ProvideAdminSettingHandler creates admin.SettingHandler with notification template APIs.
-func ProvideAdminSettingHandler(settingService *service.SettingService, emailService *service.EmailService, turnstileService *service.TurnstileService, opsService *service.OpsService, paymentConfigService *service.PaymentConfigService, paymentService *service.PaymentService, userAttributeService *service.UserAttributeService, notificationEmailService *service.NotificationEmailService, totpService *service.TotpService, userService *service.UserService) *admin.SettingHandler {
+func ProvideAdminSettingHandler(settingService *service.SettingService, emailService *service.EmailService, turnstileService *service.TurnstileService, aliyunCaptchaService *service.AliyunCaptchaService, opsService *service.OpsService, paymentConfigService *service.PaymentConfigService, paymentService *service.PaymentService, userAttributeService *service.UserAttributeService, notificationEmailService *service.NotificationEmailService, totpService *service.TotpService, userService *service.UserService) *admin.SettingHandler {
 	h := admin.NewSettingHandler(settingService, emailService, turnstileService, opsService, paymentConfigService, paymentService, userAttributeService)
 	h.SetNotificationEmailService(notificationEmailService)
+	h.SetAliyunCaptchaService(aliyunCaptchaService)
 	h.SetStepUpDeps(totpService, userService)
 	return h
 }
@@ -174,18 +183,22 @@ func ProvideHandlers(
 	subscriptionHandler *SubscriptionHandler,
 	announcementHandler *AnnouncementHandler,
 	channelMonitorUserHandler *ChannelMonitorUserHandler,
+	channelMonitorV2Handler *ChannelMonitorV2Handler,
 	adminHandlers *AdminHandlers,
 	gatewayHandler *GatewayHandler,
 	openaiGatewayHandler *OpenAIGatewayHandler,
 	settingHandler *SettingHandler,
 	totpHandler *TotpHandler,
+	passkeyHandler *PasskeyHandler,
 	paymentHandler *PaymentHandler,
 	paymentWebhookHandler *PaymentWebhookHandler,
 	availableChannelHandler *AvailableChannelHandler,
+	modelPlazaHandler *ModelPlazaHandler,
 	asyncImageHandler *AsyncImageHandler,
 	batchImageHandler *BatchImageHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
+	_ *service.OpenAIQuotaAutoResetService,
 ) *Handlers {
 	return &Handlers{
 		Auth:             authHandler,
@@ -196,14 +209,17 @@ func ProvideHandlers(
 		Subscription:     subscriptionHandler,
 		Announcement:     announcementHandler,
 		ChannelMonitor:   channelMonitorUserHandler,
+		ChannelMonitorV2: channelMonitorV2Handler,
 		Admin:            adminHandlers,
 		Gateway:          gatewayHandler,
 		OpenAIGateway:    openaiGatewayHandler,
 		Setting:          settingHandler,
 		Totp:             totpHandler,
+		Passkey:          passkeyHandler,
 		Payment:          paymentHandler,
 		PaymentWebhook:   paymentWebhookHandler,
 		AvailableChannel: availableChannelHandler,
+		ModelPlaza:       modelPlazaHandler,
 		AsyncImage:       asyncImageHandler,
 		BatchImage:       batchImageHandler,
 	}
@@ -220,13 +236,16 @@ var ProviderSet = wire.NewSet(
 	NewSubscriptionHandler,
 	NewAnnouncementHandler,
 	NewChannelMonitorUserHandler,
+	NewChannelMonitorV2Handler,
 	ProvideGatewayHandler,
 	ProvideOpenAIGatewayHandler,
 	NewTotpHandler,
+	NewPasskeyHandler,
 	ProvideSettingHandler,
 	NewPaymentHandler,
 	NewPaymentWebhookHandler,
 	NewAvailableChannelHandler,
+	NewModelPlazaHandler,
 	NewAsyncImageHandler,
 	ProvideBatchImageHandler,
 
@@ -243,6 +262,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewGeminiOAuthHandler,
 	admin.NewAntigravityOAuthHandler,
 	admin.NewGrokOAuthHandler,
+	admin.NewCNProviderHandler,
 	admin.NewKiroOAuthHandler,
 	admin.NewProxyHandler,
 	admin.NewRedeemHandler,
@@ -255,6 +275,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewUserAttributeHandler,
 	admin.NewErrorPassthroughHandler,
 	admin.NewTLSFingerprintProfileHandler,
+	admin.NewPluginHandler,
 	admin.NewAdminAPIKeyHandler,
 	admin.NewScheduledTestHandler,
 	admin.NewChannelHandler,

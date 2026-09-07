@@ -10,7 +10,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestBuildKiroPayloadForAccountPreservesClientContinuation(t *testing.T) {
+func TestBuildKiroPayloadForAccountIgnoresClientContinuationMetadata(t *testing.T) {
 	svc := &GatewayService{}
 	account := &Account{ID: 40, Credentials: map[string]any{"profile_arn": "profile-a"}}
 	body := []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello","additional_kwargs":{"conversationId":"client-conv","continuationId":"client-cont"}}]}`)
@@ -18,8 +18,9 @@ func TestBuildKiroPayloadForAccountPreservesClientContinuation(t *testing.T) {
 	first, err := svc.buildKiroPayloadForAccount(context.Background(), account, nil, body, "claude-sonnet-4.5", "token", "claude-sonnet-4-5", nil)
 	require.NoError(t, err)
 	firstConversationID := gjson.GetBytes(first.Payload, "conversationState.conversationId").String()
-	require.Equal(t, "client-conv", firstConversationID)
-	require.Equal(t, "client-cont", gjson.GetBytes(first.Payload, "conversationState.agentContinuationId").String())
+	require.NotEmpty(t, firstConversationID)
+	require.NotEqual(t, "client-conv", firstConversationID)
+	require.False(t, gjson.GetBytes(first.Payload, "conversationState.agentContinuationId").Exists())
 }
 
 func TestBuildKiroPayloadForAccountReplaysFullMessagesIntoHistory(t *testing.T) {

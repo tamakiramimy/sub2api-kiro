@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -57,6 +58,10 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 		return errors.New("group is nil")
 	}
 	service.NormalizeGroupRuntimeFields(groupIn)
+	modelPricing, err := json.Marshal(groupIn.ModelPricing)
+	if err != nil {
+		return fmt.Errorf("marshal group model pricing: %w", err)
+	}
 	builder := client.Group.Create().
 		SetName(groupIn.Name).
 		SetDescription(groupIn.Description).
@@ -83,7 +88,14 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 		SetNillableVideoPrice480p(groupIn.VideoPrice480P).
 		SetNillableVideoPrice720p(groupIn.VideoPrice720P).
 		SetNillableVideoPrice1080p(groupIn.VideoPrice1080P).
+		SetVideoModelPrices(service.NormalizeVideoModelPrices(groupIn.VideoModelPrices)).
 		SetNillableWebSearchPricePerCall(groupIn.WebSearchPricePerCall).
+		SetNillableSearchPricePer1k(groupIn.SearchPricePer1k).
+		SetNillableAudioRealtimePricePerMin(groupIn.AudioRealtimePricePerMin).
+		SetNillableAudioTtsPricePerMillionChars(groupIn.AudioTTSPricePerMillionChars).
+		SetNillableAudioSttPricePerHour(groupIn.AudioSTTPricePerHour).
+		SetLongContextPricingEnabled(groupIn.LongContextPricingEnabled).
+		SetModelPricing(modelPricing).
 		SetDefaultValidityDays(groupIn.DefaultValidityDays).
 		SetClaudeCodeOnly(groupIn.ClaudeCodeOnly).
 		SetNillableFallbackGroupID(groupIn.FallbackGroupID).
@@ -91,18 +103,26 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 		SetModelRoutingEnabled(groupIn.ModelRoutingEnabled).
 		SetMcpXMLInject(groupIn.MCPXMLInject).
 		SetAllowMessagesDispatch(groupIn.AllowMessagesDispatch).
+		SetAllowLive(groupIn.AllowLive).
+		SetForceOpenaiFast(groupIn.ForceOpenAIFast).
+		SetFreeOpenaiFast(groupIn.FreeOpenAIFast).
 		SetRequireOauthOnly(groupIn.RequireOAuthOnly).
 		SetRequirePrivacySet(groupIn.RequirePrivacySet).
 		SetDefaultMappedModel(groupIn.DefaultMappedModel).
 		SetMessagesDispatchModelConfig(groupIn.MessagesDispatchModelConfig).
 		SetModelsListConfig(groupIn.ModelsListConfig).
+		SetCodexModelsManifestConfig(groupIn.CodexModelsManifestConfig).
 		SetRpmLimit(groupIn.RPMLimit).
 		SetMaxReasoningEffort(groupIn.MaxReasoningEffort).
+		SetMaxReasoningEffortOverLimit(groupIn.MaxReasoningEffortOverLimit).
 		SetReasoningEffortMappings(groupIn.ReasoningEffortMappings).
 		SetPeakRateEnabled(groupIn.PeakRateEnabled).
 		SetPeakStart(groupIn.PeakStart).
 		SetPeakEnd(groupIn.PeakEnd).
 		SetPeakRateMultiplier(groupIn.PeakRateMultiplier).
+		SetProfitControlEnabled(groupIn.ProfitControlEnabled).
+		SetProfitMinMargin(groupIn.ProfitMinMargin).
+		SetProfitSafetyBuffer(groupIn.ProfitSafetyBuffer).
 		SetKiroCacheEmulationEnabled(groupIn.KiroCacheEmulationEnabled).
 		SetKiroCacheEmulationRatio(groupIn.KiroCacheEmulationRatio)
 	if groupIn.DuplicateOperationID != "" {
@@ -229,6 +249,10 @@ func (r *groupRepository) GetByIDLite(ctx context.Context, id int64) (*service.G
 
 func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) error {
 	service.NormalizeGroupRuntimeFields(groupIn)
+	modelPricing, err := json.Marshal(groupIn.ModelPricing)
+	if err != nil {
+		return fmt.Errorf("marshal group model pricing: %w", err)
+	}
 	builder := r.client.Group.UpdateOneID(groupIn.ID).
 		SetName(groupIn.Name).
 		SetDescription(groupIn.Description).
@@ -254,23 +278,34 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetNillableVideoPrice480p(groupIn.VideoPrice480P).
 		SetNillableVideoPrice720p(groupIn.VideoPrice720P).
 		SetNillableVideoPrice1080p(groupIn.VideoPrice1080P).
+		SetVideoModelPrices(service.NormalizeVideoModelPrices(groupIn.VideoModelPrices)).
+		SetLongContextPricingEnabled(groupIn.LongContextPricingEnabled).
+		SetModelPricing(modelPricing).
 		SetDefaultValidityDays(groupIn.DefaultValidityDays).
 		SetClaudeCodeOnly(groupIn.ClaudeCodeOnly).
 		SetModelRoutingEnabled(groupIn.ModelRoutingEnabled).
 		SetMcpXMLInject(groupIn.MCPXMLInject).
 		SetAllowMessagesDispatch(groupIn.AllowMessagesDispatch).
+		SetAllowLive(groupIn.AllowLive).
+		SetForceOpenaiFast(groupIn.ForceOpenAIFast).
+		SetFreeOpenaiFast(groupIn.FreeOpenAIFast).
 		SetRequireOauthOnly(groupIn.RequireOAuthOnly).
 		SetRequirePrivacySet(groupIn.RequirePrivacySet).
 		SetDefaultMappedModel(groupIn.DefaultMappedModel).
 		SetMessagesDispatchModelConfig(groupIn.MessagesDispatchModelConfig).
 		SetModelsListConfig(groupIn.ModelsListConfig).
+		SetCodexModelsManifestConfig(groupIn.CodexModelsManifestConfig).
 		SetRpmLimit(groupIn.RPMLimit).
 		SetMaxReasoningEffort(groupIn.MaxReasoningEffort).
+		SetMaxReasoningEffortOverLimit(groupIn.MaxReasoningEffortOverLimit).
 		SetReasoningEffortMappings(groupIn.ReasoningEffortMappings).
 		SetPeakRateEnabled(groupIn.PeakRateEnabled).
 		SetPeakStart(groupIn.PeakStart).
 		SetPeakEnd(groupIn.PeakEnd).
 		SetPeakRateMultiplier(groupIn.PeakRateMultiplier).
+		SetProfitControlEnabled(groupIn.ProfitControlEnabled).
+		SetProfitMinMargin(groupIn.ProfitMinMargin).
+		SetProfitSafetyBuffer(groupIn.ProfitSafetyBuffer).
 		SetKiroCacheEmulationEnabled(groupIn.KiroCacheEmulationEnabled).
 		SetKiroCacheEmulationRatio(groupIn.KiroCacheEmulationRatio)
 
@@ -324,6 +359,26 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		builder = builder.SetWebSearchPricePerCall(*groupIn.WebSearchPricePerCall)
 	} else {
 		builder = builder.ClearWebSearchPricePerCall()
+	}
+	if groupIn.SearchPricePer1k != nil {
+		builder = builder.SetSearchPricePer1k(*groupIn.SearchPricePer1k)
+	} else {
+		builder = builder.ClearSearchPricePer1k()
+	}
+	if groupIn.AudioRealtimePricePerMin != nil {
+		builder = builder.SetAudioRealtimePricePerMin(*groupIn.AudioRealtimePricePerMin)
+	} else {
+		builder = builder.ClearAudioRealtimePricePerMin()
+	}
+	if groupIn.AudioTTSPricePerMillionChars != nil {
+		builder = builder.SetAudioTtsPricePerMillionChars(*groupIn.AudioTTSPricePerMillionChars)
+	} else {
+		builder = builder.ClearAudioTtsPricePerMillionChars()
+	}
+	if groupIn.AudioSTTPricePerHour != nil {
+		builder = builder.SetAudioSttPricePerHour(*groupIn.AudioSTTPricePerHour)
+	} else {
+		builder = builder.ClearAudioSttPricePerHour()
 	}
 
 	// 处理 FallbackGroupID：nil 时清除，否则设置
@@ -841,7 +896,12 @@ func (r *groupRepository) DeleteCascade(ctx context.Context, id int64) ([]int64,
 		return nil, err
 	}
 
-	// 4. Soft-delete group itself.
+	// 4. Soft-delete composite model routes owned by this group.
+	if _, err := exec.ExecContext(ctx, "UPDATE composite_model_routes SET deleted_at = NOW() WHERE group_id = $1 AND deleted_at IS NULL", id); err != nil {
+		return nil, err
+	}
+
+	// 5. Soft-delete group itself.
 	if _, err := txClient.Group.Delete().Where(group.IDEQ(id)).Exec(ctx); err != nil {
 		return nil, err
 	}

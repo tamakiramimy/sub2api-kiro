@@ -8,6 +8,8 @@ export const kiroColors = {
   badge: 'bg-orange-500/10 text-orange-600 border-orange-500/30 dark:text-orange-400',
   badgeLight: 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/10 dark:text-orange-300',
   border: 'border-orange-500/20 dark:border-orange-500/20',
+  borderStrong: 'border-orange-500/35 dark:border-orange-500/30',
+  accent: '#f97316',
   accentBar: 'bg-gradient-to-r from-orange-400 to-orange-500',
   text: 'text-orange-600 dark:text-orange-400',
   icon: 'text-orange-500 dark:text-orange-400',

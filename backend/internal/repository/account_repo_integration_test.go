@@ -327,6 +327,14 @@ func (s *AccountRepoSuite) TestListOAuthRefreshCandidatePage_GrokCursorAndExclus
 			"expires_at":    now.Add(30 * time.Minute).Format(time.RFC3339),
 		},
 	})
+	unschedulable := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:        "grok-oauth-unschedulable-excluded",
+		Platform:    service.PlatformGrok,
+		Type:        service.AccountTypeOAuth,
+		Status:      service.StatusActive,
+		Credentials: map[string]any{"refresh_token": "refresh-unschedulable"},
+	})
+	s.Require().NoError(s.client.Account.UpdateOneID(unschedulable.ID).SetSchedulable(false).Exec(s.ctx))
 	mustCreateAccount(s.T(), s.client, &service.Account{
 		Name:     "grok-api-key-excluded",
 		Platform: service.PlatformGrok,
@@ -386,6 +394,7 @@ func (s *AccountRepoSuite) TestListOAuthRefreshCandidatePage_GrokCursorAndExclus
 	first := firstPage.Accounts
 	s.Require().Len(first, 2)
 	s.Require().Equal([]int64{valid1.ID, valid2.ID}, []int64{first[0].ID, first[1].ID})
+	s.Require().NotContains([]int64{first[0].ID, first[1].ID}, unschedulable.ID)
 
 	options.AfterID = first[len(first)-1].ID
 	secondPage, err := s.repo.ListOAuthRefreshCandidatePage(s.ctx, options)
@@ -945,6 +954,53 @@ func (s *AccountRepoSuite) TestClearRateLimit() {
 	s.Require().Nil(got.RateLimitedAt)
 	s.Require().Nil(got.RateLimitResetAt)
 	s.Require().Nil(got.OverloadUntil)
+}
+
+func (s *AccountRepoSuite) TestResetQuotaUsedAndClearRateLimitCooldownPreservesOtherRuntimeState() {
+	account := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name: "acc-reset-quota-cooldown",
+		Extra: map[string]any{
+			"quota_used":        12.5,
+			"quota_daily_used":  5.0,
+			"quota_weekly_used": 9.0,
+			"model_rate_limits": map[string]any{
+				"claude-sonnet-4-5": map[string]any{"rate_limit_reset_at": "2026-09-01T10:00:00Z"},
+			},
+		},
+	})
+	until := time.Now().Add(1 * time.Hour)
+	s.Require().NoError(s.repo.SetOverloaded(s.ctx, account.ID, until))
+	s.Require().NoError(s.repo.SetRateLimited(s.ctx, account.ID, until))
+	s.Require().NoError(s.repo.SetTempUnschedulable(s.ctx, account.ID, until, "preserve-me"))
+
+	cacheRecorder := &schedulerCacheRecorder{}
+	s.repo.schedulerCache = cacheRecorder
+
+	s.Require().NoError(s.repo.ResetQuotaUsedAndClearRateLimitCooldown(s.ctx, account.ID))
+
+	got, err := s.repo.GetByID(s.ctx, account.ID)
+	s.Require().NoError(err)
+	s.Require().Nil(got.RateLimitedAt)
+	s.Require().Nil(got.RateLimitResetAt)
+	s.Require().NotNil(got.OverloadUntil)
+	s.Require().WithinDuration(until, *got.OverloadUntil, time.Second)
+	s.Require().NotNil(got.TempUnschedulableUntil)
+	s.Require().WithinDuration(until, *got.TempUnschedulableUntil, time.Second)
+	s.Require().Equal("preserve-me", got.TempUnschedulableReason)
+	s.Require().Contains(got.Extra, "model_rate_limits")
+	s.Require().Equal(float64(0), got.Extra["quota_used"])
+	s.Require().Equal(float64(0), got.Extra["quota_daily_used"])
+	s.Require().Equal(float64(0), got.Extra["quota_weekly_used"])
+
+	var pendingEventExists bool
+	s.Require().NoError(scanSingleRow(s.ctx, s.repo.sql, `
+		SELECT EXISTS (
+			SELECT 1 FROM scheduler_outbox
+			WHERE event_type = $1 AND account_id = $2 AND dedup_key IS NOT NULL
+		)`, []any{service.SchedulerOutboxEventAccountChanged, account.ID}, &pendingEventExists))
+	s.Require().True(pendingEventExists)
+	s.Require().Len(cacheRecorder.setAccounts, 1)
+	s.Require().Equal(account.ID, cacheRecorder.setAccounts[0].ID)
 }
 
 func (s *AccountRepoSuite) TestTempUnschedulableFieldsLoadedByGetByIDAndGetByIDs() {

@@ -218,7 +218,7 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 			expectHandleError: true,
 		},
 		{
-			name: "custom_codes_skipped_500_no_failover",
+			name: "custom_codes_skipped_500_failover",
 			account: &Account{
 				ID:       201,
 				Type:     AccountTypeAPIKey,
@@ -230,6 +230,22 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 			},
 			statusCode:        500,
 			respBody:          []byte(`{"error":"internal"}`),
+			expectFailover:    true,
+			expectHandleError: false,
+		},
+		{
+			name: "custom_codes_skipped_400_no_failover",
+			account: &Account{
+				ID:       205,
+				Type:     AccountTypeAPIKey,
+				Platform: PlatformGemini,
+				Credentials: map[string]any{
+					"custom_error_codes_enabled": true,
+					"custom_error_codes":         []any{float64(429)},
+				},
+			},
+			statusCode:        400,
+			respBody:          []byte(`{"error":"bad request"}`),
 			expectFailover:    false,
 			expectHandleError: false,
 		},
@@ -311,9 +327,9 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 				policy := svc.rateLimitService.CheckErrorPolicy(ctx, account, statusCode, respBody, "gemini-2.5-pro")
 				switch policy {
 				case ErrorPolicySkipped:
-					// Skipped → return error directly (no handleGeminiUpstreamError, no failover)
-					gotFailover = false
+					// Skipped → 不标记账号状态；可 failover 的状态码仍换号
 					handleErrorCalled = false
+					gotFailover = svc.skippedErrorPolicyFailoverError(c, account, statusCode, respBody, "req-test") != nil
 					goto verify
 				case ErrorPolicyMatched:
 					svc.handleGeminiUpstreamError(ctx, account, statusCode, headers, respBody)
@@ -348,6 +364,70 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 				require.True(t, svc.shouldFailoverGeminiUpstreamError(statusCode),
 					"shouldFailoverGeminiUpstreamError should return true for status %d", statusCode)
 			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestSkippedErrorPolicyFailoverError — ErrorPolicySkipped（池模式、或自定义
+// 错误码未命中）不豁免换号：可 failover 的状态码返回 UpstreamFailoverError，
+// 仅池模式账号可携带同账号重试标记。
+// ---------------------------------------------------------------------------
+
+func TestSkippedErrorPolicyFailoverError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &GeminiMessagesCompatService{}
+
+	poolAccount := func(extra map[string]any) *Account {
+		creds := map[string]any{"pool_mode": true}
+		for k, v := range extra {
+			creds[k] = v
+		}
+		return &Account{ID: 300, Type: AccountTypeAPIKey, Platform: PlatformGemini, Credentials: creds}
+	}
+	customCodesAccount := &Account{
+		ID: 301, Type: AccountTypeAPIKey, Platform: PlatformGemini,
+		Credentials: map[string]any{
+			"custom_error_codes_enabled": true,
+			"custom_error_codes":         []any{float64(429)},
+		},
+	}
+
+	tests := []struct {
+		name              string
+		account           *Account
+		statusCode        int
+		expectFailover    bool
+		expectSameAccount bool
+	}{
+		{"pool_500_failover_no_same_account_retry", poolAccount(nil), 500, true, false},
+		{"pool_429_failover_with_same_account_retry", poolAccount(nil), 429, true, true},
+		{"pool_custom_retry_codes_500", poolAccount(map[string]any{
+			"pool_mode_retry_status_codes": []any{float64(500)},
+		}), 500, true, true},
+		{"pool_400_not_failover_worthy", poolAccount(nil), 400, false, false},
+		{"custom_codes_miss_500_failover_no_same_account_retry", customCodesAccount, 500, true, false},
+		{"custom_codes_miss_400_not_failover_worthy", customCodesAccount, 400, false, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writer := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(writer)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+
+			body := []byte(`{"error":{"code":"bad_response_status_code","message":"openai_error"}}`)
+			failoverErr := svc.skippedErrorPolicyFailoverError(c, tt.account, tt.statusCode, body, "req-1")
+
+			if !tt.expectFailover {
+				require.Nil(t, failoverErr)
+				return
+			}
+			require.NotNil(t, failoverErr)
+			require.Equal(t, tt.statusCode, failoverErr.StatusCode)
+			require.Equal(t, body, failoverErr.ResponseBody)
+			require.Equal(t, tt.expectSameAccount, failoverErr.RetryableOnSameAccount)
+			require.True(t, failoverErr.ShouldRetryNextAccount())
 		})
 	}
 }
@@ -425,6 +505,105 @@ func TestHandleGeminiUpstreamError_GoogleOneCapacityExhaustedUsesTierCooldown(t 
 	require.WithinDuration(t, before.Add(5*time.Minute), repo.lastRateLimitReset, 2*time.Second)
 	require.True(t, repo.lastRateLimitReset.After(before))
 	require.True(t, repo.lastRateLimitReset.Before(after.Add(5*time.Minute).Add(2*time.Second)))
+}
+
+// ---------------------------------------------------------------------------
+// TestHandleGeminiUpstreamError_PoolMode429 — 池模式账号的 429 不写账号级限流。
+//
+// 429 的标记点在重试循环内（handleClaudeCompat / forwardNativeGemini /
+// chat completions 三条路径），先于 CheckErrorPolicy 执行，池模式豁免只能落在
+// handleGeminiUpstreamError 自身；否则一次上游 429 会把账号锁到 PST 午夜，
+// 即便重试已经成功返回客户端。
+// ---------------------------------------------------------------------------
+
+func TestHandleGeminiUpstreamError_PoolMode429(t *testing.T) {
+	// 中转上游的真实 429 文案：不含 "per day"，也没有 quotaResetDelay，
+	// 解析失败后 apikey 账号会落到 PST 午夜兜底。
+	body := []byte(`{"error":{"code":429,"message":"You have exhausted your capacity on this model. Your quota will reset after 6h53m10s."}}`)
+
+	tests := []struct {
+		name              string
+		account           *Account
+		expectRateLimited bool
+	}{
+		{
+			name: "pool_mode_apikey_stays_in_pool",
+			account: &Account{
+				ID:          600,
+				Platform:    PlatformGemini,
+				Type:        AccountTypeAPIKey,
+				Credentials: map[string]any{"pool_mode": true},
+			},
+			expectRateLimited: false,
+		},
+		{
+			name: "custom_error_codes_hit_overrides_pool_mode",
+			account: &Account{
+				ID:       601,
+				Platform: PlatformGemini,
+				Type:     AccountTypeAPIKey,
+				Credentials: map[string]any{
+					"pool_mode":                  true,
+					"custom_error_codes_enabled": true,
+					"custom_error_codes":         []any{float64(429)},
+				},
+			},
+			expectRateLimited: true,
+		},
+		{
+			name: "custom_error_codes_miss_skips",
+			account: &Account{
+				ID:       602,
+				Platform: PlatformGemini,
+				Type:     AccountTypeAPIKey,
+				Credentials: map[string]any{
+					"pool_mode":                  true,
+					"custom_error_codes_enabled": true,
+					"custom_error_codes":         []any{float64(500)},
+				},
+			},
+			expectRateLimited: false,
+		},
+		{
+			name: "non_pool_apikey_still_rate_limited",
+			account: &Account{
+				ID:       603,
+				Platform: PlatformGemini,
+				Type:     AccountTypeAPIKey,
+			},
+			expectRateLimited: true,
+		},
+		{
+			name: "oauth_account_ignores_pool_mode_flag",
+			account: &Account{
+				ID:          604,
+				Platform:    PlatformGemini,
+				Type:        AccountTypeOAuth,
+				Credentials: map[string]any{"pool_mode": true},
+			},
+			expectRateLimited: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &rateLimit429AccountRepoStub{}
+			svc := &GeminiMessagesCompatService{
+				accountRepo:      repo,
+				rateLimitService: NewRateLimitService(repo, nil, &config.Config{}, nil, nil),
+			}
+
+			svc.handleGeminiUpstreamError(context.Background(), tt.account, http.StatusTooManyRequests, http.Header{}, body)
+
+			if !tt.expectRateLimited {
+				require.Zero(t, repo.rateLimitCalls, "池模式账号不应被标记账号级限流")
+				return
+			}
+			require.Equal(t, 1, repo.rateLimitCalls)
+			require.Equal(t, tt.account.ID, repo.lastRateLimitID)
+			require.True(t, repo.lastRateLimitReset.After(time.Now()))
+		})
+	}
 }
 
 type geminiErrorPolicyRepo struct {

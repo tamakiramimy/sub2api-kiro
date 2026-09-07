@@ -146,6 +146,7 @@ func (s *GatewayService) forwardKiroAsResponses(
 	body []byte,
 	parsed *ParsedRequest,
 	startTime time.Time,
+	clientToolMappings ...apicompat.ResponsesClientToolMapping,
 ) (*ForwardResult, error) {
 	var responsesReq apicompat.ResponsesRequest
 	if err := json.Unmarshal(body, &responsesReq); err != nil {
@@ -154,6 +155,10 @@ func (s *GatewayService) forwardKiroAsResponses(
 	originalModel := responsesReq.Model
 	clientStream := responsesReq.Stream
 	reasoningEffort := ExtractResponsesReasoningEffortFromBody(body)
+	clientToolMapping := apicompat.ResponsesClientToolMapping{}
+	if len(clientToolMappings) > 0 {
+		clientToolMapping = clientToolMappings[0]
+	}
 
 	anthropicReq, err := apicompat.ResponsesToAnthropicRequest(&responsesReq)
 	if err != nil {
@@ -177,9 +182,9 @@ func (s *GatewayService) forwardKiroAsResponses(
 	defer func() { _ = bridge.Resp.Body.Close() }()
 
 	if clientStream {
-		return s.handleResponsesStreamingResponse(bridge.Resp, c, originalModel, bridge.MappedModel, reasoningEffort, startTime)
+		return s.handleResponsesStreamingResponse(bridge.Resp, c, originalModel, bridge.MappedModel, reasoningEffort, startTime, clientToolMapping)
 	}
-	return s.handleResponsesBufferedStreamingResponse(bridge.Resp, c, originalModel, bridge.MappedModel, reasoningEffort, startTime)
+	return s.handleResponsesBufferedStreamingResponse(bridge.Resp, c, originalModel, bridge.MappedModel, reasoningEffort, startTime, clientToolMapping)
 }
 
 // forwardKiroAsChatCompletions 让 Kiro 账号可以通过 OpenAI Chat Completions API

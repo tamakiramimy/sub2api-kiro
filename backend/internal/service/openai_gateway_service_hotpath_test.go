@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -103,7 +102,7 @@ func TestOpenAIRequestView_HasPatches(t *testing.T) {
 	require.False(t, view.HasPatches())
 }
 
-func TestOpenAIGatewayService_Forward_HTTPPatchPathKeepsLargeInputRaw(t *testing.T) {
+func TestOpenAIGatewayService_Forward_APIKeyMissingInstructionsKeepsLargeInputRaw(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	upstream := &httpUpstreamRecorder{
 		resp: &http.Response{
@@ -139,10 +138,9 @@ func TestOpenAIGatewayService_Forward_HTTPPatchPathKeepsLargeInputRaw(t *testing
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, upstream.lastReq)
-	// 合成路径默认 instructions 现按模型填入真实 Codex base prompt（此处 inbound model=gpt-5）。
-	encodedInstr, _ := json.Marshal(defaultCodexSynthInstructions("gpt-5"))
-	expectedBody := fmt.Sprintf(`{"model":"gpt-5","stream":false,"reasoning":{"effort":"none"},"instructions":%s,"input":[{"type":"message","content":[{"type":"input_text","text":"hi","nonce":9007199254740993}]}]}`, string(encodedInstr))
+	expectedBody := `{"model":"gpt-5","stream":false,"reasoning":{"effort":"none"},"input":[{"type":"message","content":[{"type":"input_text","text":"hi","nonce":9007199254740993}]}]}`
 	require.JSONEq(t, expectedBody, string(upstream.lastBody))
+	require.False(t, gjson.GetBytes(upstream.lastBody, "instructions").Exists())
 	require.Equal(t, "9007199254740993", gjson.GetBytes(upstream.lastBody, "input.0.content.0.nonce").Raw)
 }
 
@@ -593,6 +591,52 @@ func TestOpenAIGatewayService_Forward_HTTPRetryRecoveryDoesNotDecodeBeforeError(
 	require.Equal(t, "summary_text", gjson.GetBytes(upstream.bodies[1], "input.0.summary.0.type").String())
 }
 
+func TestOpenAIGatewayService_Forward_HTTPRetryRecoveryDropsCompaction(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	upstream := &httpUpstreamRecorder{
+		responses: []*http.Response{
+			{
+				StatusCode: http.StatusBadRequest,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"error":{"code":"invalid_encrypted_content","type":"invalid_request_error","message":"bad encrypted content"}}`)),
+			},
+			{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"usage":{"input_tokens":1,"output_tokens":2}}`)),
+			},
+		},
+	}
+	cfg := &config.Config{}
+	cfg.Security.URLAllowlist.Enabled = false
+	svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream}
+	account := &Account{
+		ID:          10,
+		Name:        "openai-apikey",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "sk-test",
+			"base_url": "https://example.com",
+		},
+		Extra: map[string]any{"use_responses_api": true},
+	}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+	SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
+
+	body := []byte(`{"model":"gpt-5.6-sol","stream":false,"input":[{"id":"cmp_stale","type":"compaction","encrypted_content":"gAAA"},{"type":"message","content":[{"type":"input_text","text":"hi"}]}]}`)
+	result, err := svc.Forward(context.Background(), c, account, body)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Len(t, upstream.bodies, 2)
+	require.Equal(t, "compaction", gjson.GetBytes(upstream.bodies[0], "input.0.type").String())
+	require.Equal(t, "message", gjson.GetBytes(upstream.bodies[1], "input.0.type").String())
+	require.False(t, gjson.GetBytes(upstream.bodies[1], "input.1").Exists())
+}
+
 func TestOpenAIGatewayService_Forward_CodexSparkRejectsEscapedInputImage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	upstream := &httpUpstreamRecorder{
@@ -673,7 +717,7 @@ func TestOpenAIGatewayService_Forward_CodexBridgeInjectionSetsImageBilling(t *te
 	require.Equal(t, "gpt-image-2", result.BillingModel)
 }
 
-func TestOpenAIGatewayService_Forward_HTTPDeletesPreviousResponseIDWhenPresent(t *testing.T) {
+func TestOpenAIGatewayService_Forward_HTTPPreservesPreviousResponseIDForAPIKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{}
 	cfg.Security.URLAllowlist.Enabled = false
@@ -710,7 +754,7 @@ func TestOpenAIGatewayService_Forward_HTTPDeletesPreviousResponseIDWhenPresent(t
 		result, err := svc.Forward(context.Background(), c, account, body)
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		require.False(t, gjson.GetBytes(upstream.lastBody, "previous_response_id").Exists())
+		require.True(t, gjson.GetBytes(upstream.lastBody, "previous_response_id").Exists())
 	}
 }
 
@@ -874,9 +918,16 @@ func TestExtractOpenAIReasoningEffortFromBody(t *testing.T) {
 			wantValue: "xhigh",
 		},
 		{
-			name:      "DeepSeek max 归一化为 xhigh",
+			name:      "DeepSeek V4 保留 max",
 			body:      []byte(`{"reasoning_effort":"max"}`),
 			model:     "deepseek-v4-pro",
+			wantNil:   false,
+			wantValue: "max",
+		},
+		{
+			name:      "旧模型仍将 max 归一化为 xhigh",
+			body:      []byte(`{"reasoning_effort":"max"}`),
+			model:     "gpt-5.5",
 			wantNil:   false,
 			wantValue: "xhigh",
 		},

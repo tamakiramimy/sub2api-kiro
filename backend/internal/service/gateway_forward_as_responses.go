@@ -37,23 +37,37 @@ func (s *GatewayService) ForwardAsResponses(
 ) (*ForwardResult, error) {
 	startTime := time.Now()
 
+	normalizedBody, normalized, err := normalizeOpenAIResponsesLegacyIngress(body)
+	if err != nil {
+		return nil, err
+	}
+	if normalized {
+		body = normalizedBody
+	}
+
+	// 1. Lower Codex client-side tools to function tools understood by Anthropic.
+	adaptedBody, clientToolMapping, err := adaptResponsesClientToolsForAnthropic(body)
+	if err != nil {
+		return nil, fmt.Errorf("adapt responses client tools: %w", err)
+	}
+
 	// Kiro 账号自己的上游协议既不是 Anthropic 也不是 OpenAI，永远需要经过
 	// translator.go 转换；这里转发给专用桥接函数复用 Kiro 现有的流式获取逻辑 +
 	// 下面的 Anthropic→Responses 转换终端函数，而不是走本函数其余的
 	// “真实 Anthropic 账号直连上游”逻辑。见 kiro_runtime_openai_bridge.go。
 	if account.Platform == PlatformKiro {
-		return s.forwardKiroAsResponses(ctx, c, account, body, parsed, startTime)
+		return s.forwardKiroAsResponses(ctx, c, account, adaptedBody, parsed, startTime, clientToolMapping)
 	}
 
-	// 1. Parse Responses request
+	// 2. Parse Responses request
 	var responsesReq apicompat.ResponsesRequest
-	if err := json.Unmarshal(body, &responsesReq); err != nil {
+	if err := json.Unmarshal(adaptedBody, &responsesReq); err != nil {
 		return nil, fmt.Errorf("parse responses request: %w", err)
 	}
 	originalModel := responsesReq.Model
 	clientStream := responsesReq.Stream
 
-	// 2. Convert Responses → Anthropic
+	// 3. Convert Responses → Anthropic
 	anthropicReq, err := apicompat.ResponsesToAnthropicRequest(&responsesReq)
 	if err != nil {
 		return nil, fmt.Errorf("convert responses to anthropic: %w", err)
@@ -65,7 +79,6 @@ func (s *GatewayService) ForwardAsResponses(
 
 	// 4. Model mapping
 	mappedModel := originalModel
-	reasoningEffort := ExtractResponsesReasoningEffortFromBody(body)
 	if account.Type == AccountTypeAPIKey || account.Type == AccountTypeServiceAccount {
 		mappedModel = account.GetMappedModel(originalModel)
 	}
@@ -80,6 +93,7 @@ func (s *GatewayService) ForwardAsResponses(
 			mappedModel = normalized
 		}
 	}
+	reasoningEffort := ExtractResponsesReasoningEffortFromBody(body, mappedModel, originalModel)
 	// 国产模型默认 effort 补充：需要 mappedModel 判定，推迟到 mapping 完成之后。
 	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, mappedModel)
 	anthropicReq.Model = mappedModel
@@ -138,18 +152,9 @@ func (s *GatewayService) ForwardAsResponses(
 		if resp != nil && resp.Body != nil {
 			_ = resp.Body.Close()
 		}
-		safeErr := sanitizeUpstreamErrorMessage(err.Error())
-		setOpsUpstreamError(c, 0, safeErr, "")
-		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
-			Platform:           account.Platform,
-			AccountID:          account.ID,
-			AccountName:        account.Name,
-			UpstreamStatusCode: 0,
-			Kind:               "request_error",
-			Message:            safeErr,
+		return nil, s.handleUpstreamTransportError(ctx, c, account, err, OpsUpstreamErrorEvent{
+			UpstreamURL: safeUpstreamURL(upstreamReq.URL.String()),
 		})
-		writeResponsesError(c, http.StatusBadGateway, "server_error", "Upstream request failed")
-		return nil, fmt.Errorf("upstream request failed: %s", safeErr)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -164,6 +169,8 @@ func (s *GatewayService) ForwardAsResponses(
 
 		if s.shouldFailoverUpstreamError(resp.StatusCode) {
 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+				ProxyID:            opsUpstreamProxyID(account),
+				ProxyName:          opsUpstreamProxyName(account),
 				Platform:           account.Platform,
 				AccountID:          account.ID,
 				AccountName:        account.Name,
@@ -172,12 +179,14 @@ func (s *GatewayService) ForwardAsResponses(
 				Kind:               "failover",
 				Message:            upstreamMsg,
 			})
+			shouldDisable := false
 			if s.rateLimitService != nil {
-				s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, mappedModel)
+				shouldDisable = s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, mappedModel)
 			}
 			return nil, &UpstreamFailoverError{
-				StatusCode:   resp.StatusCode,
-				ResponseBody: respBody,
+				StatusCode:             resp.StatusCode,
+				ResponseBody:           respBody,
+				RetryableOnSameAccount: !shouldDisable && account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
 			}
 		}
 
@@ -190,22 +199,83 @@ func (s *GatewayService) ForwardAsResponses(
 	var result *ForwardResult
 	var handleErr error
 	if clientStream {
-		result, handleErr = s.handleResponsesStreamingResponse(resp, c, originalModel, mappedModel, reasoningEffort, startTime)
+		result, handleErr = s.handleResponsesStreamingResponse(resp, c, originalModel, mappedModel, reasoningEffort, startTime, clientToolMapping)
 	} else {
-		result, handleErr = s.handleResponsesBufferedStreamingResponse(resp, c, originalModel, mappedModel, reasoningEffort, startTime)
+		result, handleErr = s.handleResponsesBufferedStreamingResponse(resp, c, originalModel, mappedModel, reasoningEffort, startTime, clientToolMapping)
 	}
 
 	return result, handleErr
 }
 
+func adaptResponsesClientToolsForAnthropic(body []byte) ([]byte, apicompat.ResponsesClientToolMapping, error) {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	var requestBody map[string]any
+	if err := decoder.Decode(&requestBody); err != nil {
+		return body, apicompat.ResponsesClientToolMapping{}, err
+	}
+	additionalToolsChanged, err := liftResponsesAdditionalTools(requestBody)
+	if err != nil {
+		return body, apicompat.ResponsesClientToolMapping{}, err
+	}
+
+	mapping, changed, err := apicompat.AdaptResponsesClientTools(requestBody)
+	if err != nil {
+		return body, apicompat.ResponsesClientToolMapping{}, err
+	}
+	changed = changed || additionalToolsChanged
+	if !changed {
+		return body, mapping, nil
+	}
+	rebuilt, err := json.Marshal(requestBody)
+	if err != nil {
+		return body, apicompat.ResponsesClientToolMapping{}, err
+	}
+	return rebuilt, mapping, nil
+}
+
+func liftResponsesAdditionalTools(requestBody map[string]any) (bool, error) {
+	input, ok := requestBody["input"].([]any)
+	if !ok {
+		return false, nil
+	}
+
+	tools, _ := requestBody["tools"].([]any)
+	kept := make([]any, 0, len(input))
+	changed := false
+	for _, raw := range input {
+		item, ok := raw.(map[string]any)
+		if !ok || strings.TrimSpace(fmt.Sprint(item["type"])) != "additional_tools" {
+			kept = append(kept, raw)
+			continue
+		}
+		additional, ok := item["tools"].([]any)
+		if !ok {
+			return false, fmt.Errorf("additional_tools.tools must be an array")
+		}
+		tools = append(tools, additional...)
+		changed = true
+	}
+	if !changed {
+		return false, nil
+	}
+	requestBody["tools"] = tools
+	requestBody["input"] = kept
+	return true, nil
+}
+
 // ExtractResponsesReasoningEffortFromBody reads Responses API reasoning.effort
 // and normalizes it for usage logging.
-func ExtractResponsesReasoningEffortFromBody(body []byte) *string {
+func ExtractResponsesReasoningEffortFromBody(body []byte, modelCandidates ...string) *string {
 	raw := strings.TrimSpace(gjson.GetBytes(body, "reasoning.effort").String())
 	if raw == "" {
 		return nil
 	}
-	normalized := normalizeOpenAIReasoningEffort(raw)
+	model := firstNonEmpty(modelCandidates...)
+	if model == "" {
+		model = strings.TrimSpace(gjson.GetBytes(body, "model").String())
+	}
+	normalized := normalizeOpenAIReasoningEffortForModel(raw, model)
 	if normalized == "" {
 		return nil
 	}
@@ -216,17 +286,45 @@ func mergeAnthropicUsage(dst *ClaudeUsage, src apicompat.AnthropicUsage) {
 	if dst == nil {
 		return
 	}
-	if src.InputTokens > 0 {
-		dst.InputTokens = src.InputTokens
+
+	// Some Anthropic-compatible providers retain OpenAI-style prompt/cache
+	// fields. Prefer those authoritative totals or hit/miss buckets over the
+	// overloaded input_tokens field. This covers Kimi's changing stream
+	// semantics as well as GLM/DeepSeek cache aliases.
+	if src.PromptTokens > 0 || src.PromptCacheHitTokens != nil || src.PromptCacheMissTokens != nil {
+		cacheReadTokens := src.CacheReadInputTokens
+		if cacheReadTokens == 0 && src.CachedTokens > 0 {
+			cacheReadTokens = src.CachedTokens
+		}
+		if cacheReadTokens == 0 && src.PromptTokensDetails != nil && src.PromptTokensDetails.CachedTokens > 0 {
+			cacheReadTokens = src.PromptTokensDetails.CachedTokens
+		}
+		if cacheReadTokens == 0 && src.PromptCacheHitTokens != nil {
+			cacheReadTokens = max(*src.PromptCacheHitTokens, 0)
+		}
+
+		if src.PromptCacheMissTokens != nil {
+			dst.InputTokens = max(*src.PromptCacheMissTokens, 0)
+		} else {
+			dst.InputTokens = max(src.PromptTokens-cacheReadTokens-src.CacheCreationInputTokens, 0)
+		}
+		dst.CacheReadInputTokens = cacheReadTokens
+		dst.CacheCreationInputTokens = src.CacheCreationInputTokens
+	} else {
+		if src.InputTokens > 0 {
+			dst.InputTokens = src.InputTokens
+		}
+		if src.CacheReadInputTokens > 0 {
+			dst.CacheReadInputTokens = src.CacheReadInputTokens
+		} else if src.CachedTokens > 0 {
+			dst.CacheReadInputTokens = src.CachedTokens
+		}
+		if src.CacheCreationInputTokens > 0 {
+			dst.CacheCreationInputTokens = src.CacheCreationInputTokens
+		}
 	}
 	if src.OutputTokens > 0 {
 		dst.OutputTokens = src.OutputTokens
-	}
-	if src.CacheReadInputTokens > 0 {
-		dst.CacheReadInputTokens = src.CacheReadInputTokens
-	}
-	if src.CacheCreationInputTokens > 0 {
-		dst.CacheCreationInputTokens = src.CacheCreationInputTokens
 	}
 }
 
@@ -251,6 +349,7 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
 	mappedModel string,
 	reasoningEffort *string,
 	startTime time.Time,
+	clientToolMapping apicompat.ResponsesClientToolMapping,
 ) (*ForwardResult, error) {
 	requestID := resp.Header.Get("x-request-id")
 
@@ -366,6 +465,10 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
 	c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if respBytes, err := json.Marshal(responsesResp); err == nil {
 		respBytes = reverseToolNamesIfPresent(c, respBytes)
+		respBytes, _, err = apicompat.RestoreResponsesClientToolPayload(respBytes, clientToolMapping)
+		if err != nil {
+			return nil, fmt.Errorf("restore responses client tools: %w", err)
+		}
 		c.Data(http.StatusOK, "application/json; charset=utf-8", respBytes)
 	} else {
 		c.JSON(http.StatusOK, responsesResp)
@@ -373,6 +476,7 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
 
 	return &ForwardResult{
 		RequestID:       requestID,
+		UpstreamHeaders: resp.Header,
 		Usage:           usage,
 		Model:           originalModel,
 		UpstreamModel:   mappedModel,
@@ -391,6 +495,7 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 	mappedModel string,
 	reasoningEffort *string,
 	startTime time.Time,
+	clientToolMapping apicompat.ResponsesClientToolMapping,
 ) (*ForwardResult, error) {
 	requestID := resp.Header.Get("x-request-id")
 
@@ -405,6 +510,7 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 
 	state := apicompat.NewAnthropicEventToResponsesState()
 	state.Model = originalModel
+	clientToolRestorer := apicompat.NewResponsesClientToolStreamRestorer(clientToolMapping)
 	var usage ClaudeUsage
 	var firstTokenMs *int
 	firstChunk := true
@@ -419,6 +525,7 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 	resultWithUsage := func() *ForwardResult {
 		return &ForwardResult{
 			RequestID:       requestID,
+			UpstreamHeaders: resp.Header,
 			Usage:           usage,
 			Model:           originalModel,
 			UpstreamModel:   mappedModel,
@@ -449,7 +556,7 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 		// Convert to Responses events
 		events := apicompat.AnthropicEventToResponsesEvents(event, state)
 		for _, evt := range events {
-			sse, err := apicompat.ResponsesEventToSSE(evt)
+			payload, err := json.Marshal(evt)
 			if err != nil {
 				logger.L().Warn("forward_as_responses stream: failed to marshal event",
 					zap.Error(err),
@@ -457,12 +564,23 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 				)
 				continue
 			}
-			out := string(reverseToolNamesIfPresent(c, []byte(sse)))
-			if _, err := fmt.Fprint(c.Writer, out); err != nil {
-				logger.L().Info("forward_as_responses stream: client disconnected",
+			payload = reverseToolNamesIfPresent(c, payload)
+			payloads, _, err := clientToolRestorer.RestoreEvent(payload)
+			if err != nil {
+				logger.L().Warn("forward_as_responses stream: failed to restore client tools",
+					zap.Error(err),
 					zap.String("request_id", requestID),
 				)
-				return true // client disconnected
+				continue
+			}
+			for _, restored := range payloads {
+				eventType := gjson.GetBytes(restored, "type").String()
+				if _, err := fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", eventType, restored); err != nil {
+					logger.L().Info("forward_as_responses stream: client disconnected",
+						zap.String("request_id", requestID),
+					)
+					return true // client disconnected
+				}
 			}
 		}
 		if len(events) > 0 {
@@ -533,7 +651,12 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 
 // appendRawJSON appends a JSON fragment string to existing raw JSON.
 func appendRawJSON(existing json.RawMessage, fragment string) json.RawMessage {
-	if len(existing) == 0 {
+	// Anthropic initializes tool_use.input to {} in content_block_start, then
+	// streams the actual input through input_json_delta events. Treat that empty
+	// object as a placeholder instead of prefixing it to the streamed JSON.
+	var existingObject map[string]json.RawMessage
+	isEmptyObject := json.Unmarshal(existing, &existingObject) == nil && existingObject != nil && len(existingObject) == 0
+	if len(existing) == 0 || isEmptyObject {
 		return json.RawMessage(fragment)
 	}
 	return json.RawMessage(string(existing) + fragment)

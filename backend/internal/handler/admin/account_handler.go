@@ -64,11 +64,16 @@ type AccountHandler struct {
 	tokenCacheInvalidator   service.TokenCacheInvalidator
 	grokImportProber        grokImportProber
 	upstreamBillingProbe    *service.UpstreamBillingProbeService
+	ollamaCloudUsage        *service.OllamaCloudUsageService
 }
 
 // SetUpstreamBillingProbeService attaches the optional remote billing probe service.
 func (h *AccountHandler) SetUpstreamBillingProbeService(probe *service.UpstreamBillingProbeService) {
 	h.upstreamBillingProbe = probe
+}
+
+func (h *AccountHandler) SetOllamaCloudUsageService(usage *service.OllamaCloudUsageService) {
+	h.ollamaCloudUsage = usage
 }
 
 // NewAccountHandler creates a new admin account handler
@@ -143,6 +148,8 @@ type UpdateAccountRequest struct {
 	GroupIDs                *[]int64       `json:"group_ids"`
 	ExpiresAt               *int64         `json:"expires_at"`
 	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
+	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
+	RateSyncEnabled         *bool          `json:"upstream_billing_rate_sync_enabled"`
 	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
 }
 
@@ -193,6 +200,19 @@ type AccountWithConcurrency struct {
 	CurrentRPM        *int     `json:"current_rpm,omitempty"`         // 当前分钟 RPM 计数
 }
 
+// AccountListItemWithConcurrency is the compact account-list envelope used
+// for lite=1. It embeds dto.AccountListItem instead of the full dto.Account,
+// so groups/account_groups never appear in the list payload.
+type AccountListItemWithConcurrency struct {
+	*dto.AccountListItem
+	CurrentConcurrency int                          `json:"current_concurrency"`
+	SchedulerScore     *AccountSchedulerScore       `json:"scheduler_score,omitempty"`
+	SchedulerScores    []AccountSchedulerGroupScore `json:"scheduler_scores,omitempty"`
+	CurrentWindowCost  *float64                     `json:"current_window_cost,omitempty"`
+	ActiveSessions     *int                         `json:"active_sessions,omitempty"`
+	CurrentRPM         *int                         `json:"current_rpm,omitempty"`
+}
+
 type AccountSchedulerScore struct {
 	BaseScore             float64 `json:"base_score"`
 	StickyScore           float64 `json:"sticky_score"`
@@ -209,13 +229,32 @@ type AccountSchedulerGroupScore struct {
 
 const accountListGroupUngroupedQueryValue = "ungrouped"
 
+func (h *AccountHandler) accountResponseFromService(account *service.Account) *dto.Account {
+	out := dto.AccountFromService(account)
+	if h != nil && h.ollamaCloudUsage != nil && out != nil {
+		h.ollamaCloudUsage.EnrichState(out.OllamaCloudUsage)
+	}
+	return out
+}
+
+func (h *AccountHandler) accountListResponseFromService(account *service.Account) *dto.Account {
+	out := dto.AccountFromServiceShallow(account)
+	if out != nil && account != nil {
+		out.Proxy = dto.ProxyFromService(account.Proxy)
+	}
+	if h != nil && h.ollamaCloudUsage != nil && out != nil {
+		h.ollamaCloudUsage.EnrichState(out.OllamaCloudUsage)
+	}
+	return out
+}
+
 func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, account *service.Account) AccountWithConcurrency {
 	if account != nil && h.accountUsageService != nil {
 		h.accountUsageService.EnrichAccountWithKiroRuntimeState(ctx, account)
 	}
 
 	item := AccountWithConcurrency{
-		Account:            dto.AccountFromService(account),
+		Account:            h.accountResponseFromService(account),
 		CurrentConcurrency: 0,
 	}
 	if account == nil {
@@ -528,6 +567,16 @@ func (h *AccountHandler) List(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if h.ollamaCloudUsage != nil && len(accounts) > 0 {
+		accountPointers := make([]*service.Account, len(accounts))
+		for index := range accounts {
+			accountPointers[index] = &accounts[index]
+		}
+		if err := h.ollamaCloudUsage.ResolveAccounts(c.Request.Context(), accountPointers); err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+	}
 
 	// Get current concurrency counts for all accounts
 	accountIDs := make([]int64, len(accounts))
@@ -630,8 +679,12 @@ func (h *AccountHandler) List(c *gin.Context) {
 	result := make([]AccountWithConcurrency, len(accounts))
 	for i := range accounts {
 		acc := &accounts[i]
+		accountResponse := h.accountResponseFromService(acc)
+		if lite {
+			accountResponse = h.accountListResponseFromService(acc)
+		}
 		item := AccountWithConcurrency{
-			Account:            dto.AccountFromService(acc),
+			Account:            accountResponse,
 			CurrentConcurrency: concurrencyCounts[acc.ID],
 			SchedulerScore:     schedulerScores[acc.ID],
 			SchedulerScores:    schedulerGroupScores[acc.ID],
@@ -663,7 +716,34 @@ func (h *AccountHandler) List(c *gin.Context) {
 
 	h.enrichShadowParents(c.Request.Context(), result)
 
-	etag := buildAccountsListETag(result, total, page, pageSize, platform, accountType, status, search, lite)
+	if lite {
+		compact := make([]AccountListItemWithConcurrency, len(result))
+		for i := range result {
+			item := result[i]
+			compact[i] = AccountListItemWithConcurrency{
+				AccountListItem:    dto.AccountListItemFromAccount(item.Account),
+				CurrentConcurrency: item.CurrentConcurrency,
+				SchedulerScore:     item.SchedulerScore,
+				SchedulerScores:    item.SchedulerScores,
+				CurrentWindowCost:  item.CurrentWindowCost,
+				ActiveSessions:     item.ActiveSessions,
+				CurrentRPM:         item.CurrentRPM,
+			}
+		}
+		etag := buildAccountsListETag(compact, total, page, pageSize, platform, accountType, status, search, true)
+		if etag != "" {
+			c.Header("ETag", etag)
+			c.Header("Vary", "If-None-Match")
+			if ifNoneMatchMatched(c.GetHeader("If-None-Match"), etag) {
+				c.Status(http.StatusNotModified)
+				return
+			}
+		}
+		response.Paginated(c, compact, total, page, pageSize)
+		return
+	}
+
+	etag := buildAccountsListETag(result, total, page, pageSize, platform, accountType, status, search, false)
 	if etag != "" {
 		c.Header("ETag", etag)
 		c.Header("Vary", "If-None-Match")
@@ -676,23 +756,23 @@ func (h *AccountHandler) List(c *gin.Context) {
 	response.Paginated(c, result, total, page, pageSize)
 }
 
-func buildAccountsListETag(
-	items []AccountWithConcurrency,
+func buildAccountsListETag[T any](
+	items []T,
 	total int64,
 	page, pageSize int,
 	platform, accountType, status, search string,
 	lite bool,
 ) string {
 	payload := struct {
-		Total       int64                    `json:"total"`
-		Page        int                      `json:"page"`
-		PageSize    int                      `json:"page_size"`
-		Platform    string                   `json:"platform"`
-		AccountType string                   `json:"type"`
-		Status      string                   `json:"status"`
-		Search      string                   `json:"search"`
-		Lite        bool                     `json:"lite"`
-		Items       []AccountWithConcurrency `json:"items"`
+		Total       int64  `json:"total"`
+		Page        int    `json:"page"`
+		PageSize    int    `json:"page_size"`
+		Platform    string `json:"platform"`
+		AccountType string `json:"type"`
+		Status      string `json:"status"`
+		Search      string `json:"search"`
+		Lite        bool   `json:"lite"`
+		Items       []T    `json:"items"`
 	}{
 		Total:       total,
 		Page:        page,
@@ -744,6 +824,12 @@ func (h *AccountHandler) GetByID(c *gin.Context) {
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
+	}
+	if h.ollamaCloudUsage != nil {
+		if err := h.ollamaCloudUsage.ResolveAccounts(c.Request.Context(), []*service.Account{account}); err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
 	}
 
 	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
@@ -811,6 +897,10 @@ func (h *AccountHandler) Create(c *gin.Context) {
 	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
+	if err := service.ValidateUpstreamRequestIDHeaderExtra(req.Extra); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
@@ -944,6 +1034,10 @@ func (h *AccountHandler) Update(c *gin.Context) {
 	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
+	if err := service.ValidateUpstreamRequestIDHeaderExtra(req.Extra); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
@@ -963,6 +1057,8 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		GroupIDs:              req.GroupIDs,
 		ExpiresAt:             req.ExpiresAt,
 		AutoPauseOnExpired:    req.AutoPauseOnExpired,
+		ProbeEnabled:          req.ProbeEnabled,
+		RateSyncEnabled:       req.RateSyncEnabled,
 		SkipMixedChannelCheck: skipCheck,
 	})
 	if err != nil {
@@ -997,7 +1093,8 @@ func (h *AccountHandler) Update(c *gin.Context) {
 // 当前请求。探测错误仅记录日志，不向上下文传播：探测失败时标记保持缺失，
 // 网关会按"现状即证据"默认走 Responses。
 func (h *AccountHandler) scheduleOpenAIResponsesProbe(account *service.Account) {
-	if account == nil || account.Platform != service.PlatformOpenAI || account.Type != service.AccountTypeAPIKey {
+	if account == nil || account.Type != service.AccountTypeAPIKey ||
+		(account.Platform != service.PlatformOpenAI && !service.IsCNProvider(account.Platform)) {
 		return
 	}
 	if h.accountTestService == nil {
@@ -1037,6 +1134,10 @@ type TestAccountRequest struct {
 	ModelID string `json:"model_id"`
 	Prompt  string `json:"prompt"`
 	Mode    string `json:"mode"`
+	// Optional media for Grok (and future) real generation tests.
+	// ImageDataURL / AudioDataURL are data:<mime>;base64,... payloads.
+	ImageDataURL string `json:"image_data_url"`
+	AudioDataURL string `json:"audio_data_url"`
 }
 
 type SyncFromCRSRequest struct {
@@ -1066,8 +1167,13 @@ func (h *AccountHandler) Test(c *gin.Context) {
 	// Allow empty body, model_id is optional
 	_ = c.ShouldBindJSON(&req)
 
+	opts := service.AccountTestOptions{
+		ImageDataURL: req.ImageDataURL,
+		AudioDataURL: req.AudioDataURL,
+	}
+
 	// Use AccountTestService to test the account with SSE streaming
-	if err := h.accountTestService.TestAccountConnection(c, accountID, req.ModelID, req.Prompt, req.Mode); err != nil {
+	if err := h.accountTestService.TestAccountConnection(c, accountID, req.ModelID, req.Prompt, req.Mode, opts); err != nil {
 		// Error already sent via SSE, just log
 		return
 	}
@@ -1386,6 +1492,13 @@ func (h *AccountHandler) ApplyOAuthCredentials(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if err := service.ValidateUpstreamRequestIDHeaderExtra(req.Extra); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	// Drop SSO/password residue; re-auth must leave only OAuth tokens on disk.
+	req.Credentials = service.SanitizeStoredCredentials(existing.Platform, req.Credentials)
 
 	updatedAccount, err := h.adminService.UpdateAccount(ctx, accountID, &service.UpdateAccountInput{
 		Type:        req.Type,
@@ -1410,6 +1523,20 @@ func (h *AccountHandler) ApplyOAuthCredentials(c *gin.Context) {
 				"account_id", accountID,
 				"extra_keys", extraKeys,
 				"err", extraErr,
+			)
+		}
+	}
+
+	// Successful re-auth clears the soft spending-limit reauth flag for Grok.
+	if existing.Platform == service.PlatformGrok {
+		if clearErr := h.adminService.UpdateAccountExtra(ctx, accountID, map[string]any{
+			"grok_needs_reauth":        false,
+			"grok_needs_reauth_reason": "",
+			"grok_needs_reauth_at":     "",
+		}); clearErr != nil {
+			slog.Warn("apply_oauth_credentials.clear_grok_reauth_failed",
+				"account_id", accountID,
+				"err", clearErr,
 			)
 		}
 	}
@@ -1514,6 +1641,141 @@ func (h *AccountHandler) RevertProxyFallback(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{"message": "reverted"})
+}
+
+// BatchDelete handles deleting multiple accounts with bounded concurrency.
+// POST /api/v1/admin/accounts/batch-delete
+func (h *AccountHandler) BatchDelete(c *gin.Context) {
+	var req struct {
+		AccountIDs []int64 `json:"account_ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	accountIDs := normalizeInt64IDList(req.AccountIDs)
+	if len(accountIDs) == 0 {
+		response.BadRequest(c, "account_ids is required")
+		return
+	}
+
+	accounts, err := h.adminService.GetAccountsByIDs(c.Request.Context(), accountIDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	type deleteError struct {
+		AccountID int64  `json:"account_id"`
+		Error     string `json:"error"`
+	}
+
+	requestedIDs := make(map[int64]struct{}, len(accountIDs))
+	for _, accountID := range accountIDs {
+		requestedIDs[accountID] = struct{}{}
+	}
+	accountsByID := make(map[int64]*service.Account, len(accounts))
+	for _, account := range accounts {
+		if account != nil {
+			accountsByID[account.ID] = account
+		}
+	}
+
+	rootIDs := make([]int64, 0, len(accountIDs))
+	dependentIDs := make(map[int64][]int64)
+	failedIDs := make([]int64, 0)
+	errorsByAccount := make([]deleteError, 0)
+	for _, accountID := range accountIDs {
+		account := accountsByID[accountID]
+		if account == nil {
+			failedIDs = append(failedIDs, accountID)
+			errorsByAccount = append(errorsByAccount, deleteError{
+				AccountID: accountID,
+				Error:     "account not found",
+			})
+			continue
+		}
+
+		rootID := accountID
+		visited := map[int64]struct{}{accountID: {}}
+		for {
+			current := accountsByID[rootID]
+			if current == nil || current.ParentAccountID == nil {
+				break
+			}
+			parentID := *current.ParentAccountID
+			if _, selected := requestedIDs[parentID]; !selected {
+				break
+			}
+			if _, exists := accountsByID[parentID]; !exists {
+				break
+			}
+			if _, cyclic := visited[parentID]; cyclic {
+				rootID = accountID
+				break
+			}
+			visited[parentID] = struct{}{}
+			rootID = parentID
+		}
+
+		if rootID != accountID {
+			dependentIDs[rootID] = append(dependentIDs[rootID], accountID)
+			continue
+		}
+		rootIDs = append(rootIDs, accountID)
+	}
+
+	const maxConcurrency = 5
+	g, gctx := errgroup.WithContext(c.Request.Context())
+	g.SetLimit(maxConcurrency)
+
+	var mu sync.Mutex
+	successIDs := make([]int64, 0, len(accountIDs))
+
+	// Every worker returns nil so one account failure does not cancel the remaining deletions.
+	for _, id := range rootIDs {
+		accountID := id
+		g.Go(func() error {
+			err := h.adminService.DeleteAccount(gctx, accountID)
+
+			mu.Lock()
+			defer mu.Unlock()
+			affectedIDs := append([]int64{accountID}, dependentIDs[accountID]...)
+			if err != nil {
+				for _, affectedID := range affectedIDs {
+					failedIDs = append(failedIDs, affectedID)
+					errorsByAccount = append(errorsByAccount, deleteError{
+						AccountID: affectedID,
+						Error:     err.Error(),
+					})
+				}
+				return nil
+			}
+			successIDs = append(successIDs, affectedIDs...)
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	sort.Slice(successIDs, func(i, j int) bool { return successIDs[i] < successIDs[j] })
+	sort.Slice(failedIDs, func(i, j int) bool { return failedIDs[i] < failedIDs[j] })
+	sort.Slice(errorsByAccount, func(i, j int) bool {
+		return errorsByAccount[i].AccountID < errorsByAccount[j].AccountID
+	})
+
+	response.Success(c, gin.H{
+		"total":       len(accountIDs),
+		"success":     len(successIDs),
+		"failed":      len(failedIDs),
+		"success_ids": successIDs,
+		"failed_ids":  failedIDs,
+		"errors":      errorsByAccount,
+	})
 }
 
 // BatchClearError handles batch clearing account errors
@@ -1716,6 +1978,15 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 
 			// base_rpm 输入校验：负值归零，超过 10000 截断
 			sanitizeExtraBaseRPM(item.Extra)
+			if err := service.ValidateUpstreamRequestIDHeaderExtra(item.Extra); err != nil {
+				failed++
+				results = append(results, gin.H{
+					"name":    item.Name,
+					"success": false,
+					"error":   err.Error(),
+				})
+				continue
+			}
 
 			skipCheck := item.ConfirmMixedChannelRisk != nil && *item.ConfirmMixedChannelRisk
 
@@ -1910,6 +2181,10 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
+	if err := service.ValidateUpstreamRequestIDHeaderExtra(req.Extra); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
@@ -2268,6 +2543,11 @@ type BatchTodayStatsRequest struct {
 	AccountIDs []int64 `json:"account_ids" binding:"required"`
 }
 
+type BatchUsageRequest struct {
+	AccountIDs []int64 `json:"account_ids" binding:"required"`
+	Force      bool    `json:"force"`
+}
+
 // GetBatchTodayStats 批量获取多个账号的今日统计。
 // POST /api/v1/admin/accounts/today-stats/batch
 func (h *AccountHandler) GetBatchTodayStats(c *gin.Context) {
@@ -2312,6 +2592,36 @@ func (h *AccountHandler) GetBatchTodayStats(c *gin.Context) {
 	}
 	c.Header("X-Snapshot-Cache", "miss")
 	response.Success(c, payload)
+}
+
+// GetBatchUsage 批量获取多个账号的 current usage。
+// POST /api/v1/admin/accounts/usage/batch
+func (h *AccountHandler) GetBatchUsage(c *gin.Context) {
+	var req BatchUsageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	accountIDs := normalizeInt64IDList(req.AccountIDs)
+	if len(accountIDs) == 0 {
+		response.Success(c, gin.H{
+			"usage":  map[string]any{},
+			"errors": map[string]string{},
+		})
+		return
+	}
+
+	usageByAccount, errorsByAccount, err := h.accountUsageService.GetUsageBatch(c.Request.Context(), accountIDs, req.Force)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"usage":  usageByAccount,
+		"errors": errorsByAccount,
+	})
 }
 
 // SetSchedulableRequest represents the request body for setting schedulable status
@@ -2439,8 +2749,14 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 
 	// Handle Gemini accounts
 	if account.IsGemini() {
-		// For OAuth accounts: return default Gemini models
+		// Consumer Google One OAuth still uses the legacy Gemini CLI / Code
+		// Assist channel. Do not advertise newer 3.x or image models that the
+		// channel cannot serve.
 		if account.IsOAuth() {
+			if account.IsGeminiGoogleOne() {
+				response.Success(c, geminicli.GoogleOneModels)
+				return
+			}
 			response.Success(c, geminicli.DefaultModels)
 			return
 		}
@@ -2593,13 +2909,15 @@ func (h *AccountHandler) SyncUpstreamModels(c *gin.Context) {
 		return
 	}
 
-	models, err := h.accountTestService.FetchUpstreamSupportedModels(c.Request.Context(), account)
+	catalog, err := h.accountTestService.SyncUpstreamModelCatalog(c.Request.Context(), account)
 	if err != nil {
 		var syncErr *service.UpstreamModelSyncError
 		if errors.As(err, &syncErr) {
 			switch syncErr.Kind {
 			case service.UpstreamModelSyncErrorConfiguration, service.UpstreamModelSyncErrorUnsupported:
 				response.BadRequest(c, syncErr.SafeMessage())
+			case service.UpstreamModelSyncErrorInternal:
+				response.InternalError(c, syncErr.SafeMessage())
 			default:
 				slog.Warn("sync_upstream_models_failed", "account_id", accountID, "kind", syncErr.Kind)
 				response.Error(c, http.StatusBadGateway, syncErr.SafeMessage())
@@ -2612,29 +2930,35 @@ func (h *AccountHandler) SyncUpstreamModels(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{"models": models})
+	response.Success(c, catalog)
 }
 
 // SyncUpstreamModelsPreview handles syncing live supported models using provided credentials (no account ID needed).
 // POST /api/v1/admin/accounts/models/sync-upstream-preview
 func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 	var req struct {
-		Platform string `json:"platform" binding:"required"`
-		Type     string `json:"type" binding:"required"`
-		BaseURL  string `json:"base_url"`
-		APIKey   string `json:"api_key" binding:"required"`
+		Platform     string            `json:"platform" binding:"required"`
+		Type         string            `json:"type" binding:"required"`
+		BaseURL      string            `json:"base_url"`
+		APIKey       string            `json:"api_key" binding:"required"`
+		ModelMapping map[string]string `json:"model_mapping"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
+	}
+	modelMapping := make(map[string]any, len(req.ModelMapping))
+	for sourceModel, upstreamModel := range req.ModelMapping {
+		modelMapping[sourceModel] = upstreamModel
 	}
 
 	tempAccount := &service.Account{
 		Platform: req.Platform,
 		Type:     req.Type,
 		Credentials: map[string]any{
-			"api_key":  req.APIKey,
-			"base_url": req.BaseURL,
+			"api_key":       req.APIKey,
+			"base_url":      req.BaseURL,
+			"model_mapping": modelMapping,
 		},
 	}
 
@@ -2643,13 +2967,15 @@ func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 		return
 	}
 
-	models, err := h.accountTestService.FetchUpstreamSupportedModels(c.Request.Context(), tempAccount)
+	catalog, err := h.accountTestService.SyncUpstreamModelCatalog(c.Request.Context(), tempAccount)
 	if err != nil {
 		var syncErr *service.UpstreamModelSyncError
 		if errors.As(err, &syncErr) {
 			switch syncErr.Kind {
 			case service.UpstreamModelSyncErrorConfiguration, service.UpstreamModelSyncErrorUnsupported:
 				response.BadRequest(c, syncErr.SafeMessage())
+			case service.UpstreamModelSyncErrorInternal:
+				response.InternalError(c, syncErr.SafeMessage())
 			default:
 				slog.Warn("sync_upstream_models_preview_failed", "platform", req.Platform, "kind", syncErr.Kind)
 				response.Error(c, http.StatusBadGateway, syncErr.SafeMessage())
@@ -2662,7 +2988,7 @@ func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{"models": models})
+	response.Success(c, catalog)
 }
 
 // SetPrivacy handles setting privacy for a single OpenAI/Antigravity OAuth account

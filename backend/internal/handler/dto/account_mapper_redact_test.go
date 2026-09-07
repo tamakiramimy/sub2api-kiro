@@ -105,15 +105,15 @@ func TestAccountFromServiceShallow_NilCredentialsOmitsStatus(t *testing.T) {
 func TestAccountFromServiceShallow_MapsKiroRuntimeState(t *testing.T) {
 	resetAt := time.Date(2026, time.August, 1, 0, 0, 0, 0, time.UTC)
 	src := &service.Account{
-		ID:                    7,
-		Platform:              "kiro",
-		Type:                  "oauth",
-		KiroQuotaState:        "credits_exhausted",
-		KiroQuotaReason:       "credits_exhausted",
-		KiroQuotaResetAt:      &resetAt,
-		KiroRuntimeState:      "cooldown",
-		KiroRuntimeReason:     "429",
-		KiroRuntimeResetAt:    &resetAt,
+		ID:                 7,
+		Platform:           "kiro",
+		Type:               "oauth",
+		KiroQuotaState:     "credits_exhausted",
+		KiroQuotaReason:    "credits_exhausted",
+		KiroQuotaResetAt:   &resetAt,
+		KiroRuntimeState:   "cooldown",
+		KiroRuntimeReason:  "429",
+		KiroRuntimeResetAt: &resetAt,
 	}
 
 	got := AccountFromServiceShallow(src)

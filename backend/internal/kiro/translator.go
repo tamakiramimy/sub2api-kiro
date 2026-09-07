@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -49,8 +48,7 @@ const (
 )
 
 var (
-	trailingCommaPattern = regexp.MustCompile(`,\s*([}\]])`)
-	requiredToolFields   = map[string][][]string{
+	requiredToolFields = map[string][][]string{
 		"write":              {{"filePath", "file_path", "path"}, {"content"}},
 		"write_to_file":      {{"path"}, {"content"}},
 		"fswrite":            {{"path"}, {"content"}},

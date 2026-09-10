@@ -153,7 +153,6 @@ type AccountTestService struct {
 	modelMetadataRegistry     map[string]modelsDevProvider
 	modelMetadataRegistryAt   time.Time
 	pluginManager             *PluginManager
-	openaiGatewayService      *OpenAIGatewayService
 	agentIdentityTaskMu       sync.Mutex
 	agentIdentityWS           agentIdentityWSConnectionInvalidator
 	// grokWSDialer is optional; realtime account tests use the default OpenAI-style
@@ -175,61 +174,6 @@ func (s *AccountTestService) SetPluginManager(pluginManager *PluginManager) {
 
 func (s *AccountTestService) SetKiroTokenProvider(provider *KiroTokenProvider) {
 	s.kiroTokenProvider = provider
-}
-
-func (s *AccountTestService) SetOpenAIGatewayService(gateway *OpenAIGatewayService) {
-	if s != nil {
-		s.openaiGatewayService = gateway
-	}
-}
-
-// FetchOpenAIAccountModels uses the shared cached discovery path for the test picker.
-func (s *AccountTestService) FetchOpenAIAccountModels(ctx context.Context, account *Account) ([]openai.Model, error) {
-	if s == nil || s.openaiGatewayService == nil {
-		return nil, errors.New("OpenAI model discovery service is unavailable")
-	}
-	response, err := s.openaiGatewayService.FetchOpenAIModelsList(ctx, account)
-	if err != nil {
-		return nil, err
-	}
-	var payload struct {
-		Data []openai.Model `json:"data"`
-	}
-	if err := json.Unmarshal(response.Body, &payload); err != nil {
-		return nil, fmt.Errorf("decode OpenAI account models: %w", err)
-	}
-	// Standard model catalogs do not require the fields used by the admin picker.
-	// Populate them here without changing the shared discovery response or cache.
-	for i := range payload.Data {
-		model := &payload.Data[i]
-		if strings.TrimSpace(model.DisplayName) == "" {
-			model.DisplayName = model.ID
-		}
-		if strings.TrimSpace(model.Type) == "" {
-			model.Type = "model"
-		}
-	}
-	// Codex discovery lists Responses drivers, not image_generation tool models.
-	// Add locally supported image choices only to the OAuth test picker; keep the
-	// shared upstream catalog and API-key discovery authoritative.
-	if account != nil && account.IsOpenAIOAuthLike() {
-		seen := make(map[string]bool, len(payload.Data))
-		for _, model := range payload.Data {
-			seen[model.ID] = true
-		}
-		for _, model := range openai.DefaultModels {
-			if IsGPTImageGenerationModel(model.ID) && account.IsModelSupported(model.ID) && !seen[model.ID] {
-				payload.Data = append(payload.Data, model)
-				seen[model.ID] = true
-			}
-		}
-		for model := range account.GetModelMapping() {
-			if IsGPTImageGenerationModel(model) && !strings.Contains(model, "*") && !seen[model] {
-				payload.Data = append(payload.Data, openai.Model{ID: model, Object: "model", Type: "model", OwnedBy: "openai", DisplayName: model})
-			}
-		}
-	}
-	return payload.Data, nil
 }
 
 // NewAccountTestService creates a new AccountTestService

@@ -175,6 +175,14 @@
 
 Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅的 API 配额。用户通过平台生成的 API Key 调用上游 AI 服务，平台负责鉴权、计费、负载均衡和请求转发。
 
+## 近期模型支持
+
+- **GPT-6（Astra）** - 内置支持 `gpt-6` 公共别名和 `gpt-6-astra`，覆盖 OpenAI 兼容路由、模型元数据与推理等级配置。
+- **GPT Image 2.5** - 通过 OpenAI Images API 支持 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst` 及其 `2026-09-08` 日期快照。
+- **Claude Fable 5 与 5.1** - 在 Claude 和 Antigravity 兼容链路中注册 `claude-fable-5`、`claude-fable-5-1`，支持 `low`、`medium`、`high`、`xhigh`、`max` 推理等级。
+
+实际可用模型仍取决于上游账号能力，以及账号或分组中显式配置的模型白名单。
+
 ## Kiro 增强发行版
 
 本仓库是独立维护的发行版：持续同步 [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) 的稳定更新，同时提供完整的 Kiro 支持。
@@ -717,6 +725,10 @@ go generate ./cmd/server
 OAuth / Setup Token 图片请求使用 Responses 主控模型调用 `image_generation` 工具，默认主控为 `gpt-5.6-luna`。可设置 `SUB2API_IMAGES_MAIN_MODEL` 切换为账号支持的文本模型；Docker Compose 用户修改 `.env` 后执行 `docker compose up -d` 重建容器。该配置不会替换所选图片模型，也不会覆盖 `/v1/responses` 请求中已经提供的文本主控模型。
 
 升级后，无模型限制的账号自动支持新模型。已有显式账号映射或分组白名单需要加入两个 2.5 模型（日期快照按需加入）；升级不会自动扩大管理员设置的模型权限。新模型内置价格包含官方文本输入、图片输入和图片输出 token 费率，远端价格表尚未更新时使用内置 2.5 价格；实际按次或按 token 计费仍由既有分组/渠道配置决定。
+
+## Claude Fable 推理等级
+
+Claude Fable 5 与 5.1 支持 `output_config.effort` 的 `low`、`medium`、`high`、`xhigh`、`max` 等级。未配置渠道专属 Max 倍率时，Fable 5.1 的 `max` 默认使用 `3` 倍额度；如需不同的计费策略，请在渠道价格中显式配置。
 
 ## 简易模式
 

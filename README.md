@@ -172,6 +172,14 @@ Please read the following carefully before using this project:
 
 Sub2API is an AI API gateway platform designed to distribute and manage API quotas from AI product subscriptions. Users can access upstream AI services through platform-generated API Keys, while the platform handles authentication, billing, load balancing, and request forwarding.
 
+## Recent Model Support
+
+- **GPT-6 (Astra)** - Built-in support for the `gpt-6` public alias and `gpt-6-astra`, including OpenAI-compatible routing, model metadata, and reasoning-level configuration.
+- **GPT Image 2.5** - Supports `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`, and their `2026-09-08` snapshots through the OpenAI Images API.
+- **Claude Fable 5 and 5.1** - Registers `claude-fable-5` and `claude-fable-5-1` for Claude and Antigravity compatible flows, with `low`, `medium`, `high`, `xhigh`, and `max` reasoning effort levels.
+
+Model availability still follows the connected upstream account capabilities and any explicit account or group allowlists.
+
 ## Kiro-Enabled Distribution
 
 This independent distribution tracks stable updates from [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) while maintaining first-class Kiro support.
@@ -731,6 +739,18 @@ go generate ./cmd/server
 ```
 
 ---
+
+## OpenAI Image Models
+
+`gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`, and their `2026-09-08` dated snapshots are supported through `/v1/images/generations` and `/v1/images/edits`. `xhigh`, `max`, and `auto` are accepted for `quality`; valid custom dimensions and image usage details are preserved.
+
+OAuth and Setup Token image requests call the Responses `image_generation` tool with `gpt-5.6-luna` as the default driver. Set `SUB2API_IMAGES_MAIN_MODEL` to select a text model supported by the account. For Docker Compose deployments, update `.env` and run `docker compose up -d` to recreate the service. This setting does not replace the chosen image model or a text driver explicitly supplied to `/v1/responses`.
+
+Unrestricted accounts automatically receive the new models after upgrading. Existing explicit account mappings and group allowlists must include the two Image 2.5 model IDs (and dated snapshots if required); upgrading does not broaden administrator-defined permissions. Built-in pricing covers text input, image input, and image output tokens when the remote price catalog has not yet caught up.
+
+## Claude Fable Reasoning
+
+Claude Fable 5 and 5.1 accept the `output_config.effort` values `low`, `medium`, `high`, `xhigh`, and `max`. When no channel-specific Max multiplier is configured, Fable 5.1 uses a default quota multiplier of `3` for `max` effort; configure an explicit channel price when a different billing policy is required.
 
 ## Simple Mode
 

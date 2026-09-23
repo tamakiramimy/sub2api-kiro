@@ -123,3 +123,17 @@ func TestKiroContinuationScopeKeepsOpenAICompatibleGrowingConversationStable(t *
 	require.Equal(t, svc.GenerateKiroSessionHash(first), svc.GenerateKiroSessionHash(second))
 	require.Equal(t, svc.kiroContinuationScope(account, first), svc.kiroContinuationScope(account, second))
 }
+
+func TestGenerateSessionHashForPlatformKeepsGrowingKiroMessagesOnOneAccount(t *testing.T) {
+	svc := &GatewayService{}
+	first, err := ParseGatewayRequest(NewRequestBodyRef([]byte(`{"model":"claude-sonnet-5","system":"stable project instructions","messages":[{"role":"user","content":"first task"}]}`)), domain.PlatformAnthropic)
+	require.NoError(t, err)
+	second, err := ParseGatewayRequest(NewRequestBodyRef([]byte(`{"model":"claude-sonnet-5","system":"stable project instructions","messages":[{"role":"user","content":"first task"},{"role":"assistant","content":"first response"},{"role":"user","content":"follow up"}]}`)), domain.PlatformAnthropic)
+	require.NoError(t, err)
+	first.SessionContext = &SessionContext{APIKeyID: 101, ClientIP: "10.0.0.1", UserAgent: "audit/1.0"}
+	second.SessionContext = first.SessionContext
+
+	require.NotEmpty(t, svc.GenerateSessionHashForPlatform(first, PlatformKiro))
+	require.Equal(t, svc.GenerateSessionHashForPlatform(first, PlatformKiro), svc.GenerateSessionHashForPlatform(second, PlatformKiro))
+	require.NotEqual(t, svc.GenerateSessionHashForPlatform(first, PlatformAnthropic), svc.GenerateSessionHashForPlatform(second, PlatformAnthropic))
+}

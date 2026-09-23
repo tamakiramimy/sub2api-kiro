@@ -157,10 +157,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		APIKeyID:  apiKey.ID,
 	}
 	groupPlatform := effectiveAPIKeyPlatform(c, apiKey)
-	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
-	if groupPlatform == service.PlatformKiro {
-		sessionHash = h.gatewayService.GenerateKiroSessionHash(parsedReq)
-	}
+	sessionHash := h.gatewayService.GenerateSessionHashForPlatform(parsedReq, groupPlatform)
 	selectionSessionHash := sessionHash
 	if groupPlatform == service.PlatformGemini && selectionSessionHash != "" {
 		selectionSessionHash = "gemini:" + selectionSessionHash

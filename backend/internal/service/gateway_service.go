@@ -1018,6 +1018,13 @@ func (s *GatewayService) GenerateKiroSessionHash(parsed *ParsedRequest) string {
 	return s.hashContent(seed.String())
 }
 
+func (s *GatewayService) GenerateSessionHashForPlatform(parsed *ParsedRequest, platform string) string {
+	if platform == PlatformKiro {
+		return s.GenerateKiroSessionHash(parsed)
+	}
+	return s.GenerateSessionHash(parsed)
+}
+
 // BindStickySession sets session -> account binding with standard TTL.
 func (s *GatewayService) BindStickySession(ctx context.Context, groupID *int64, sessionHash string, accountID int64) error {
 	if sessionHash == "" || accountID <= 0 || s.cache == nil {

@@ -25,6 +25,12 @@ const messages: Record<string, string> = {
   'admin.usage.outputCost': 'Output Cost',
   'admin.usage.cacheCreationCost': 'Cache Creation Cost',
   'admin.usage.cacheReadCost': 'Cache Read Cost',
+  'admin.usage.cacheCreationTokens': 'Cache Creation Tokens',
+  'admin.usage.cacheReadTokens': 'Cache Read Tokens',
+  'admin.usage.cacheCreateShort': 'Create',
+  'admin.usage.cacheReadShort': 'Read',
+  'admin.usage.kiroCacheLocalSimulation': 'Local simulation',
+  'admin.usage.kiroCacheLocalSimulationHint': 'Local billing simulation only; no upstream token savings.',
   'usage.inputTokenPrice': 'Input price',
   'usage.outputTokenPrice': 'Output price',
   'usage.perMillionTokens': '/ 1M tokens',
@@ -173,6 +179,76 @@ describe('admin UsageTable tooltip', () => {
 
     expect(wrapper.findAll('[data-testid="long-context-billing-marker"]')).toHaveLength(1)
     expect(wrapper.get('[data-testid="long-context-billing-marker"]').text()).toBe('x2')
+  })
+
+  it('always shows zero cache values for token rows and marks Kiro by account platform', async () => {
+    const row = {
+      ...baseImageRow,
+      request_id: 'req-kiro-zero-cache',
+      model: 'claude-sonnet-4-6',
+      billing_mode: 'token',
+      image_count: 0,
+      input_tokens: 120,
+      output_tokens: 8,
+      account: { id: 9, name: 'kiro-9', platform: 'kiro' },
+      group: { id: 3, name: 'composite', platform: 'composite' },
+    }
+
+    const wrapper = mount(UsageTable, {
+      props: { data: [row], loading: false, columns: [] },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    const summary = wrapper.get('[data-testid="cache-token-summary"]')
+    expect(summary.text()).toContain('Read0')
+    expect(summary.text()).toContain('Create0')
+    expect(wrapper.get('[data-testid="kiro-cache-simulation-badge"]').text()).toBe('Local simulation')
+
+    await wrapper.get('[data-testid="token-tooltip-trigger"]').trigger('mouseenter')
+    await nextTick()
+    expect(wrapper.text()).toContain('Cache Creation Tokens')
+    expect(wrapper.text()).toContain('Cache Read Tokens')
+    expect(wrapper.get('[data-testid="kiro-cache-simulation-note"]').text()).toContain('no upstream token savings')
+
+    await wrapper.get('[data-testid="token-tooltip-trigger"]').trigger('mouseleave')
+    await wrapper.get('[data-testid="cost-tooltip-trigger"]').trigger('mouseenter')
+    await nextTick()
+    expect(wrapper.text()).toContain('Cache Creation Cost')
+    expect(wrapper.text()).toContain('Cache Read Cost')
+    expect(wrapper.text()).toContain('$0.000000')
+  })
+
+  it('does not show cache fields for non-token billing rows', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          ...baseImageRow,
+          request_id: 'req-per-request',
+          billing_mode: 'per_request',
+          image_count: 0,
+        }],
+        loading: false,
+        columns: [],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-testid="cache-token-summary"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="kiro-cache-simulation-badge"]').exists()).toBe(false)
   })
 
   it('keeps the request type badge and adds a separate badge only for native compaction rows', () => {
@@ -782,6 +858,148 @@ const DataTableStubWithUser = {
     </div>
   `,
 }
+
+const DataTableStubWithAccountAndKiroSession = {
+  props: ['data'],
+  template: `
+    <div>
+      <div v-for="row in data" :key="row.request_id">
+        <slot name="cell-account" :row="row" />
+        <slot name="cell-kiro_session" :row="row" />
+      </div>
+    </div>
+  `,
+}
+
+describe('admin UsageTable account and Kiro session cells', () => {
+  it('shows the real account name, id and platform', () => {
+    const row = {
+      request_id: 'req-account-display',
+      model: 'claude-3',
+      account: { id: 9, name: 'kiro-9', platform: 'kiro' },
+      actual_cost: 0,
+      total_cost: 0,
+      input_cost: 0,
+      output_cost: 0,
+      rate_multiplier: 1,
+      input_tokens: 1,
+      output_tokens: 1,
+    }
+
+    const wrapper = mount(UsageTable, {
+      props: { data: [row], loading: false, columns: [] },
+      global: {
+        stubs: {
+          DataTable: DataTableStubWithAccountAndKiroSession,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('kiro-9')
+    expect(wrapper.text()).toContain('#9')
+    expect(wrapper.text()).toContain('kiro')
+  })
+
+  it('shows bound status when a Kiro session first binds an account', () => {
+    const row = {
+      request_id: 'req-kiro-session-bound',
+      model: 'claude-3',
+      account_id: 9,
+      account: { id: 9, name: 'kiro-9', platform: 'kiro' },
+      kiro_session_fingerprint: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
+      previous_kiro_account_id: null,
+      actual_cost: 0,
+      total_cost: 0,
+      input_cost: 0,
+      output_cost: 0,
+      rate_multiplier: 1,
+      input_tokens: 1,
+      output_tokens: 1,
+    }
+
+    const wrapper = mount(UsageTable, {
+      props: { data: [row], loading: false, columns: [] },
+      global: {
+        stubs: {
+          DataTable: DataTableStubWithAccountAndKiroSession,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('a1b2c3d4e5f6')
+    expect(wrapper.text()).toContain('admin.usage.kiroSessionBound')
+  })
+
+  it('shows kept status when the same account is reused within a Kiro session', () => {
+    const row = {
+      request_id: 'req-kiro-session-kept',
+      model: 'claude-3',
+      account_id: 9,
+      account: { id: 9, name: 'kiro-9', platform: 'kiro' },
+      kiro_session_fingerprint: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
+      previous_kiro_account_id: 9,
+      actual_cost: 0,
+      total_cost: 0,
+      input_cost: 0,
+      output_cost: 0,
+      rate_multiplier: 1,
+      input_tokens: 1,
+      output_tokens: 1,
+    }
+
+    const wrapper = mount(UsageTable, {
+      props: { data: [row], loading: false, columns: [] },
+      global: {
+        stubs: {
+          DataTable: DataTableStubWithAccountAndKiroSession,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('admin.usage.kiroSessionMaintained')
+  })
+
+  it('shows switched status with old and new account ids when the Kiro session moved accounts', () => {
+    const row = {
+      request_id: 'req-kiro-session-switched',
+      model: 'claude-3',
+      account_id: 12,
+      account: { id: 12, name: 'kiro-12', platform: 'kiro' },
+      kiro_session_fingerprint: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
+      previous_kiro_account_id: 9,
+      actual_cost: 0,
+      total_cost: 0,
+      input_cost: 0,
+      output_cost: 0,
+      rate_multiplier: 1,
+      input_tokens: 1,
+      output_tokens: 1,
+    }
+
+    const wrapper = mount(UsageTable, {
+      props: { data: [row], loading: false, columns: [] },
+      global: {
+        stubs: {
+          DataTable: DataTableStubWithAccountAndKiroSession,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('admin.usage.kiroSessionSwitched')
+  })
+})
 
 describe('admin UsageTable deleted-user badge', () => {
   it('renders deleted badge for a soft-deleted user row', () => {

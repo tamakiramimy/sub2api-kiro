@@ -1269,6 +1269,12 @@
           </div>
         </div>
 
+        <KiroCacheConfigFields
+          v-if="createForm.platform === 'kiro'"
+          v-model:enabled="createForm.kiro_cache_emulation_enabled"
+          v-model:ratio-percent="createForm.kiro_cache_emulation_ratio_percent"
+        />
+
         <!-- 支持的模型系列（仅 antigravity 平台） -->
         <div v-if="createForm.platform === 'antigravity'" class="border-t pt-4">
           <div class="mb-1.5 flex items-center gap-1">
@@ -2909,6 +2915,12 @@
           </div>
         </div>
 
+        <KiroCacheConfigFields
+          v-if="editForm.platform === 'kiro'"
+          v-model:enabled="editForm.kiro_cache_emulation_enabled"
+          v-model:ratio-percent="editForm.kiro_cache_emulation_ratio_percent"
+        />
+
         <!-- 支持的模型系列（仅 antigravity 平台） -->
         <div v-if="editForm.platform === 'antigravity'" class="border-t pt-4">
           <div class="mb-1.5 flex items-center gap-1">
@@ -4303,6 +4315,7 @@ import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesMo
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
 import ReasoningEffortPolicyFields from "@/components/admin/group/ReasoningEffortPolicyFields.vue";
 import CodexManifestAccountsField from "@/components/admin/group/CodexManifestAccountsField.vue";
+import KiroCacheConfigFields from "@/kiro/components/KiroCacheConfigFields.vue";
 import PricingEntryCard from "@/components/admin/channel/PricingEntryCard.vue";
 import type { PricingFormEntry } from "@/components/admin/channel/types";
 import {
@@ -4351,6 +4364,12 @@ import {
   validateProfitControlFormState,
   type ProfitControlFormState,
 } from "./groupsProfitControl";
+import {
+  kiroCachePercentToRatio,
+  kiroCacheRatioToPercent,
+  validateKiroCacheConfig,
+  type KiroCacheConfigFormState,
+} from "@/kiro/cacheConfig";
 import {
   normalizeReasoningEffortForPlatform,
   normalizeReasoningEffortOverLimit,
@@ -4983,6 +5002,8 @@ const createForm = reactive({
   profit_control_enabled: false,
   profit_min_margin_percent: 0,
   profit_safety_buffer_percent: 0,
+  kiro_cache_emulation_enabled: false,
+  kiro_cache_emulation_ratio_percent: 100 as number | string | null,
   // Claude Code 客户端限制（仅 anthropic 平台使用）
   claude_code_only: false,
   fallback_group_id: null as number | null,
@@ -5348,6 +5369,8 @@ const editForm = reactive({
   profit_control_enabled: false,
   profit_min_margin_percent: 0,
   profit_safety_buffer_percent: 0,
+  kiro_cache_emulation_enabled: false,
+  kiro_cache_emulation_ratio_percent: 100 as number | string | null,
   // Claude Code 客户端限制（仅 anthropic 平台使用）
   claude_code_only: false,
   fallback_group_id: null as number | null,
@@ -5805,6 +5828,8 @@ const closeCreateModal = () => {
   createForm.profit_control_enabled = false;
   createForm.profit_min_margin_percent = 0;
   createForm.profit_safety_buffer_percent = 0;
+  createForm.kiro_cache_emulation_enabled = false;
+  createForm.kiro_cache_emulation_ratio_percent = 100;
   createForm.claude_code_only = false;
   createForm.fallback_group_id = null;
   createForm.fallback_group_id_on_invalid_request = null;
@@ -5877,6 +5902,15 @@ const validateGroupReasoningMultipliers = (pricing: PricingFormEntry[]): boolean
   return true;
 };
 
+const validateKiroCacheForm = (form: KiroCacheConfigFormState): boolean => {
+  const errorKey = validateKiroCacheConfig(form);
+  if (errorKey) {
+    appStore.showError(t(`admin.groups.kiroCacheEmulation.${errorKey}`));
+    return false;
+  }
+  return true;
+};
+
 const handleCreateGroup = async () => {
   if (!createForm.name.trim()) {
     appStore.showError(t("admin.groups.nameRequired"));
@@ -5899,6 +5933,9 @@ const handleCreateGroup = async () => {
     createModelAllowlistSelectedCount.value === 0
   ) {
     appStore.showError(t("admin.groups.modelAllowlist.emptySelectionError"));
+    return;
+  }
+  if (!validateKiroCacheForm(createForm)) {
     return;
   }
   submitting.value = true;
@@ -5968,9 +6005,16 @@ const handleCreateGroup = async () => {
       profit_safety_buffer: percentToDecimal(
         createForm.profit_safety_buffer_percent,
       ),
+      kiro_cache_emulation_enabled:
+        createForm.platform === "kiro" &&
+        createForm.kiro_cache_emulation_enabled,
+      kiro_cache_emulation_ratio: kiroCachePercentToRatio(
+        createForm.kiro_cache_emulation_ratio_percent,
+      ),
     };
     delete (requestData as Record<string, unknown>).profit_min_margin_percent;
     delete (requestData as Record<string, unknown>).profit_safety_buffer_percent;
+    delete (requestData as Record<string, unknown>).kiro_cache_emulation_ratio_percent;
     // v-model.number 清空输入框时产生 ""，转为 null 让后端设为无限制
     const emptyToNull = (v: any) => (v === "" ? null : v);
     requestData.daily_limit_usd = emptyToNull(requestData.daily_limit_usd);
@@ -6096,6 +6140,11 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.profit_safety_buffer_percent = decimalToPercent(
     group.profit_safety_buffer ?? 0,
   );
+  editForm.kiro_cache_emulation_enabled =
+    group.kiro_cache_emulation_enabled ?? false;
+  editForm.kiro_cache_emulation_ratio_percent = kiroCacheRatioToPercent(
+    group.kiro_cache_emulation_ratio,
+  );
   editForm.claude_code_only = group.claude_code_only || false;
   editForm.fallback_group_id = group.fallback_group_id;
   editForm.fallback_group_id_on_invalid_request =
@@ -6185,6 +6234,8 @@ const closeEditModal = () => {
   editForm.profit_control_enabled = false;
   editForm.profit_min_margin_percent = 0;
   editForm.profit_safety_buffer_percent = 0;
+  editForm.kiro_cache_emulation_enabled = false;
+  editForm.kiro_cache_emulation_ratio_percent = 100;
   editForm.video_rate_independent = false;
   editForm.video_rate_multiplier = 1;
   editForm.video_price_480p = null;
@@ -6231,6 +6282,9 @@ const handleUpdateGroup = async () => {
     editModelAllowlistSelectedCount.value === 0
   ) {
     appStore.showError(t("admin.groups.modelAllowlist.emptySelectionError"));
+    return;
+  }
+  if (!validateKiroCacheForm(editForm)) {
     return;
   }
   // 固定账号 manifest：开启后至少一个账号，前端阻止提交并提示。
@@ -6317,9 +6371,15 @@ const handleUpdateGroup = async () => {
       profit_safety_buffer: percentToDecimal(
         editForm.profit_safety_buffer_percent,
       ),
+      kiro_cache_emulation_enabled:
+        editForm.platform === "kiro" && editForm.kiro_cache_emulation_enabled,
+      kiro_cache_emulation_ratio: kiroCachePercentToRatio(
+        editForm.kiro_cache_emulation_ratio_percent,
+      ),
     };
     delete (payload as Record<string, unknown>).profit_min_margin_percent;
     delete (payload as Record<string, unknown>).profit_safety_buffer_percent;
+    delete (payload as Record<string, unknown>).kiro_cache_emulation_ratio_percent;
     // v-model.number 清空输入框时产生 ""，转为 null 让后端设为无限制
     const emptyToNull = (v: any) => (v === "" ? null : v);
     payload.daily_limit_usd = emptyToNull(payload.daily_limit_usd);
@@ -6692,6 +6752,10 @@ watch(
       createForm.profit_min_margin_percent = 0;
       createForm.profit_safety_buffer_percent = 0;
     }
+    if (newVal !== "kiro") {
+      createForm.kiro_cache_emulation_enabled = false;
+      createForm.kiro_cache_emulation_ratio_percent = 100;
+    }
     createForm.max_reasoning_effort = normalizeReasoningEffortForPlatform(
       newVal,
       createForm.max_reasoning_effort,
@@ -6748,6 +6812,10 @@ watch(
       editForm.profit_control_enabled = false;
       editForm.profit_min_margin_percent = 0;
       editForm.profit_safety_buffer_percent = 0;
+    }
+    if (newVal !== "kiro") {
+      editForm.kiro_cache_emulation_enabled = false;
+      editForm.kiro_cache_emulation_ratio_percent = 100;
     }
     editForm.max_reasoning_effort = normalizeReasoningEffortForPlatform(
       newVal,

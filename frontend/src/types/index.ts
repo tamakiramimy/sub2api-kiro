@@ -632,6 +632,10 @@ export interface AdminGroup extends Group {
   profit_min_margin: number
   profit_safety_buffer: number
 
+  // Kiro prompt cache 本地计费模拟配置（仅管理员可见）。
+  kiro_cache_emulation_enabled: boolean
+  kiro_cache_emulation_ratio: number
+
   // 模型路由配置（仅管理员可见，内部信息）
   model_routing: Record<string, number[]> | null
   model_routing_enabled: boolean
@@ -828,6 +832,8 @@ export interface CreateGroupRequest {
   profit_control_enabled?: boolean
   profit_min_margin?: number
   profit_safety_buffer?: number
+  kiro_cache_emulation_enabled?: boolean
+  kiro_cache_emulation_ratio?: number
   claude_code_only?: boolean
   fallback_group_id?: number | null
   fallback_group_id_on_invalid_request?: number | null
@@ -894,6 +900,8 @@ export interface UpdateGroupRequest {
   profit_control_enabled?: boolean
   profit_min_margin?: number
   profit_safety_buffer?: number
+  kiro_cache_emulation_enabled?: boolean
+  kiro_cache_emulation_ratio?: number
   claude_code_only?: boolean
   fallback_group_id?: number | null
   fallback_group_id_on_invalid_request?: number | null
@@ -1846,6 +1854,7 @@ export interface UsageLog {
 export interface UsageLogAccountSummary {
   id: number
   name: string
+  platform: string
 }
 
 export interface AdminUsageLog extends UsageLog {
@@ -1855,6 +1864,8 @@ export interface AdminUsageLog extends UsageLog {
   upstream_model_mismatch?: boolean | null
   model_mapping_chain?: string | null
   upstream_request_id?: string | null
+  kiro_session_fingerprint?: string | null
+  previous_kiro_account_id?: number | null
 
   // 账号计费倍率（仅管理员可见）
   account_rate_multiplier?: number | null

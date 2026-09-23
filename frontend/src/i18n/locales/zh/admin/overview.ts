@@ -1139,6 +1139,16 @@ export default {
         bufferRangeError: '安全缓冲应在 0 到 99.99 之间',
         sumTooHigh: '最低毛利率与安全缓冲之和必须小于 100%，否则将排除全部账号'
       },
+      kiroCacheEmulation: {
+        title: 'Kiro Cache 本地计费模拟',
+        enable: '启用 Cache Token 模拟归类',
+        enabledHint: '按账号凭证跟踪可缓存前缀：首次请求归类为 cache creation，TTL 内重复前缀归类为 cache read。',
+        disabledHint: '关闭后，Kiro 请求的输入 Token 全部按普通 input token 记录。',
+        ratio: '模拟归类比例',
+        ratioHint: '缩放被归类为 cache creation/read 的 Token；100% 表示按检测到的完整可缓存前缀归类。',
+        localOnlyWarning: '这是 Sub2API 本地 usage 与计费分类模拟，不代表 Kiro 上游真实命中缓存，也不会减少上游 Token、上下文或额度消耗。',
+        ratioRangeError: '模拟归类比例必须大于 0 且不超过 100%'
+      },
       modelAllowlist: {
         title: '模型白名单',
         hint: '开启后，不在白名单中的模型会被拒绝（404 model_not_found），模型列表接口也只展示白名单内的模型。条目支持精确模型 ID 与末尾 * 通配。注意：Claude Code 会用 haiku 系小模型做标题/摘要等探测，/messages/count_tokens 同样受白名单控制，请一并勾选所需的小模型。',

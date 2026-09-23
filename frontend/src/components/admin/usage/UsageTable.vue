@@ -49,7 +49,31 @@
         </template>
 
         <template #cell-account="{ row }">
-          <span class="text-sm text-gray-900 dark:text-white">{{ row.account?.name || '-' }}</span>
+          <div v-if="row.account" class="text-sm">
+            <div class="text-gray-900 dark:text-white">{{ row.account.name }}</div>
+            <div class="text-[11px] text-gray-500 dark:text-gray-400">
+              #{{ row.account.id }} · {{ row.account.platform }}
+            </div>
+          </div>
+          <span v-else class="text-sm text-gray-900 dark:text-white">-</span>
+        </template>
+
+        <template #cell-kiro_session="{ row }">
+          <div v-if="row.kiro_session_fingerprint" class="space-y-0.5 text-xs">
+            <code class="font-medium text-gray-900 dark:text-white" :title="row.kiro_session_fingerprint">
+              {{ row.kiro_session_fingerprint.slice(0, 12) }}
+            </code>
+            <div v-if="row.previous_kiro_account_id == null" class="text-gray-500 dark:text-gray-400">
+              {{ t('admin.usage.kiroSessionBound') }}
+            </div>
+            <div v-else-if="row.previous_kiro_account_id === row.account_id" class="text-gray-500 dark:text-gray-400">
+              {{ t('admin.usage.kiroSessionMaintained') }}
+            </div>
+            <div v-else class="font-medium text-amber-600 dark:text-amber-400">
+              {{ t('admin.usage.kiroSessionSwitched', { previous: row.previous_kiro_account_id, current: row.account_id }) }}
+            </div>
+          </div>
+          <span v-else class="text-sm text-gray-500 dark:text-gray-400">-</span>
         </template>
 
         <template #cell-model="{ row }">
@@ -167,17 +191,29 @@
                   <span class="font-medium text-gray-900 dark:text-white">{{ row.output_tokens?.toLocaleString() || 0 }}</span>
                 </div>
               </div>
-              <div v-if="row.cache_read_tokens > 0 || row.cache_creation_tokens > 0" class="flex items-center gap-2">
-                <div v-if="row.cache_read_tokens > 0" class="inline-flex items-center gap-1">
+              <div
+                v-if="isTokenBillingUsage(row)"
+                data-testid="cache-token-summary"
+                class="flex flex-wrap items-center gap-x-2 gap-y-1"
+              >
+                <div class="inline-flex items-center gap-1" :title="t('admin.usage.cacheReadTokens')">
                   <svg class="h-3.5 w-3.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-                  <span class="font-medium text-sky-600 dark:text-sky-400">{{ formatCacheTokens(row.cache_read_tokens) }}</span>
+                  <span class="text-[10px] font-medium uppercase text-gray-400">{{ t('admin.usage.cacheReadShort') }}</span>
+                  <span class="font-medium text-sky-600 dark:text-sky-400">{{ formatCacheTokens(row.cache_read_tokens ?? 0) }}</span>
                 </div>
-                <div v-if="row.cache_creation_tokens > 0" class="inline-flex items-center gap-1">
+                <div class="inline-flex items-center gap-1" :title="t('admin.usage.cacheCreationTokens')">
                   <svg class="h-3.5 w-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                  <span class="font-medium text-amber-600 dark:text-amber-400">{{ formatCacheTokens(row.cache_creation_tokens) }}</span>
+                  <span class="text-[10px] font-medium uppercase text-gray-400">{{ t('admin.usage.cacheCreateShort') }}</span>
+                  <span class="font-medium text-amber-600 dark:text-amber-400">{{ formatCacheTokens(row.cache_creation_tokens ?? 0) }}</span>
                   <span v-if="row.cache_creation_1h_tokens > 0" class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-orange-100 text-orange-600 ring-1 ring-inset ring-orange-200 dark:bg-orange-500/20 dark:text-orange-400 dark:ring-orange-500/30">1h</span>
                   <span v-if="row.cache_ttl_overridden" :title="t('usage.cacheTtlOverriddenHint')" class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-rose-100 text-rose-600 ring-1 ring-inset ring-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:ring-rose-500/30 cursor-help">R</span>
                 </div>
+                <span
+                  v-if="isKiroCacheSimulation(row)"
+                  data-testid="kiro-cache-simulation-badge"
+                  :title="t('admin.usage.kiroCacheLocalSimulationHint')"
+                  class="inline-flex items-center rounded bg-cyan-50 px-1.5 py-px text-[10px] font-medium text-cyan-700 ring-1 ring-inset ring-cyan-200 dark:bg-cyan-500/10 dark:text-cyan-300 dark:ring-cyan-500/30"
+                >{{ t('admin.usage.kiroCacheLocalSimulation') }}</span>
               </div>
               <div v-if="hasImageInputTokens(row)" class="flex items-center gap-2">
                 <div class="inline-flex items-center gap-1">
@@ -194,6 +230,7 @@
             </div>
             <!-- Token Detail Tooltip -->
             <div
+              data-testid="token-tooltip-trigger"
               class="group relative"
               @mouseenter="showTokenTooltip($event, row)"
               @mouseleave="hideTokenTooltip"
@@ -216,6 +253,7 @@
               >x2</span>
               <!-- Cost Detail Tooltip -->
               <div
+                data-testid="cost-tooltip-trigger"
                 class="group relative"
                 @mouseenter="showTooltip($event, row)"
                 @mouseleave="hideTooltip"
@@ -347,7 +385,7 @@
               <span class="text-gray-400">{{ t('usage.imageOutputTokens') }}</span>
               <span class="font-medium text-pink-300">{{ tokenTooltipData.image_output_tokens.toLocaleString() }}</span>
             </div>
-            <div v-if="tokenTooltipData && tokenTooltipData.cache_creation_tokens > 0">
+            <div v-if="tokenTooltipData && isTokenBillingUsage(tokenTooltipData)">
               <!-- 有 5m/1h 明细时，展开显示 -->
               <template v-if="tokenTooltipData.cache_creation_5m_tokens > 0 || tokenTooltipData.cache_creation_1h_tokens > 0">
                 <div v-if="tokenTooltipData.cache_creation_5m_tokens > 0" class="flex items-center justify-between gap-4">
@@ -368,7 +406,7 @@
               <!-- 无明细时，只显示聚合值 -->
               <div v-else class="flex items-center justify-between gap-4">
                 <span class="text-gray-400">{{ t('admin.usage.cacheCreationTokens') }}</span>
-                <span class="font-medium text-white">{{ tokenTooltipData.cache_creation_tokens.toLocaleString() }}</span>
+                <span class="font-medium text-white">{{ (tokenTooltipData.cache_creation_tokens ?? 0).toLocaleString() }}</span>
               </div>
             </div>
             <div v-if="tokenTooltipData && tokenTooltipData.cache_ttl_overridden" class="flex items-center justify-between gap-4">
@@ -378,10 +416,15 @@
               </span>
               <span class="font-medium text-rose-400">{{ tokenTooltipData.cache_creation_1h_tokens > 0 ? t('usage.cacheTtlOverridden1h') : t('usage.cacheTtlOverridden5m') }}</span>
             </div>
-            <div v-if="tokenTooltipData && tokenTooltipData.cache_read_tokens > 0" class="flex items-center justify-between gap-4">
+            <div v-if="tokenTooltipData && isTokenBillingUsage(tokenTooltipData)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.cacheReadTokens') }}</span>
-              <span class="font-medium text-white">{{ tokenTooltipData.cache_read_tokens.toLocaleString() }}</span>
+              <span class="font-medium text-white">{{ (tokenTooltipData.cache_read_tokens ?? 0).toLocaleString() }}</span>
             </div>
+            <p
+              v-if="tokenTooltipData && isKiroCacheSimulation(tokenTooltipData)"
+              data-testid="kiro-cache-simulation-note"
+              class="mt-1 max-w-72 whitespace-normal border-l-2 border-cyan-500 pl-2 text-[11px] leading-4 text-cyan-300"
+            >{{ t('admin.usage.kiroCacheLocalSimulationHint') }}</p>
           </div>
           <div class="flex items-center justify-between gap-6 border-t border-gray-700 pt-1.5">
             <span class="text-gray-400">{{ t('usage.totalTokens') }}</span>
@@ -425,7 +468,7 @@
               <span class="font-medium text-pink-300">${{ tooltipData.image_output_cost.toFixed(8) }}</span>
             </div>
             <!-- Token billing: show unit prices per 1M tokens -->
-            <template v-if="tooltipData && !isImageUsage(tooltipData) && (!tooltipData.billing_mode || tooltipData.billing_mode === BILLING_MODE_TOKEN)">
+            <template v-if="tooltipData && isTokenBillingUsage(tooltipData)">
               <div v-if="tooltipData && textInputTokens(tooltipData) > 0" class="flex items-center justify-between gap-4">
                 <span class="text-gray-400">{{ t('usage.inputTokenPrice') }}</span>
                 <span class="font-medium text-sky-300">{{ formatTokenPricePerMillion(tooltipData.input_cost, textInputTokens(tooltipData)) }} {{ t('usage.perMillionTokens') }}</span>
@@ -481,14 +524,18 @@
               <span class="text-gray-400">{{ t('usage.unitPrice') }}</span>
               <span class="font-medium text-sky-300">${{ tooltipData?.total_cost?.toFixed(8) || '0.00000000' }}</span>
             </div>
-            <div v-if="tooltipData && tooltipData.cache_creation_cost > 0" class="flex items-center justify-between gap-4">
+            <div v-if="tooltipData && isTokenBillingUsage(tooltipData)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.cacheCreationCost') }}</span>
-              <span class="font-medium text-white">${{ tooltipData.cache_creation_cost.toFixed(8) }}</span>
+              <span class="font-medium text-white">${{ (tooltipData.cache_creation_cost ?? 0).toFixed(8) }}</span>
             </div>
-            <div v-if="tooltipData && tooltipData.cache_read_cost > 0" class="flex items-center justify-between gap-4">
+            <div v-if="tooltipData && isTokenBillingUsage(tooltipData)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.cacheReadCost') }}</span>
-              <span class="font-medium text-white">${{ tooltipData.cache_read_cost.toFixed(8) }}</span>
+              <span class="font-medium text-white">${{ (tooltipData.cache_read_cost ?? 0).toFixed(8) }}</span>
             </div>
+            <p
+              v-if="tooltipData && isKiroCacheSimulation(tooltipData)"
+              class="mt-1 max-w-72 whitespace-normal border-l-2 border-cyan-500 pl-2 text-[11px] leading-4 text-cyan-300"
+            >{{ t('admin.usage.kiroCacheLocalSimulationHint') }}</p>
           </div>
           <!-- Rate and Summary -->
           <div class="flex items-center justify-between gap-6">
@@ -627,6 +674,12 @@ const hasReasoningEffortMapping = (row: AdminUsageLog): boolean => {
   const forwarded = row.upstream_reasoning_effort?.trim() || ''
   return requested !== '' && forwarded !== '' && !reasoningEffortValuesEqual(requested, forwarded)
 }
+
+const isTokenBillingUsage = (row: AdminUsageLog): boolean =>
+  !isImageUsage(row) && (!row.billing_mode || row.billing_mode === BILLING_MODE_TOKEN)
+
+const isKiroCacheSimulation = (row: AdminUsageLog): boolean =>
+  isTokenBillingUsage(row) && row.account?.platform === 'kiro'
 
 const sentUpstreamModel = (row: AdminUsageLog): string => row.upstream_model?.trim() || row.model?.trim() || ''
 

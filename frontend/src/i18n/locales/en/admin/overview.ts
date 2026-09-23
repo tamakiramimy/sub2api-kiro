@@ -1142,6 +1142,16 @@ export default {
         bufferRangeError: 'Safety buffer must be between 0 and 99.99',
         sumTooHigh: 'Min gross margin plus safety buffer must be less than 100%, otherwise every account would be excluded'
       },
+      kiroCacheEmulation: {
+        title: 'Kiro Cache Local Billing Simulation',
+        enable: 'Enable cache token simulation',
+        enabledHint: 'Tracks cacheable prefixes per account credential: the first request is classified as cache creation and matching prefixes within the TTL as cache read.',
+        disabledHint: 'When disabled, all Kiro input tokens are recorded as regular input tokens.',
+        ratio: 'Simulated classification ratio',
+        ratioHint: 'Scales tokens classified as cache creation/read; 100% classifies the full cacheable prefix detected locally.',
+        localOnlyWarning: 'This only simulates Sub2API usage and billing categories. It does not mean Kiro upstream hit a real cache and does not reduce upstream tokens, context, or quota usage.',
+        ratioRangeError: 'The simulated classification ratio must be greater than 0 and no more than 100%'
+      },
       modelAllowlist: {
         title: 'Model Allowlist',
         hint: 'When enabled, models outside the allowlist are rejected with 404 model_not_found, and model listing endpoints only show allowlisted models. Entries support exact model IDs and trailing * wildcards. Note: Claude Code probes with haiku-family models for titles/summaries and /messages/count_tokens is also allowlist-controlled, so make sure the small models you need are selected too.',

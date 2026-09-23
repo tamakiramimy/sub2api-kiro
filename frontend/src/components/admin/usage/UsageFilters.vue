@@ -150,6 +150,18 @@
           <Select v-model="filters.upstream_model_mismatch" :options="upstreamModelMismatchOptions" @change="emitChange" />
         </div>
 
+        <div v-if="mode === 'usage'" class="w-full sm:w-auto sm:min-w-[260px]">
+          <label class="input-label">{{ t('admin.usage.kiroSession') }}</label>
+          <input
+            v-model.trim="filters.kiro_session_fingerprint"
+            type="text"
+            class="input font-mono text-xs"
+            :placeholder="t('admin.usage.kiroSessionPlaceholder')"
+            @change="emitChange"
+            @keyup.enter="emitChange"
+          />
+        </div>
+
         <!-- Error Phase Filter (errors only) -->
         <div v-if="mode === 'errors'" class="w-full sm:w-auto sm:min-w-[180px]">
           <label class="input-label">{{ t('admin.ops.errorLog.type') }}</label>

@@ -376,8 +376,13 @@ describe('admin UsageTable tooltip', () => {
     const amounts = wrapper.get('.fixed').findAll('span').map(span => span.text())
     expect(amounts).toEqual(expect.arrayContaining([
       '$0.00000001', '$0.00000002', '$0.00000003', '$0.00000004',
-      '$0.00000005', '$0.00000006', '$0.00000022', '$0.00000042', '$0.00000018',
+      '$0.00000022', '$0.00000042', '$0.00000018',
     ]))
+    if (billingMode === 'token') {
+      expect(amounts).toEqual(expect.arrayContaining(['$0.00000005', '$0.00000006']))
+    } else {
+      expect(amounts).not.toEqual(expect.arrayContaining(['$0.00000005', '$0.00000006']))
+    }
     if (billingMode === 'image') expect(amounts).toContain('$0.00000011')
     wrapper.unmount()
   })

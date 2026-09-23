@@ -524,7 +524,7 @@ func TestGatewayModels_KiroCustomModelsListAllowsGPT56ForAPIKey(t *testing.T) {
 		Group: &service.Group{
 			ID:       groupID,
 			Platform: service.PlatformKiro,
-			ModelsListConfig: service.GroupModelsListConfig{
+			ModelAllowlist: service.GroupModelAllowlist{
 				Enabled: true,
 				Models:  []string{"gpt-5.6-sol"},
 			},

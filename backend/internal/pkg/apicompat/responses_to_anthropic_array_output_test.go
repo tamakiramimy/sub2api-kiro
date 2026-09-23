@@ -51,7 +51,7 @@ func TestConvertResponsesInputToAnthropicArrayOutput(t *testing.T) {
 		{"type":"function_call_output","call_id":"call_1","output":[{"type":"input_text","text":"tool said hi"}]}
 	]`)
 
-	_, msgs, err := convertResponsesInputToAnthropic("", raw)
+	_, msgs, err := convertResponsesInputToAnthropic("", raw, false)
 	if err != nil {
 		t.Fatalf("convert must not fail on array-form output: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestConvertResponsesInputToAnthropicArrayOutputWithImage(t *testing.T) {
 		]}
 	]`)
 
-	_, msgs, err := convertResponsesInputToAnthropic("", raw)
+	_, msgs, err := convertResponsesInputToAnthropic("", raw, false)
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestConvertResponsesInputToAnthropicEmptyStringOutput(t *testing.T) {
 		{"type":"function_call_output","call_id":"c1","output":""}
 	]`)
 
-	_, msgs, err := convertResponsesInputToAnthropic("", raw)
+	_, msgs, err := convertResponsesInputToAnthropic("", raw, false)
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}

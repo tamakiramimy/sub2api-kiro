@@ -189,7 +189,17 @@ describe('admin AccountsView OpenAI OAuth reauth warning', () => {
       props: {
         show: true,
         account: reauthRequiredAccount,
-        position: { top: 10, left: 10 }
+        anchorRect: {
+          top: 10,
+          right: 30,
+          bottom: 30,
+          left: 10,
+          width: 20,
+          height: 20,
+          x: 10,
+          y: 10,
+          toJSON: () => ({})
+        }
       },
       global: {
         stubs: {

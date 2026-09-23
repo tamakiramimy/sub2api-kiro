@@ -9,12 +9,15 @@ import (
 	"io"
 	mathrand "math/rand"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	kiropkg "github.com/Wei-Shaw/sub2api/internal/kiro"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 )
@@ -519,12 +522,129 @@ func buildKiroEndpoints(account *Account) []kiroEndpointConfig {
 }
 
 func (s *GatewayService) buildKiroPayloadForAccount(ctx context.Context, account *Account, parsed *ParsedRequest, anthropicBody []byte, modelID, token, requestModel string, headers http.Header) (*kiropkg.KiroBuildResult, error) {
-	_ = s
 	_ = token
 	profileArn := resolveKiroPayloadProfileArn(account)
 	anthropicBody = prepareKiroPayloadBodyForRequestModel(anthropicBody, requestModel)
 	continuation := s.loadKiroContinuation(ctx, account, parsed)
-	return kiropkg.BuildKiroPayloadWithContinuation(anthropicBody, modelID, profileArn, "AI_EDITOR", headers, continuation)
+	buildResult, err := kiropkg.BuildKiroPayloadWithContinuation(anthropicBody, modelID, profileArn, "AI_EDITOR", headers, continuation)
+	if err != nil {
+		return nil, err
+	}
+	if stableID := stableKiroConversationID(account, parsed, anthropicBody, modelID, profileArn); stableID != "" {
+		if next, ok := setJSONValueBytes(buildResult.Payload, "conversationState.conversationId", stableID); ok {
+			buildResult.Payload = next
+		}
+	}
+	return buildResult, nil
+}
+
+func stableKiroConversationID(account *Account, parsed *ParsedRequest, anthropicBody []byte, modelID, profileArn string) string {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("SUB2API_KIRO_CONVERSATION_ID_MODE"))) {
+	case "random", "uuid", "off", "false", "0":
+		return ""
+	}
+	if parsed != nil {
+		if conversationID := extractKiroConversationID(parsed.MetadataUserID); conversationID != "" {
+			return conversationID
+		}
+	}
+	seed := stableKiroConversationSeed(account, parsed, anthropicBody, modelID, profileArn)
+	if seed == "" {
+		return ""
+	}
+	return GenerateSessionUUID(seed)
+}
+
+func extractKiroConversationID(metadataUserID string) string {
+	metadataUserID = strings.TrimSpace(metadataUserID)
+	if metadataUserID == "" {
+		return ""
+	}
+	if conversationID := canonicalKiroConversationID(gjson.Get(metadataUserID, "session_id").String()); conversationID != "" {
+		return conversationID
+	}
+	const marker = "session_"
+	if markerIndex := strings.Index(metadataUserID, marker); markerIndex >= 0 {
+		candidate := metadataUserID[markerIndex+len(marker):]
+		if len(candidate) >= 36 {
+			return canonicalKiroConversationID(candidate[:36])
+		}
+	}
+	return ""
+}
+
+func canonicalKiroConversationID(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) != 36 || value[8] != '-' || value[13] != '-' || value[18] != '-' || value[23] != '-' {
+		return ""
+	}
+	conversationID, err := uuid.Parse(value)
+	if err != nil || conversationID == uuid.Nil {
+		return ""
+	}
+	return conversationID.String()
+}
+
+func stableKiroConversationSeed(account *Account, parsed *ParsedRequest, anthropicBody []byte, modelID, profileArn string) string {
+	anchorType, anchor := kiroConversationAnchor(parsed, anthropicBody)
+	if anchor == "" {
+		return ""
+	}
+
+	var seed strings.Builder
+	_, _ = seed.WriteString("kiro-conversation-v1|")
+	if account != nil {
+		_, _ = seed.WriteString("account:")
+		_, _ = seed.WriteString(strconv.FormatInt(account.ID, 10))
+		_, _ = seed.WriteString("|credential:")
+		_, _ = seed.WriteString(kiroCacheCredentialIdentity(account))
+		_, _ = seed.WriteString("|")
+	}
+	if parsed != nil {
+		if parsed.GroupID != nil {
+			_, _ = seed.WriteString("group:")
+			_, _ = seed.WriteString(strconv.FormatInt(*parsed.GroupID, 10))
+			_, _ = seed.WriteString("|")
+		}
+		if parsed.SessionContext != nil {
+			_, _ = seed.WriteString("api_key:")
+			_, _ = seed.WriteString(strconv.FormatInt(parsed.SessionContext.APIKeyID, 10))
+			_, _ = seed.WriteString("|")
+		}
+	}
+	_, _ = seed.WriteString("model:")
+	_, _ = seed.WriteString(strings.TrimSpace(modelID))
+	_, _ = seed.WriteString("|profile:")
+	_, _ = seed.WriteString(strings.TrimSpace(profileArn))
+	_, _ = seed.WriteString("|anchor:")
+	_, _ = seed.WriteString(anchorType)
+	_, _ = seed.WriteString(":")
+	_, _ = seed.WriteString(anchor)
+	return seed.String()
+}
+
+func kiroConversationAnchor(parsed *ParsedRequest, anthropicBody []byte) (string, string) {
+	var systemText string
+	if parsed != nil {
+		systemText = extractTextFromSystemRaw(parsed.SystemRaw())
+	}
+	if len(anthropicBody) > 0 {
+		if systemText == "" {
+			systemText = extractTextFromSystemRaw([]byte(gjson.GetBytes(anthropicBody, "system").Raw))
+		}
+		firstUserText := extractFirstUserText(anthropicBody)
+		switch {
+		case systemText != "" && firstUserText != "":
+			return "system_first_user", systemText + "\x1f" + firstUserText
+		case systemText != "":
+			return "system", systemText
+		case firstUserText != "":
+			return "first_user", firstUserText
+		}
+	} else if systemText != "" {
+		return "system", systemText
+	}
+	return "", ""
 }
 
 func logKiroStatelessReplay(account *Account, payload []byte) {

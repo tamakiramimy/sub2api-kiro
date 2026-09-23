@@ -26,7 +26,7 @@ func (s *GatewayService) kiroContinuationScope(account *Account, parsed *ParsedR
 	if parsed.SessionContext.APIKeyID <= 0 {
 		return ""
 	}
-	sessionHash := strings.TrimSpace(s.GenerateSessionHash(parsed))
+	sessionHash := strings.TrimSpace(s.GenerateKiroSessionHash(parsed))
 	if sessionHash == "" {
 		return ""
 	}

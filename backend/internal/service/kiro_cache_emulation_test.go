@@ -39,6 +39,25 @@ func TestKiroCacheEmulationUsesSnapshotGroupWithoutRepo(t *testing.T) {
 	}
 }
 
+func TestKiroCacheEmulationCreatesAutomaticBreakpointForOpenAICompatiblePrefix(t *testing.T) {
+	resetKiroCacheTracker()
+	svc := &GatewayService{}
+	account := &Account{ID: 35, Platform: PlatformKiro}
+	group := kiroCacheGroup(1)
+	system := strings.Repeat("stable project instructions ", 300)
+	firstBody := []byte(fmt.Sprintf(`{"model":"gpt-5.6-terra","system":"%s","messages":[{"role":"user","content":"first request"}]}`, system))
+	secondBody := []byte(fmt.Sprintf(`{"model":"gpt-5.6-terra","system":"%s","messages":[{"role":"user","content":"first request"},{"role":"assistant","content":"first response"},{"role":"user","content":"follow up"}]}`, system))
+
+	first := svc.buildKiroCacheEmulationUsage(account, group, firstBody, "gpt-5.6-terra", 3000)
+	if first == nil || first.CacheCreationInputTokens <= 0 {
+		t.Fatalf("expected automatic cache creation, got %+v", first)
+	}
+	second := svc.buildKiroCacheEmulationUsage(account, group, secondBody, "gpt-5.6-terra", 3200)
+	if second == nil || second.CacheReadInputTokens <= 0 {
+		t.Fatalf("expected automatic cache read, got %+v", second)
+	}
+}
+
 func TestKiroCacheEmulationRatioScalesTokens(t *testing.T) {
 	resetKiroCacheTracker()
 	svc := &GatewayService{}

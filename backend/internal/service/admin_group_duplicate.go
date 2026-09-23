@@ -106,6 +106,8 @@ func cloneGroupForDuplicate(source *Group, operationID string) *Group {
 		ProfitControlEnabled:            source.ProfitControlEnabled,
 		ProfitMinMargin:                 source.ProfitMinMargin,
 		ProfitSafetyBuffer:              source.ProfitSafetyBuffer,
+		KiroCacheEmulationEnabled:       source.KiroCacheEmulationEnabled,
+		KiroCacheEmulationRatio:         source.KiroCacheEmulationRatio,
 		IsExclusive:                     source.IsExclusive,
 		Status:                          duplicateGroupInactiveStatus,
 		DuplicateOperationID:            operationID,

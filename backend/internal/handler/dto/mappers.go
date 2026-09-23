@@ -153,6 +153,8 @@ func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
 		ProfitControlEnabled:        g.ProfitControlEnabled,
 		ProfitMinMargin:             g.ProfitMinMargin,
 		ProfitSafetyBuffer:          g.ProfitSafetyBuffer,
+		KiroCacheEmulationEnabled:   g.KiroCacheEmulationEnabled,
+		KiroCacheEmulationRatio:     g.KiroCacheEmulationRatio,
 		ModelPricing:                g.ModelPricing,
 		ModelRouting:                g.ModelRouting,
 		ModelRoutingEnabled:         g.ModelRoutingEnabled,
@@ -676,14 +678,15 @@ func redeemCodeFromServiceBase(rc *service.RedeemCode) RedeemCode {
 }
 
 // AccountSummaryFromService returns a minimal AccountSummary for usage log display.
-// Only includes ID and Name - no sensitive fields like Credentials, Proxy, etc.
+// It excludes sensitive fields like Credentials and Proxy.
 func AccountSummaryFromService(a *service.Account) *AccountSummary {
 	if a == nil {
 		return nil
 	}
 	return &AccountSummary{
-		ID:   a.ID,
-		Name: a.Name,
+		ID:       a.ID,
+		Name:     a.Name,
+		Platform: a.Platform,
 	}
 }
 
@@ -779,6 +782,8 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 		ChannelID:               l.ChannelID,
 		ModelMappingChain:       l.ModelMappingChain,
 		UpstreamRequestID:       l.UpstreamRequestID,
+		KiroSessionFingerprint:  l.KiroSessionFingerprint,
+		PreviousKiroAccountID:   l.PreviousKiroAccountID,
 		BillingTier:             l.BillingTier,
 		AccountRateMultiplier:   l.AccountRateMultiplier,
 		AccountStatsCost:        l.AccountStatsCost,

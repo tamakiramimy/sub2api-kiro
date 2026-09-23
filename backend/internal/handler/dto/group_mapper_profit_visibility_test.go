@@ -16,16 +16,23 @@ var profitControlJSONFields = []string{
 	"profit_safety_buffer",
 }
 
+var kiroCacheEmulationJSONFields = []string{
+	"kiro_cache_emulation_enabled",
+	"kiro_cache_emulation_ratio",
+}
+
 func profitControlServiceGroup() *service.Group {
 	return &service.Group{
-		ID:                   7,
-		Name:                 "profit-gated",
-		Platform:             service.PlatformAnthropic,
-		RateMultiplier:       2.0,
-		Status:               service.StatusActive,
-		ProfitControlEnabled: true,
-		ProfitMinMargin:      0.3,
-		ProfitSafetyBuffer:   0.05,
+		ID:                        7,
+		Name:                      "profit-gated",
+		Platform:                  service.PlatformAnthropic,
+		RateMultiplier:            2.0,
+		Status:                    service.StatusActive,
+		ProfitControlEnabled:      true,
+		ProfitMinMargin:           0.3,
+		ProfitSafetyBuffer:        0.05,
+		KiroCacheEmulationEnabled: true,
+		KiroCacheEmulationRatio:   0.6,
 	}
 }
 
@@ -54,6 +61,11 @@ func TestGroupFromServiceOmitsProfitControl(t *testing.T) {
 				t.Errorf("%s: 普通用户 DTO 不得包含 %q", name, f)
 			}
 		}
+		for _, f := range kiroCacheEmulationJSONFields {
+			if _, ok := fields[f]; ok {
+				t.Errorf("%s: 普通用户 DTO 不得包含 %q", name, f)
+			}
+		}
 		if _, ok := fields["rate_multiplier"]; !ok {
 			t.Errorf("%s: 应仍返回 rate_multiplier", name)
 		}
@@ -68,6 +80,14 @@ func TestGroupFromServiceAdminIncludesProfitControl(t *testing.T) {
 	}
 	fields := marshalToMap(t, admin)
 	for _, f := range profitControlJSONFields {
+		if _, ok := fields[f]; !ok {
+			t.Errorf("管理员 DTO 应包含 %q", f)
+		}
+	}
+	if !admin.KiroCacheEmulationEnabled || admin.KiroCacheEmulationRatio != 0.6 {
+		t.Fatalf("管理员 DTO 未透传 Kiro cache 模拟配置: %+v", admin)
+	}
+	for _, f := range kiroCacheEmulationJSONFields {
 		if _, ok := fields[f]; !ok {
 			t.Errorf("管理员 DTO 应包含 %q", f)
 		}

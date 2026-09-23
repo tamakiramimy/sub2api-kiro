@@ -105,3 +105,21 @@ func TestKiroContinuationScopeUsesStableClaudeDesktopSessionID(t *testing.T) {
 
 	require.Equal(t, svc.kiroContinuationScope(account, first), svc.kiroContinuationScope(account, second))
 }
+
+func TestKiroContinuationScopeKeepsOpenAICompatibleGrowingConversationStable(t *testing.T) {
+	svc := &GatewayService{}
+	account := &Account{ID: 12, Platform: PlatformKiro, Type: AccountTypeOAuth}
+	groupID := int64(3)
+	context := &SessionContext{APIKeyID: 101, ClientIP: "10.0.0.1", UserAgent: "codex_cli_rs/0.1.0"}
+	first, err := ParseGatewayRequest(NewRequestBodyRef([]byte(`{"model":"gpt-5.6-terra","system":"stable instructions","messages":[{"role":"user","content":"first task"}]}`)), "chat_completions")
+	require.NoError(t, err)
+	first.GroupID = &groupID
+	first.SessionContext = context
+	second, err := ParseGatewayRequest(NewRequestBodyRef([]byte(`{"model":"gpt-5.6-terra","system":"stable instructions","messages":[{"role":"user","content":"first task"},{"role":"assistant","content":"first response"},{"role":"user","content":"follow up"}]}`)), "chat_completions")
+	require.NoError(t, err)
+	second.GroupID = &groupID
+	second.SessionContext = context
+
+	require.Equal(t, svc.GenerateKiroSessionHash(first), svc.GenerateKiroSessionHash(second))
+	require.Equal(t, svc.kiroContinuationScope(account, first), svc.kiroContinuationScope(account, second))
+}

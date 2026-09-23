@@ -30,6 +30,7 @@ require (
 	github.com/klauspost/compress v1.18.2
 	github.com/lib/pq v1.10.9
 	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/pquerna/otp v1.5.0
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/refraction-networking/utls v1.8.2
@@ -162,7 +163,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pkoukk/tiktoken-go v0.1.8 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect

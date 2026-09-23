@@ -99,6 +99,7 @@ func (s *GatewayService) bridgeKiroAsAnthropic(
 	if parsed != nil {
 		kiroParsed.GroupID = parsed.GroupID
 		kiroParsed.SessionContext = parsed.SessionContext
+		kiroParsed.MetadataUserID = parsed.MetadataUserID
 	}
 	kiroParsed.Stream = true
 

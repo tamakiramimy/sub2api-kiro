@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
 	dbapikey "github.com/Wei-Shaw/sub2api/ent/apikey"
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
@@ -19,7 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
-const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, upstream_response_model, upstream_model_mismatch, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, video_count, video_resolution, video_duration_seconds, service_tier, reasoning_effort, requested_reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, long_context_billing_applied, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, upstream_request_id, session_id, native_compaction_v2, created_at"
+const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, upstream_response_model, upstream_model_mismatch, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, video_count, video_resolution, video_duration_seconds, service_tier, reasoning_effort, requested_reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, long_context_billing_applied, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, upstream_request_id, session_id, kiro_session_fingerprint, native_compaction_v2, created_at"
 
 func (r *usageLogRepository) GetByID(ctx context.Context, id int64) (log *service.UsageLog, err error) {
 	query := "SELECT " + usageLogSelectColumns + " FROM usage_logs WHERE id = $1"
@@ -120,6 +121,10 @@ func (r *usageLogRepository) ListWithFilters(ctx context.Context, params paginat
 		conditions = append(conditions, fmt.Sprintf("request_id = $%d", len(args)+1))
 		args = append(args, requestID)
 	}
+	if fingerprint := strings.TrimSpace(filters.KiroSessionFingerprint); fingerprint != "" {
+		conditions = append(conditions, fmt.Sprintf("kiro_session_fingerprint = $%d", len(args)+1))
+		args = append(args, fingerprint)
+	}
 	conditions, args = appendUsageLogModelWhereCondition(conditions, args, filters.Model, filters.ModelFilterSource)
 	conditions, args = appendRequestTypeOrStreamWhereCondition(conditions, args, filters.RequestType, filters.Stream)
 	conditions, args = appendNativeCompactionV2WhereCondition(conditions, args, filters.NativeCompactionV2, "")
@@ -156,6 +161,9 @@ func (r *usageLogRepository) ListWithFilters(ctx context.Context, params paginat
 	}
 
 	if err := r.hydrateUsageLogAssociations(ctx, logs); err != nil {
+		return nil, nil, err
+	}
+	if err := r.hydrateKiroSessionTransitions(ctx, logs); err != nil {
 		return nil, nil, err
 	}
 	return logs, page, nil
@@ -324,6 +332,61 @@ func (r *usageLogRepository) hydrateUsageLogAssociations(ctx context.Context, lo
 	return nil
 }
 
+func (r *usageLogRepository) hydrateKiroSessionTransitions(ctx context.Context, logs []service.UsageLog) error {
+	fingerprintSet := make(map[string]struct{})
+	logIDs := make([]int64, 0, len(logs))
+	for i := range logs {
+		if logs[i].KiroSessionFingerprint == nil || strings.TrimSpace(*logs[i].KiroSessionFingerprint) == "" {
+			continue
+		}
+		fingerprintSet[*logs[i].KiroSessionFingerprint] = struct{}{}
+		logIDs = append(logIDs, logs[i].ID)
+	}
+	if len(fingerprintSet) == 0 {
+		return nil
+	}
+
+	fingerprints := stringSetToSlice(fingerprintSet)
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT id, previous_account_id
+		FROM (
+			SELECT id,
+				LAG(account_id) OVER (
+					PARTITION BY kiro_session_fingerprint
+					ORDER BY created_at ASC, id ASC
+				) AS previous_account_id
+			FROM usage_logs
+			WHERE kiro_session_fingerprint = ANY($1)
+		) session_history
+		WHERE id = ANY($2)
+	`, pq.Array(fingerprints), pq.Array(logIDs))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	previousByID := make(map[int64]int64, len(logIDs))
+	for rows.Next() {
+		var id int64
+		var previous sql.NullInt64
+		if err := rows.Scan(&id, &previous); err != nil {
+			return err
+		}
+		if previous.Valid {
+			previousByID[id] = previous.Int64
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for i := range logs {
+		if previousID, ok := previousByID[logs[i].ID]; ok {
+			logs[i].PreviousKiroAccountID = &previousID
+		}
+	}
+	return nil
+}
+
 type usageLogIDs struct {
 	userIDs         []int64
 	apiKeyIDs       []int64
@@ -398,7 +461,7 @@ func (r *usageLogRepository) loadAccounts(ctx context.Context, ids []int64) (map
 	if len(ids) == 0 {
 		return out, nil
 	}
-	models, err := r.client.Account.Query().Where(dbaccount.IDIn(ids...)).All(ctx)
+	models, err := r.client.Account.Query().Where(dbaccount.IDIn(ids...)).All(mixins.SkipSoftDelete(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -501,6 +564,7 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		accountStatsCost          sql.NullFloat64
 		upstreamRequestID         sql.NullString
 		sessionID                 sql.NullString
+		kiroSessionFingerprint    sql.NullString
 		nativeCompactionV2        bool
 		createdAt                 time.Time
 	)
@@ -567,6 +631,7 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		&accountStatsCost,
 		&upstreamRequestID,
 		&sessionID,
+		&kiroSessionFingerprint,
 		&nativeCompactionV2,
 		&createdAt,
 	); err != nil {
@@ -702,6 +767,9 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 	if sessionID.Valid {
 		log.SessionID = &sessionID.String
 	}
+	if kiroSessionFingerprint.Valid {
+		log.KiroSessionFingerprint = &kiroSessionFingerprint.String
+	}
 	if upstreamRequestID.Valid {
 		log.UpstreamRequestID = &upstreamRequestID.String
 	}
@@ -781,6 +849,14 @@ func setToSlice(set map[int64]struct{}) []int64 {
 	out := make([]int64, 0, len(set))
 	for id := range set {
 		out = append(out, id)
+	}
+	return out
+}
+
+func stringSetToSlice(set map[string]struct{}) []string {
+	out := make([]string, 0, len(set))
+	for value := range set {
+		out = append(out, value)
 	}
 	return out
 }

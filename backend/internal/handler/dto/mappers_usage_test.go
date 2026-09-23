@@ -161,6 +161,29 @@ func TestUsageLogFromService_UsesRequestedModelAndKeepsUpstreamAdminOnly(t *test
 	require.Contains(t, string(adminJSON), `"upstream_model_mismatch":true`)
 }
 
+func TestUsageLogFromService_KeepsKiroSessionAuditFieldsAdminOnly(t *testing.T) {
+	t.Parallel()
+
+	fingerprint := "c9e3b1d5739cc6f4a2718f3c0e6a4872d9035f8967b8a0ed1f4486ec4a9721bf"
+	previousAccountID := int64(8)
+	log := &service.UsageLog{
+		RequestID:             "req_kiro_session",
+		Model:                 "claude-sonnet-4",
+		KiroSessionFingerprint: &fingerprint,
+		PreviousKiroAccountID:  &previousAccountID,
+	}
+
+	userJSON, err := json.Marshal(UsageLogFromService(log))
+	require.NoError(t, err)
+	require.NotContains(t, string(userJSON), "kiro_session_fingerprint")
+	require.NotContains(t, string(userJSON), "previous_kiro_account_id")
+
+	adminJSON, err := json.Marshal(UsageLogFromServiceAdmin(log))
+	require.NoError(t, err)
+	require.Contains(t, string(adminJSON), `"kiro_session_fingerprint":"`+fingerprint+`"`)
+	require.Contains(t, string(adminJSON), `"previous_kiro_account_id":8`)
+}
+
 func TestUsageLogFromService_KeepsUserBillingAndIPWithoutAdminCostFields(t *testing.T) {
 	t.Parallel()
 

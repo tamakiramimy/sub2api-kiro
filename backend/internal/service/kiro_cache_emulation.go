@@ -57,7 +57,10 @@ func (s *GatewayService) buildKiroCacheEmulationUsage(account *Account, group *G
 	}
 	profile, ok := buildKiroCacheProfile(body, model, inputTokens)
 	if !ok {
-		return nil
+		profile, ok = buildKiroCacheProfileWithAutomaticBreakpoint(body, model, inputTokens)
+		if !ok {
+			return nil
+		}
 	}
 	cacheKey := kiroCacheCredentialKey(account)
 	if cacheKey == 0 {
@@ -78,6 +81,24 @@ func (s *GatewayService) buildKiroCacheEmulationUsage(account *Account, group *G
 		return nil
 	}
 	return result
+}
+
+func buildKiroCacheProfileWithAutomaticBreakpoint(body []byte, model string, inputTokens int) (*kiroCacheProfile, bool) {
+	profile, _ := buildKiroCacheProfile(body, model, inputTokens)
+	if profile == nil {
+		return nil, false
+	}
+	if profile.lastCacheableBreakpoint() != nil {
+		return profile, true
+	}
+	for index, block := range profile.blocks {
+		if block.cumulativeTokens < profile.minCacheable {
+			continue
+		}
+		profile.breakpoints = append(profile.breakpoints, kiroCacheBreakpoint{blockIndex: index, ttl: kiroCacheDefaultTTL})
+		return profile, true
+	}
+	return nil, false
 }
 
 func scaleKiroCacheTokens(tokens int, ratio float64) int {
@@ -178,10 +199,7 @@ func buildKiroCacheProfile(body []byte, model string, inputTokens int) (*kiroCac
 			}
 		}
 	}
-	if profile.lastCacheableBreakpoint() == nil {
-		return nil, false
-	}
-	return profile, true
+	return profile, profile.lastCacheableBreakpoint() != nil
 }
 
 func flattenKiroCacheBlocks(payload map[string]any) []kiroPendingBlock {

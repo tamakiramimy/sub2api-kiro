@@ -34,6 +34,7 @@ func TestBuildRuntimeUserAgentStable(t *testing.T) {
 }
 
 func TestBuildKiroPayloadBasic(t *testing.T) {
+	t.Setenv("SUB2API_KIRO_TIME_CONTEXT", "")
 	SetCachedWebSearchDescription("")
 	body := []byte(`{
 		"model":"claude-sonnet-4-5",
@@ -55,11 +56,61 @@ func TestBuildKiroPayloadBasic(t *testing.T) {
 	require.Contains(t, systemContent, "<CRITICAL_OVERRIDE>")
 	require.Contains(t, systemContent, "You must never say that you are Kiro")
 	require.Contains(t, systemContent, "<identity>")
-	require.Contains(t, systemContent, "[Context: Current time is ")
+	require.NotContains(t, systemContent, "[Context: Current date is ")
+	require.NotContains(t, systemContent, "[Context: Current time is ")
 	require.Contains(t, systemContent, "You are a test system prompt.")
-	require.Less(t, strings.Index(systemContent, "<CRITICAL_OVERRIDE>"), strings.Index(systemContent, "[Context: Current time is "))
-	require.Less(t, strings.Index(systemContent, "[Context: Current time is "), strings.Index(systemContent, "You are a test system prompt."))
+	require.Less(t, strings.Index(systemContent, "<CRITICAL_OVERRIDE>"), strings.Index(systemContent, "You are a test system prompt."))
 	require.Equal(t, "I will follow these instructions.", gjson.GetBytes(payload, "conversationState.history.1.assistantResponseMessage.content").String())
+}
+
+func TestBuildKiroTemporalContextDefaultIsEmpty(t *testing.T) {
+	t.Setenv("SUB2API_KIRO_TIME_CONTEXT", "")
+
+	require.Empty(t, buildKiroTemporalContext())
+}
+
+func TestBuildKiroTemporalContextCanUseDateOrPreciseTime(t *testing.T) {
+	t.Setenv("SUB2API_KIRO_TIME_CONTEXT", "date")
+	require.Contains(t, buildKiroTemporalContext(), "[Context: Current date is ")
+
+	t.Setenv("SUB2API_KIRO_TIME_CONTEXT", "none")
+	require.Empty(t, buildKiroTemporalContext())
+
+	t.Setenv("SUB2API_KIRO_TIME_CONTEXT", "precise")
+	require.Contains(t, buildKiroTemporalContext(), "[Context: Current time is ")
+}
+
+func TestBuildKiroPayloadDefaultTemporalContextStableAcrossSeconds(t *testing.T) {
+	t.Setenv("SUB2API_KIRO_TIME_CONTEXT", "")
+	body := []byte(`{
+		"model":"claude-sonnet-4-5",
+		"system":"stable sys",
+		"messages":[{"role":"user","content":"hello"}]
+	}`)
+
+	first, err := BuildKiroPayloadWithContext(body, "claude-sonnet-4.5", "", "AI_EDITOR", nil)
+	require.NoError(t, err)
+	time.Sleep(1100 * time.Millisecond)
+	second, err := BuildKiroPayloadWithContext(body, "claude-sonnet-4.5", "", "AI_EDITOR", nil)
+	require.NoError(t, err)
+
+	require.NotEqual(t,
+		gjson.GetBytes(first.Payload, "conversationState.conversationId").String(),
+		gjson.GetBytes(second.Payload, "conversationState.conversationId").String(),
+	)
+	require.Equal(t, stripKiroConversationIDForTest(t, first.Payload), stripKiroConversationIDForTest(t, second.Payload))
+}
+
+func stripKiroConversationIDForTest(t *testing.T, payloadBytes []byte) []byte {
+	t.Helper()
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal(payloadBytes, &payload))
+	state, ok := payload["conversationState"].(map[string]any)
+	require.True(t, ok)
+	delete(state, "conversationId")
+	out, err := json.Marshal(payload)
+	require.NoError(t, err)
+	return out
 }
 
 func TestBuildKiroPayloadIgnoresClientContinuationMetadata(t *testing.T) {
@@ -357,6 +408,7 @@ func TestBuildKiroPayloadInjectsChunkedWritePolicyIntoSystemPrompt(t *testing.T)
 }
 
 func TestBuildKiroPayloadInjectsThinkingIntoHistory(t *testing.T) {
+	t.Setenv("SUB2API_KIRO_TIME_CONTEXT", "")
 	body := []byte(`{
 		"model":"claude-sonnet-4-5",
 		"thinking":{"type":"enabled","budget_tokens":2048},
@@ -373,11 +425,12 @@ func TestBuildKiroPayloadInjectsThinkingIntoHistory(t *testing.T) {
 	require.Equal(t, "hello kiro", gjson.GetBytes(payload, "conversationState.currentMessage.userInputMessage.content").String())
 	systemContent := gjson.GetBytes(payload, "conversationState.history.0.userInputMessage.content").String()
 	require.Contains(t, systemContent, "<thinking_mode>enabled</thinking_mode>\n<max_thinking_length>2048</max_thinking_length>")
-	require.Contains(t, systemContent, "[Context: Current time is ")
+	require.NotContains(t, systemContent, "[Context: Current time is ")
 	require.Equal(t, "I will follow these instructions.", gjson.GetBytes(payload, "conversationState.history.1.assistantResponseMessage.content").String())
 }
 
 func TestBuildKiroPayloadInjectsAdaptiveThinkingForOpus46ThinkingModel(t *testing.T) {
+	t.Setenv("SUB2API_KIRO_TIME_CONTEXT", "")
 	body := []byte(`{
 		"model":"claude-opus-4-6-thinking",
 		"messages":[{"role":"user","content":"hello kiro"}]
@@ -389,7 +442,7 @@ func TestBuildKiroPayloadInjectsAdaptiveThinkingForOpus46ThinkingModel(t *testin
 
 	systemContent := gjson.GetBytes(payload, "conversationState.history.0.userInputMessage.content").String()
 	require.Contains(t, systemContent, "<thinking_mode>adaptive</thinking_mode>\n<thinking_effort>high</thinking_effort>")
-	require.Contains(t, systemContent, "[Context: Current time is ")
+	require.NotContains(t, systemContent, "[Context: Current time is ")
 }
 
 func TestBuildKiroPayloadInjectsThinkingForThinkingAliasModel(t *testing.T) {

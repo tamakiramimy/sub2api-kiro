@@ -111,6 +111,7 @@ func (h *UsageHandler) List(c *gin.Context) {
 
 	model := c.Query("model")
 	requestID := strings.TrimSpace(c.Query("request_id"))
+	kiroSessionFingerprint := strings.TrimSpace(c.Query("kiro_session_fingerprint"))
 	billingMode := strings.TrimSpace(c.Query("billing_mode"))
 
 	var requestType *int16
@@ -194,6 +195,7 @@ func (h *UsageHandler) List(c *gin.Context) {
 		AccountID:             accountID,
 		GroupID:               groupID,
 		RequestID:             requestID,
+		KiroSessionFingerprint: kiroSessionFingerprint,
 		Model:                 model,
 		ModelFilterSource:     usagestats.ModelSourceRequested,
 		RequestType:           requestType,

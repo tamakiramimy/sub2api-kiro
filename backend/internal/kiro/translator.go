@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -1263,8 +1264,10 @@ func thinkingDirectiveFromModel(model string) *thinkingDirective {
 
 func buildInjectedSystemPrompt(systemPrompt string, thinking *thinkingDirective, toolChoiceHint string) string {
 	systemPrompt = strings.TrimSpace(systemPrompt)
-	timestampContext := fmt.Sprintf("[Context: Current time is %s]", time.Now().Format("2006-01-02 15:04:05 MST"))
-	promptParts := []string{kiroBuiltinIdentityPrompt, timestampContext}
+	promptParts := []string{kiroBuiltinIdentityPrompt}
+	if temporalContext := buildKiroTemporalContext(); temporalContext != "" {
+		promptParts = append(promptParts, temporalContext)
+	}
 	if systemPrompt != "" {
 		promptParts = append(promptParts, systemPrompt)
 	}
@@ -1300,6 +1303,17 @@ func buildInjectedSystemPrompt(systemPrompt string, thinking *thinkingDirective,
 		}
 	}
 	return systemPrompt
+}
+
+func buildKiroTemporalContext() string {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("SUB2API_KIRO_TIME_CONTEXT"))) {
+	case "date", "day":
+		return fmt.Sprintf("[Context: Current date is %s]", time.Now().Format("2006-01-02 MST"))
+	case "precise", "time", "full":
+		return fmt.Sprintf("[Context: Current time is %s]", time.Now().Format("2006-01-02 15:04:05 MST"))
+	default:
+		return ""
+	}
 }
 
 func extractClaudeToolChoiceHint(claudeBody []byte, requestCtx *KiroRequestContext) string {

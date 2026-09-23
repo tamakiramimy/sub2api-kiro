@@ -576,6 +576,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			forceCacheBilling := fs.ForceCacheBilling
 			quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 			sessionID := service.ExtractClientSessionID(c)
+			kiroSessionFingerprint := ""
+			if account.Platform == service.PlatformKiro {
+				kiroSessionFingerprint = h.gatewayService.KiroUsageSessionFingerprint(h.gatewayService.GenerateKiroSessionHash(parsedReq))
+			}
 			h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 					Result:             result,
@@ -590,6 +594,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					UserAgent:          userAgent,
 					IPAddress:          clientIP,
 					SessionID:          sessionID,
+					KiroSessionFingerprint: kiroSessionFingerprint,
 					RequestPayloadHash: requestPayloadHash,
 					ForceCacheBilling:  forceCacheBilling,
 					APIKeyService:      h.apiKeyService,
@@ -938,6 +943,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				forceCacheBilling := fs.ForceCacheBilling
 				quotaPlatform := service.QuotaPlatform(c.Request.Context(), currentAPIKey)
 				sessionID := service.ExtractClientSessionID(c)
+				kiroSessionFingerprint := ""
+				if account.Platform == service.PlatformKiro {
+					kiroSessionFingerprint = h.gatewayService.KiroUsageSessionFingerprint(h.gatewayService.GenerateKiroSessionHash(attemptParsedReq))
+				}
 				h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 					if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 						Result:             result,
@@ -952,6 +961,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						UserAgent:          userAgent,
 						IPAddress:          clientIP,
 						SessionID:          sessionID,
+						KiroSessionFingerprint: kiroSessionFingerprint,
 						RequestPayloadHash: requestPayloadHash,
 						ForceCacheBilling:  forceCacheBilling,
 						APIKeyService:      h.apiKeyService,

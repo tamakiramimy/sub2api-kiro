@@ -209,6 +209,8 @@ type CreateGroupRequest struct {
 	ProfitControlEnabled            bool                          `json:"profit_control_enabled"`
 	ProfitMinMargin                 *float64                      `json:"profit_min_margin"`
 	ProfitSafetyBuffer              *float64                      `json:"profit_safety_buffer"`
+	KiroCacheEmulationEnabled       bool                          `json:"kiro_cache_emulation_enabled"`
+	KiroCacheEmulationRatio         *float64                      `json:"kiro_cache_emulation_ratio" binding:"omitempty,gt=0,lte=1"`
 	ImagePrice1K                    *float64                      `json:"image_price_1k"`
 	ImagePrice2K                    *float64                      `json:"image_price_2k"`
 	ImagePrice4K                    *float64                      `json:"image_price_4k"`
@@ -284,6 +286,8 @@ type UpdateGroupRequest struct {
 	ProfitControlEnabled            *bool                         `json:"profit_control_enabled"`
 	ProfitMinMargin                 *float64                      `json:"profit_min_margin"`
 	ProfitSafetyBuffer              *float64                      `json:"profit_safety_buffer"`
+	KiroCacheEmulationEnabled       *bool                         `json:"kiro_cache_emulation_enabled"`
+	KiroCacheEmulationRatio         *float64                      `json:"kiro_cache_emulation_ratio" binding:"omitempty,gt=0,lte=1"`
 	ImagePrice1K                    *float64                      `json:"image_price_1k"`
 	ImagePrice2K                    *float64                      `json:"image_price_2k"`
 	ImagePrice4K                    *float64                      `json:"image_price_4k"`
@@ -688,6 +692,8 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		ProfitControlEnabled:            req.ProfitControlEnabled,
 		ProfitMinMargin:                 req.ProfitMinMargin,
 		ProfitSafetyBuffer:              req.ProfitSafetyBuffer,
+		KiroCacheEmulationEnabled:       req.KiroCacheEmulationEnabled,
+		KiroCacheEmulationRatio:         req.KiroCacheEmulationRatio,
 		ImagePrice1K:                    req.ImagePrice1K,
 		ImagePrice2K:                    req.ImagePrice2K,
 		ImagePrice4K:                    req.ImagePrice4K,
@@ -834,6 +840,8 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		ProfitControlEnabled:            req.ProfitControlEnabled,
 		ProfitMinMargin:                 req.ProfitMinMargin,
 		ProfitSafetyBuffer:              req.ProfitSafetyBuffer,
+		KiroCacheEmulationEnabled:       req.KiroCacheEmulationEnabled,
+		KiroCacheEmulationRatio:         req.KiroCacheEmulationRatio,
 		ImagePrice1K:                    req.ImagePrice1K,
 		ImagePrice2K:                    req.ImagePrice2K,
 		ImagePrice4K:                    req.ImagePrice4K,

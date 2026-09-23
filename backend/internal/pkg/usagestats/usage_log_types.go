@@ -269,13 +269,13 @@ type PlatformDashboardStats struct {
 
 // UsageLogFilters represents filters for usage log queries
 type UsageLogFilters struct {
-	UserID    int64
-	APIKeyID  int64
-	AccountID int64
-	GroupID   int64
-	RequestID string
+	UserID                 int64
+	APIKeyID               int64
+	AccountID              int64
+	GroupID                int64
+	RequestID              string
 	KiroSessionFingerprint string
-	Model     string
+	Model                  string
 	// ModelFilterSource controls how Model is matched. Empty preserves raw usage_logs.model semantics.
 	ModelFilterSource     string
 	RequestType           *int16

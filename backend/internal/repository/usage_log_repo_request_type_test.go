@@ -962,7 +962,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{}, // upstream_request_id
 			sql.NullString{}, // session_id
 			sql.NullString{}, // kiro_session_fingerprint
-			false, // native_compaction_v2
+			false,            // native_compaction_v2
 			now,
 		}})
 		require.NoError(t, err)

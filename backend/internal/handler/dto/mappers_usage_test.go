@@ -167,8 +167,8 @@ func TestUsageLogFromService_KeepsKiroSessionAuditFieldsAdminOnly(t *testing.T) 
 	fingerprint := "c9e3b1d5739cc6f4a2718f3c0e6a4872d9035f8967b8a0ed1f4486ec4a9721bf"
 	previousAccountID := int64(8)
 	log := &service.UsageLog{
-		RequestID:             "req_kiro_session",
-		Model:                 "claude-sonnet-4",
+		RequestID:              "req_kiro_session",
+		Model:                  "claude-sonnet-4",
 		KiroSessionFingerprint: &fingerprint,
 		PreviousKiroAccountID:  &previousAccountID,
 	}

@@ -1372,9 +1372,9 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 			modelMappingChain,
 			billingTier,
 			billingMode,
-			log.AccountStatsCost, // account_stats_cost
-			upstreamRequestID,    // upstream_request_id
-			sessionID,            // session_id
+			log.AccountStatsCost,   // account_stats_cost
+			upstreamRequestID,      // upstream_request_id
+			sessionID,              // session_id
 			kiroSessionFingerprint, // kiro_session_fingerprint
 			log.NativeCompactionV2,
 			createdAt,

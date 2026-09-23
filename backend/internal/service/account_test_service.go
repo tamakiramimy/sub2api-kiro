@@ -420,7 +420,7 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 
 	if account.IsOpenCodeGo() {
 		return s.testOpenCodeGoAccountConnection(c, account, modelID, prompt)
-}
+	}
 
 	if account.Platform == PlatformKiro {
 		return s.testKiroAccountConnection(c, account, modelID)

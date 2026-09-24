@@ -157,8 +157,8 @@ func (s *GatewayService) forwardKiroMessages(ctx context.Context, c *gin.Context
 	if err != nil {
 		return nil, err
 	}
-	if tokenType != "oauth" {
-		return nil, fmt.Errorf("kiro requires oauth token, got %s", tokenType)
+	if tokenType != "oauth" && !(account.Type == AccountTypeAPIKey && tokenType == "apikey") {
+		return nil, fmt.Errorf("kiro requires oauth or direct api key token, got %s", tokenType)
 	}
 	if isOnlyWebSearchToolInBody(body) {
 		webSearchResult, webSearchErr := s.executeKiroWebSearch(ctx, account, kiroGroup, body, mappedModel, originalModel, token, c.Request.Header)
@@ -276,8 +276,8 @@ func (s *GatewayService) openKiroAnthropicStreamResponse(ctx context.Context, ac
 	if err != nil {
 		return nil, 0, err
 	}
-	if tokenType != "oauth" {
-		return nil, 0, fmt.Errorf("kiro requires oauth token, got %s", tokenType)
+	if tokenType != "oauth" && !(account.Type == AccountTypeAPIKey && tokenType == "apikey") {
+		return nil, 0, fmt.Errorf("kiro requires oauth or direct api key token, got %s", tokenType)
 	}
 
 	inputTokens := estimateKiroInputTokens(anthropicBody)
@@ -456,7 +456,7 @@ func (s *GatewayService) executeKiroUpstreamWithParsed(ctx context.Context, acco
 					return resp, requestCtx, nil
 				}
 
-				if s.kiroTokenProvider != nil && (resp.StatusCode == http.StatusUnauthorized || isKiroTokenErrorBody(respBody)) && attempt < maxRetries {
+				if account.Type == AccountTypeOAuth && s.kiroTokenProvider != nil && (resp.StatusCode == http.StatusUnauthorized || isKiroTokenErrorBody(respBody)) && attempt < maxRetries {
 					refreshedToken, refreshErr := s.kiroTokenProvider.ForceRefreshAccessToken(ctx, account)
 					if refreshErr == nil && strings.TrimSpace(refreshedToken) != "" {
 						currentToken = refreshedToken

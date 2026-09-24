@@ -422,7 +422,7 @@ func (s *GatewayService) doKiroMCPJSONRequest(ctx context.Context, account *Acco
 				resp.Body = io.NopCloser(strings.NewReader(string(respBody)))
 				return resp, currentToken, nil
 			}
-			if s.kiroTokenProvider == nil {
+			if account.Type != AccountTypeOAuth || s.kiroTokenProvider == nil {
 				resp.Body = io.NopCloser(strings.NewReader(string(respBody)))
 				return resp, currentToken, nil
 			}

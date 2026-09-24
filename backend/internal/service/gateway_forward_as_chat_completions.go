@@ -38,7 +38,7 @@ func (s *GatewayService) ForwardAsChatCompletions(
 	// Kiro 账号需要专用桥接（见 ForwardAsResponses 里的同类说明和
 	// kiro_runtime_openai_bridge.go），不走本函数其余的“真实 Anthropic 账号
 	// 直连上游”逻辑。
-	if account.Platform == PlatformKiro {
+	if isKiroDirectModeAccount(account) {
 		return s.forwardKiroAsChatCompletions(ctx, c, account, body, parsed, startTime)
 	}
 

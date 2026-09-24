@@ -145,7 +145,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 		return s.forwardBedrock(ctx, c, account, parsed, startTime)
 	}
 
-	if account != nil && account.Platform == PlatformKiro {
+	if isKiroDirectModeAccount(account) {
 		return s.forwardKiroMessages(ctx, c, account, parsed, startTime)
 	}
 

@@ -55,7 +55,7 @@ func (s *GatewayService) ForwardAsResponses(
 	// translator.go 转换；这里转发给专用桥接函数复用 Kiro 现有的流式获取逻辑 +
 	// 下面的 Anthropic→Responses 转换终端函数，而不是走本函数其余的
 	// “真实 Anthropic 账号直连上游”逻辑。见 kiro_runtime_openai_bridge.go。
-	if account.Platform == PlatformKiro {
+	if isKiroDirectModeAccount(account) {
 		return s.forwardKiroAsResponses(ctx, c, account, adaptedBody, parsed, startTime, clientToolMapping)
 	}
 

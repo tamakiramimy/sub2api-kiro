@@ -70,6 +70,24 @@ func TestBuildKiroMachineIDDerivesFromAPIKeyAccount(t *testing.T) {
 	require.Equal(t, kiropkg.BuildMachineID("", "kiro-api-key", "account:103"), buildKiroMachineID(account))
 }
 
+func TestIsKiroDirectModeAccount(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		account *Account
+		want    bool
+	}{
+		{"oauth", &Account{Platform: PlatformKiro, Type: AccountTypeOAuth}, true},
+		{"api key", &Account{Platform: PlatformKiro, Type: AccountTypeAPIKey}, true},
+		{"relay", &Account{Platform: PlatformKiro, Type: AccountTypeAPIKey, Credentials: map[string]any{"base_url": "https://relay.example"}}, false},
+		{"other platform", &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}, false},
+		{"nil", nil, false},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			require.Equal(t, testCase.want, isKiroDirectModeAccount(testCase.account))
+		})
+	}
+}
+
 func TestNewKiroJSONRequestAddsConditionalHeaders(t *testing.T) {
 	account := &Account{
 		Credentials: map[string]any{
@@ -101,6 +119,14 @@ func TestNewKiroJSONRequestAddsConditionalHeaders(t *testing.T) {
 	require.Contains(t, req.Header.Get("X-Amz-User-Agent"), buildKiroMachineID(account))
 	require.True(t, strings.Contains(req.Header.Get("User-Agent"), "api/codewhispererstreaming#1.0.34"))
 	require.Empty(t, req.Header.Get("Anthropic-Beta"))
+}
+
+func TestNewKiroJSONRequestAuthenticatesDirectAPIKey(t *testing.T) {
+	account := &Account{Platform: PlatformKiro, Type: AccountTypeAPIKey}
+	req, err := newKiroJSONRequest(context.Background(), "https://q.us-east-1.amazonaws.com/generateAssistantResponse", []byte(`{}`), "ksk_test", "account-key", buildKiroMachineID(account), "", account)
+	require.NoError(t, err)
+	require.Equal(t, "Bearer ksk_test", req.Header.Get("Authorization"))
+	require.Equal(t, "API_KEY", req.Header.Get("TokenType"))
 }
 
 func TestIsKiroInvalidModelIDBodyRecognizesKnownForms(t *testing.T) {

@@ -746,6 +746,16 @@
         </div>
       </div>
 
+      <div v-if="form.platform === 'kiro' && (accountCategory === 'oauth-based' || (accountCategory === 'apikey' && !apiKeyBaseUrl.trim()))" class="space-y-2">
+        <label class="input-label" for="kiro-api-region-create">{{ t('admin.accounts.kiro.apiRegion') }}</label>
+        <select id="kiro-api-region-create" v-model="kiroAPIRegion" class="input">
+          <option value="us-east-1">US East (N. Virginia)</option>
+          <option value="us-west-2">US West (Oregon)</option>
+          <option value="eu-west-1">EU West (Ireland)</option>
+        </select>
+        <p class="input-hint">{{ t('admin.accounts.kiro.apiRegionHint') }}</p>
+      </div>
+
       <!-- Account Type Selection (Gemini) -->
       <div v-if="form.platform === 'gemini'">
         <div class="flex items-center justify-between">
@@ -4296,6 +4306,7 @@ const kiroAccountType = ref<'oauth' | 'idc' | 'import'>('oauth') // Kiro OAuth �
 const kiroOAuthProvider = ref<'google' | 'github'>('google') // Kiro 社交登录提供方
 const kiroIdcStartUrl = ref('')
 const kiroIdcRegion = ref('')
+const kiroAPIRegion = ref('us-east-1')
 const kiroTokenJson = ref('')
 const kiroDeviceRegistrationJson = ref('')
 const upstreamBillingAutoProbeEnabled = ref(true)
@@ -5489,6 +5500,7 @@ const resetForm = () => {
   kiroOAuthProvider.value = 'google'
   kiroIdcStartUrl.value = ''
   kiroIdcRegion.value = ''
+  kiroAPIRegion.value = 'us-east-1'
   kiroTokenJson.value = ''
   kiroDeviceRegistrationJson.value = ''
   upstreamBillingAutoProbeEnabled.value = true
@@ -5957,6 +5969,9 @@ const handleSubmit = async () => {
     base_url: apiKeyBaseUrl.value.trim() || defaultBaseUrl,
     api_key: apiKeyValue.value.trim()
   }
+  if (form.platform === 'kiro' && !apiKeyBaseUrl.value.trim()) {
+    credentials.api_region = kiroAPIRegion.value
+  }
   if (form.platform === 'gemini') {
     credentials.tier_id = geminiTierAIStudio.value
   }
@@ -6178,6 +6193,9 @@ const createAccountAndFinish = async (
     }
   }
   if (platform === 'kiro') {
+    if (type === 'oauth') {
+      credentials.api_region = kiroAPIRegion.value
+    }
     const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
     if (modelMapping) {
       credentials.model_mapping = modelMapping

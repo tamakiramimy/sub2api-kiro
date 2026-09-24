@@ -806,6 +806,85 @@ describe('EditAccountModal', () => {
     )
   })
 
+  it('edits the Kiro OAuth inference region without changing the login region', async () => {
+    const account = buildKiroOAuthAccount()
+    account.credentials.api_region = 'us-west-2'
+    account.credentials.region = 'eu-central-1'
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const region = wrapper.get<HTMLSelectElement>('#kiro-api-region-edit')
+    expect(region.element.value).toBe('us-west-2')
+    await region.setValue('eu-west-1')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
+      api_region: 'eu-west-1',
+      region: 'eu-central-1'
+    })
+    wrapper.unmount()
+  })
+
+  it('keeps an existing Kiro OAuth inference region outside the preset list', async () => {
+    const account = buildKiroOAuthAccount()
+    account.credentials.api_region = 'eu-central-1'
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    expect(wrapper.get<HTMLSelectElement>('#kiro-api-region-edit').element.value).toBe('eu-central-1')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.api_region).toBe('eu-central-1')
+    wrapper.unmount()
+  })
+
+  it('edits the inference region on a direct Kiro API key account', async () => {
+    const account = { ...buildGrokAPIKeyAccount(), platform: 'kiro', credentials: { base_url: '', api_region: 'us-west-2' } }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const region = wrapper.get<HTMLSelectElement>('#kiro-api-region-edit')
+    expect(region.element.value).toBe('us-west-2')
+    await region.setValue('eu-west-1')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({ base_url: '', api_region: 'eu-west-1' })
+    wrapper.unmount()
+  })
+
+  it('hides the inference region for a Kiro API key relay', async () => {
+    const account = { ...buildGrokAPIKeyAccount(), platform: 'kiro', credentials: { base_url: 'https://relay.example' } }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    expect(wrapper.find('#kiro-api-region-edit').exists()).toBe(false)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.base_url).toBe('https://relay.example')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('api_region')
+    wrapper.unmount()
+  })
+
+  it('removes the inference region when a direct Kiro API key switches to a relay', async () => {
+    const account = { ...buildGrokAPIKeyAccount(), platform: 'kiro', credentials: { base_url: '', api_region: 'us-west-2' } }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    await wrapper.get('input[placeholder="https://your-kiro-upstream.example.com"]').setValue('https://relay.example')
+    expect(wrapper.find('#kiro-api-region-edit').exists()).toBe(false)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.base_url).toBe('https://relay.example')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('api_region')
+    wrapper.unmount()
+  })
+
   it('submits OpenAI compact mode and compact-only model mapping', async () => {
     const account = buildAccount()
     account.extra = {

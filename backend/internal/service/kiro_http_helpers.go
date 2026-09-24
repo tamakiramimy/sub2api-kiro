@@ -103,6 +103,16 @@ func kiroProxyURL(account *Account) string {
 	return ""
 }
 
+func isKiroDirectModeAccount(account *Account) bool {
+	if account == nil || account.Platform != PlatformKiro {
+		return false
+	}
+	if account.Type == AccountTypeOAuth {
+		return true
+	}
+	return account.Type == AccountTypeAPIKey && strings.TrimSpace(account.GetCredential("base_url")) == ""
+}
+
 func kiroAPIRegion(account *Account) string {
 	if account == nil {
 		return kiroDefaultRegion
@@ -116,6 +126,10 @@ func kiroAPIRegion(account *Account) string {
 
 func applyKiroConditionalHeaders(req *http.Request, account *Account) {
 	if req == nil || account == nil {
+		return
+	}
+	if account.Type == AccountTypeAPIKey {
+		req.Header.Set("TokenType", "API_KEY")
 		return
 	}
 	if strings.EqualFold(strings.TrimSpace(account.GetCredential("auth_method")), "external_idp") {

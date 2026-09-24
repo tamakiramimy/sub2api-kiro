@@ -422,7 +422,7 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 		return s.testOpenCodeGoAccountConnection(c, account, modelID, prompt)
 	}
 
-	if account.Platform == PlatformKiro {
+	if isKiroDirectModeAccount(account) {
 		return s.testKiroAccountConnection(c, account, modelID)
 	}
 

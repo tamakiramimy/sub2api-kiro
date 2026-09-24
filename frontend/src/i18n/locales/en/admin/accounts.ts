@@ -789,8 +789,10 @@ export default {
         noResponseBody: 'No response body from server'
       },
       kiro: {
-        baseUrlHint: 'Enter the base URL of your Kiro-compatible forwarding endpoint.',
-        apiKeyHint: 'API key issued by your Kiro-compatible upstream service.'
+        baseUrlHint: 'Leave blank for direct Kiro (Amazon Q); enter a URL for an Anthropic-compatible relay.',
+        apiKeyHint: 'Use a Kiro API key for direct access, or the key issued by your relay.',
+        apiRegion: 'Kiro inference region',
+        apiRegionHint: 'Region for Kiro requests; separate from the Identity Center login region.'
       },
       anthropic: {
         apiKeyPassthrough: 'Auto passthrough (auth only)',

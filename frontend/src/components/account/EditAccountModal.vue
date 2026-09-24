@@ -735,6 +735,17 @@
       </div>
 
       <!-- OpenAI/Grok/Kiro OAuth Model Mapping (OAuth 类型没有 apikey 容器，需要独立的模型映射区域) -->
+      <div v-if="account.platform === 'kiro' && (account.type === 'oauth' || (account.type === 'apikey' && !editBaseUrl.trim()))" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <label class="input-label" for="kiro-api-region-edit">{{ t('admin.accounts.kiro.apiRegion') }}</label>
+        <select id="kiro-api-region-edit" v-model="editKiroApiRegion" class="input">
+          <option v-if="!['us-east-1', 'us-west-2', 'eu-west-1'].includes(editKiroApiRegion)" :value="editKiroApiRegion">{{ editKiroApiRegion }}</option>
+          <option value="us-east-1">US East (N. Virginia)</option>
+          <option value="us-west-2">US West (Oregon)</option>
+          <option value="eu-west-1">EU West (Ireland)</option>
+        </select>
+        <p class="input-hint">{{ t('admin.accounts.kiro.apiRegionHint') }}</p>
+      </div>
+
       <div
         v-if="(account.platform === 'openai' || account.platform === 'grok' || account.platform === 'kiro') && account.type === 'oauth'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
@@ -3510,6 +3521,7 @@ const editBedrockSecretAccessKey = ref('')
 const editBedrockSessionToken = ref('')
 const editBedrockRegion = ref('')
 const editBedrockForceGlobal = ref(false)
+const editKiroApiRegion = ref('us-east-1')
 const editBedrockApiKeyValue = ref('')
 const editVertexProjectId = ref('')
 const editVertexClientEmail = ref('')
@@ -4394,6 +4406,11 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   // Initialize API Key fields for apikey type
   if (newAccount.type === 'apikey' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
+    if (newAccount.platform === 'kiro') {
+      editKiroApiRegion.value = typeof credentials.api_region === 'string' && credentials.api_region.trim()
+        ? credentials.api_region.trim()
+        : 'us-east-1'
+    }
     // 国产供应商：读取 account_mode 与 api_protocol 作为可编辑初始值
     // （编辑弹窗允许修正两者，用于修复早期存错默认值的账号）。
     if (isCNProviderPlatform(newAccount.platform) || newAccount.platform === 'opencode_go') {
@@ -4555,6 +4572,9 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     if ((newAccount.platform === 'openai' || newAccount.platform === 'grok' || newAccount.platform === 'kiro') && newAccount.credentials) {
       const oauthCredentials = newAccount.credentials as Record<string, unknown>
       if (newAccount.platform === 'kiro') {
+        editKiroApiRegion.value = typeof oauthCredentials.api_region === 'string' && oauthCredentials.api_region.trim()
+          ? oauthCredentials.api_region.trim()
+          : 'us-east-1'
         loadKiroModelRestrictionFromMapping(oauthCredentials.model_mapping as Record<string, unknown> | undefined)
       } else {
         loadModelRestrictionFromMapping(oauthCredentials.model_mapping as Record<string, unknown> | undefined)
@@ -5208,6 +5228,13 @@ const handleSubmit = async () => {
         ...currentCredentials,
         base_url: newBaseUrl
       }
+      if (props.account.platform === 'kiro') {
+        if (newBaseUrl) {
+          delete newCredentials.api_region
+        } else {
+          newCredentials.api_region = editKiroApiRegion.value
+        }
+      }
 
       // 国产供应商：模式与协议写入凭据（决定额度/余额探测与转发端点/格式）。
       if (isCNApiKeyAccount.value) {
@@ -5477,6 +5504,9 @@ const handleSubmit = async () => {
           newCredentials.model_mapping = modelMapping
         } else {
           delete newCredentials.model_mapping
+        }
+        if (props.account.platform === 'kiro') {
+          newCredentials.api_region = editKiroApiRegion.value
         }
       }
 

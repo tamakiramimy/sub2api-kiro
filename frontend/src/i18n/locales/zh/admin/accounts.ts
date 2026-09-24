@@ -902,8 +902,10 @@ export default {
         noResponseBody: '服务器未返回响应体'
       },
       kiro: {
-        baseUrlHint: '请输入你的 Kiro 兼容转发端点的 Base URL。',
-        apiKeyHint: '由你的 Kiro 兼容上游服务签发的 API Key。'
+        baseUrlHint: '留空直连 Kiro 官方 Amazon Q；填写地址则使用 Anthropic 兼容中转。',
+        apiKeyHint: '直连请使用 Kiro API Key；中转请使用对应服务签发的密钥。',
+        apiRegion: 'Kiro 推理区域',
+        apiRegionHint: '用于 Kiro 推理请求，与 Identity Center 登录区域相互独立。'
       },
       anthropic: {
         apiKeyPassthrough: '自动透传（仅替换认证）',

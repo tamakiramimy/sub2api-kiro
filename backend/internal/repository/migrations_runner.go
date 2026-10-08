@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	kiropkg "github.com/Wei-Shaw/sub2api/internal/kiro"
 	"github.com/Wei-Shaw/sub2api/migrations"
 )
 
@@ -223,6 +224,8 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 		if !errors.Is(rowErr, sql.ErrNoRows) {
 			return fmt.Errorf("check migration %s: %w", name, rowErr)
 		}
+
+		content = kiropkg.AdaptPlatformQuotaMigrationSQL(name, content)
 
 		nonTx, err := validateMigrationExecutionMode(name, content)
 		if err != nil {

@@ -1,5 +1,22 @@
 package kiro
 
+import "strings"
+
+func NormalizeClientModelID(model string) string {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "claude-opus-5-5", "claude-opus-5.5":
+		return "claude-opus-5-5"
+	case "claude-opus-5-5-thinking", "claude-opus-5.5-thinking":
+		return "claude-opus-5-5-thinking"
+	case "claude-sonnet-5-5", "claude-sonnet-5.5":
+		return "claude-sonnet-5-5"
+	case "claude-sonnet-5-5-thinking", "claude-sonnet-5.5-thinking":
+		return "claude-sonnet-5-5-thinking"
+	default:
+		return strings.TrimSpace(model)
+	}
+}
+
 type Model struct {
 	ID          string `json:"id"`
 	Type        string `json:"type"`

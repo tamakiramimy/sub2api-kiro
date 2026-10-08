@@ -271,7 +271,20 @@
                 </span>
               </div>
               <div
-                v-if="getOpenAICompactMeta(row)"
+                v-if="hasOpenAIRefreshTokenReauthRequired(row)"
+                class="inline-flex max-w-[15rem] items-start gap-1.5 rounded-md border border-amber-200/70 bg-amber-50 px-2 py-1 text-[11px] font-medium leading-4 text-amber-800 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-200"
+                :title="getOpenAIRefreshTokenReauthTitle(row)"
+              >
+                <span class="mt-1 h-1.5 w-1.5 flex-none rounded-full bg-amber-500 shadow-[0_0_0_2px_rgba(245,158,11,0.16)]" />
+                <span class="min-w-0 flex-1 whitespace-normal break-words">
+                  <span>{{ t('admin.accounts.openai.refreshTokenReauthRequired') }}</span>
+                  <span class="ml-1 font-normal text-amber-700 dark:text-amber-300">
+                    {{ t('admin.accounts.openai.refreshTokenStillSchedulable') }}
+                  </span>
+                </span>
+              </div>
+              <div
+                v-else-if="getOpenAICompactMeta(row)"
                 :class="[
                   'inline-flex items-center gap-1.5 pl-0.5 text-[11px] font-medium leading-4',
                   getOpenAICompactMeta(row)?.className
@@ -324,6 +337,7 @@
               :request-batched-usage="isDesktopViewport ? queueBatchedUsage : null"
               @account-updated="handleAccountUpdated"
               @usage-loaded="handleAccountUsageLoaded(row.id, $event)"
+              @kiro-usage-state="handleKiroUsageState(row.id, $event)"
             />
           </template>
           <template #cell-proxy="{ row }">
@@ -744,6 +758,7 @@ const accountSupportsBatchUsage = (account: Account) => {
   if (account.platform === 'antigravity') return account.type === 'oauth'
   if (account.platform === 'openai') return account.type === 'oauth'
   if (account.platform === 'grok') return account.type === 'oauth'
+  if (account.platform === 'kiro') return account.type === 'oauth'
   return false
 }
 
@@ -1398,6 +1413,10 @@ const shouldReplaceAutoRefreshRow = (current: Account, next: Account) => {
     current.rate_limit_reset_at !== next.rate_limit_reset_at ||
     current.overload_until !== next.overload_until ||
     current.temp_unschedulable_until !== next.temp_unschedulable_until ||
+    current.kiro_quota_state !== next.kiro_quota_state ||
+    current.kiro_quota_reset_at !== next.kiro_quota_reset_at ||
+    current.kiro_runtime_state !== next.kiro_runtime_state ||
+    current.kiro_runtime_reset_at !== next.kiro_runtime_reset_at ||
     buildOpenAIUsageRefreshKey(current) !== buildOpenAIUsageRefreshKey(next) ||
     buildGrokUsageRefreshKey(current) !== buildGrokUsageRefreshKey(next)
   )
@@ -1727,6 +1746,20 @@ function accountHomepageUrl(row: Account): string {
 }
 
 type OpenAICompactBadgeState = 'active' | 'blocked' | 'auto'
+
+function hasOpenAIRefreshTokenReauthRequired(row: Account | null | undefined): boolean {
+  if (!row || row.platform !== 'openai' || row.type !== 'oauth') return false
+  const extra = row.extra as Record<string, unknown> | undefined
+  return extra?.openai_requires_reauth === true || extra?.openai_refresh_token_status === 'reused'
+}
+
+function getOpenAIRefreshTokenReauthTitle(row: Account): string {
+  const extra = row.extra as Record<string, unknown> | undefined
+  const reusedAt = typeof extra?.openai_refresh_token_reused_at === 'string' ? extra.openai_refresh_token_reused_at : ''
+  const prefix = t('admin.accounts.openai.refreshTokenReauthTooltip')
+  if (!reusedAt) return prefix
+  return `${prefix} | ${t('admin.accounts.openai.refreshTokenReusedAt')}: ${formatDateTime(new Date(reusedAt))}`
+}
 
 function getOpenAICompactState(row: any): OpenAICompactBadgeState | null {
   if (row.platform !== 'openai' || (row.type !== 'oauth' && row.type !== 'apikey')) return null
@@ -2186,7 +2219,13 @@ const mergeRuntimeFields = (oldAccount: Account, updatedAccount: Account): Accou
   ...updatedAccount,
   current_concurrency: updatedAccount.current_concurrency ?? oldAccount.current_concurrency,
   current_window_cost: updatedAccount.current_window_cost ?? oldAccount.current_window_cost,
-  active_sessions: updatedAccount.active_sessions ?? oldAccount.active_sessions
+  active_sessions: updatedAccount.active_sessions ?? oldAccount.active_sessions,
+  kiro_quota_state: updatedAccount.kiro_quota_state ?? oldAccount.kiro_quota_state,
+  kiro_quota_reason: updatedAccount.kiro_quota_reason ?? oldAccount.kiro_quota_reason,
+  kiro_quota_reset_at: updatedAccount.kiro_quota_reset_at ?? oldAccount.kiro_quota_reset_at,
+  kiro_runtime_state: updatedAccount.kiro_runtime_state ?? oldAccount.kiro_runtime_state,
+  kiro_runtime_reason: updatedAccount.kiro_runtime_reason ?? oldAccount.kiro_runtime_reason,
+  kiro_runtime_reset_at: updatedAccount.kiro_runtime_reset_at ?? oldAccount.kiro_runtime_reset_at
 })
 
 const syncPaginationAfterLocalRemoval = () => {
@@ -2222,6 +2261,20 @@ const patchAccountInList = (updatedAccount: Account) => {
   accounts.value = nextAccounts
   syncAccountRefs(mergedAccount)
 }
+
+const handleKiroUsageState = (
+  accountID: number,
+  state: Pick<Account, 'kiro_quota_state' | 'kiro_quota_reason' | 'kiro_quota_reset_at' | 'kiro_runtime_state' | 'kiro_runtime_reason' | 'kiro_runtime_reset_at'>
+) => {
+  const index = accounts.value.findIndex(account => account.id === accountID)
+  if (index === -1) return
+  const updatedAccount = { ...accounts.value[index], ...state }
+  const nextAccounts = [...accounts.value]
+  nextAccounts[index] = updatedAccount
+  accounts.value = nextAccounts
+  syncAccountRefs(updatedAccount)
+}
+
 const patchUpstreamBillingSnapshot = (accountID: number, snapshot: UpstreamBillingProbeSnapshot) => {
   const account = accounts.value.find(item => item.id === accountID)
   if (!account) return

@@ -160,6 +160,19 @@
             <PlatformIcon platform="grok" size="sm" />
             Grok
           </button>
+          <button
+            type="button"
+            @click="form.platform = 'kiro'"
+            :class="[
+              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
+              form.platform === 'kiro'
+                ? 'bg-white text-orange-600 shadow-sm dark:bg-dark-600 dark:text-orange-400'
+                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+            ]"
+          >
+            <PlatformIcon platform="kiro" size="sm" />
+            Kiro
+          </button>
         </div>
         <!-- Multi-protocol API-key providers: Kimi / Zhipu GLM / DeepSeek / OpenCode -->
         <div class="mt-2 flex flex-wrap rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
@@ -605,6 +618,45 @@
         </div>
       </div>
 
+      <!-- Account Type Selection (Kiro) -->
+      <div v-if="form.platform === 'kiro'">
+        <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+        <div class="mt-2 grid grid-cols-2 gap-3" data-tour="account-form-type">
+          <button
+            type="button"
+            @click="accountCategory = 'oauth-based'"
+            :class="[
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              accountCategory === 'oauth-based'
+                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                : 'border-gray-200 hover:border-orange-300 dark:border-dark-600 dark:hover:border-orange-700'
+            ]"
+          >
+            <Icon name="key" size="sm" />
+            <div>
+              <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.types.oauth') }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.types.kiroOauth') }}</span>
+            </div>
+          </button>
+          <button
+            type="button"
+            @click="accountCategory = 'apikey'"
+            :class="[
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              accountCategory === 'apikey'
+                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
+            ]"
+          >
+            <Icon name="cloud" size="sm" />
+            <div>
+              <span class="block text-sm font-medium text-gray-900 dark:text-white">API Key</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.types.kiroApikey') }}</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
       <!-- API Protocol Selection (Kimi / Zhipu / DeepSeek / OpenCode) -->
       <div v-if="isMultiProtocolPlatform" class="mt-4">
         <label class="input-label">{{ t('admin.accounts.cnProviders.apiProtocol.title') }}</label>
@@ -639,6 +691,20 @@
         </div>
       </div>
 
+      <!-- Kiro OAuth auth mode selection -->
+      <div v-if="form.platform === 'kiro' && accountCategory === 'oauth-based'">
+        <label class="input-label">{{ t('admin.accounts.oauth.kiro.authModeTitle') }}</label>
+        <div class="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <button v-for="option in [{ value: 'oauth', title: 'oauthTitle', subtitle: 'oauthSubtitle' }, { value: 'idc', title: 'idcTitle', subtitle: 'idcSubtitle' }, { value: 'import', title: 'importTitle', subtitle: 'importSubtitle' }]" :key="option.value" type="button" @click="kiroAccountType = option.value as 'oauth' | 'idc' | 'import'" :class="['flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all', kiroAccountType === option.value ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 hover:border-orange-300 dark:border-dark-600 dark:hover:border-orange-700']">
+            <Icon :name="option.value === 'import' ? 'download' : option.value === 'idc' ? 'cloud' : 'key'" size="sm" />
+            <div class="min-w-0">
+              <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t(`admin.accounts.oauth.kiro.${option.title}`) }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t(`admin.accounts.oauth.kiro.${option.subtitle}`) }}</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
       <!-- Zhipu 团队版 Coding Plan：组织/项目 ID（可选，填写后额度探测走团队版端点） -->
       <div v-if="form.platform === 'zhipu' && accountMode === 'coding'" class="mt-4">
         <div class="flex items-center">
@@ -667,6 +733,40 @@
           </div>
         </div>
         <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
+      </div>
+
+      <div v-if="form.platform === 'kiro' && accountCategory === 'oauth-based' && kiroAccountType === 'oauth'" class="space-y-3">
+        <label class="input-label">{{ t('admin.accounts.oauth.kiro.oauthProviderTitle') }}</label>
+        <div class="grid grid-cols-2 gap-3">
+          <button v-for="provider in ['google', 'github'] as const" :key="provider" type="button" @click="kiroOAuthProvider = provider" :class="['flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all', kiroOAuthProvider === provider ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 hover:border-orange-300 dark:border-dark-600 dark:hover:border-orange-700']">
+            <Icon :name="provider === 'google' ? 'user' : 'terminal'" size="sm" />
+            <div class="min-w-0">
+              <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t(`admin.accounts.oauth.kiro.${provider}Title`) }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t(`admin.accounts.oauth.kiro.${provider}Desc`) }}</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="form.platform === 'kiro' && accountCategory === 'oauth-based' && kiroAccountType === 'idc'" class="space-y-4">
+        <div>
+          <label class="input-label">{{ t('admin.accounts.oauth.kiro.startUrlLabel') }}</label>
+          <input v-model="kiroIdcStartUrl" type="text" class="input" :placeholder="t('admin.accounts.oauth.kiro.startUrlPlaceholder')" />
+        </div>
+        <div>
+          <label class="input-label">{{ t('admin.accounts.oauth.kiro.regionLabel') }}</label>
+          <input v-model="kiroIdcRegion" type="text" class="input" :placeholder="t('admin.accounts.oauth.kiro.regionPlaceholder')" />
+        </div>
+      </div>
+
+      <div v-if="form.platform === 'kiro' && (accountCategory === 'oauth-based' || (accountCategory === 'apikey' && !apiKeyBaseUrl.trim()))" class="space-y-2">
+        <label class="input-label" for="kiro-api-region-create">{{ t('admin.accounts.kiro.apiRegion') }}</label>
+        <select id="kiro-api-region-create" v-model="kiroAPIRegion" class="input">
+          <option value="us-east-1">US East (N. Virginia)</option>
+          <option value="us-west-2">US West (Oregon)</option>
+          <option value="eu-west-1">EU West (Ireland)</option>
+        </select>
+        <p class="input-hint">{{ t('admin.accounts.kiro.apiRegionHint') }}</p>
       </div>
 
       <!-- Account Type Selection (Gemini) -->
@@ -3552,7 +3652,40 @@
 
     <!-- Step 2: OAuth Authorization -->
     <div v-else class="space-y-5">
+      <!-- Kiro Token 导入模式：跳过标准 OAuth 弹窗流程，直接粘贴 token JSON -->
+      <div
+        v-if="isKiroImportMode"
+        class="space-y-4 rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-700 dark:bg-orange-900/20"
+      >
+        <div>
+          <label class="input-label">{{ t('admin.accounts.oauth.kiro.tokenJsonLabel') }}</label>
+          <textarea
+            v-model="kiroTokenJson"
+            rows="8"
+            class="input font-mono text-xs"
+            placeholder='{"accessToken":"...","refreshToken":"..."}'
+          ></textarea>
+          <p class="input-hint">{{ t('admin.accounts.oauth.kiro.tokenJsonHint') }}</p>
+        </div>
+        <div>
+          <label class="input-label">{{ t('admin.accounts.oauth.kiro.deviceRegistrationLabel') }}</label>
+          <textarea
+            v-model="kiroDeviceRegistrationJson"
+            rows="6"
+            class="input font-mono text-xs"
+            placeholder='{"clientId":"...","clientSecret":"..."}'
+          ></textarea>
+          <p class="input-hint">{{ t('admin.accounts.oauth.kiro.deviceRegistrationHint') }}</p>
+        </div>
+        <div
+          v-if="kiroOAuth.error.value"
+          class="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-700 dark:bg-red-900/30"
+        >
+          <p class="whitespace-pre-line text-sm text-red-600 dark:text-red-400">{{ kiroOAuth.error.value }}</p>
+        </div>
+      </div>
       <OAuthAuthorizationFlow
+        v-else
         ref="oauthFlowRef"
         :add-method="form.platform === 'anthropic' ? addMethod : 'oauth'"
         :auth-url="currentAuthUrl"
@@ -3635,7 +3768,16 @@
           {{ t('common.back') }}
         </button>
         <button
-          v-if="isManualInputMethod"
+          v-if="isKiroImportMode"
+          type="button"
+          :disabled="kiroOAuth.loading.value || !kiroTokenJson.trim()"
+          class="btn btn-primary"
+          @click="handleKiroImport"
+        >
+          {{ kiroOAuth.loading.value ? t('admin.accounts.creating') : t('common.create') }}
+        </button>
+        <button
+          v-else-if="isManualInputMethod"
           type="button"
           :disabled="!canExchangeCode"
           class="btn btn-primary"
@@ -3926,6 +4068,8 @@ import { useOpenAIOAuth } from '@/composables/useOpenAIOAuth'
 import { useGeminiOAuth } from '@/composables/useGeminiOAuth'
 import { useAntigravityOAuth } from '@/composables/useAntigravityOAuth'
 import { useGrokOAuth } from '@/composables/useGrokOAuth'
+import { useKiroOAuth } from '@/kiro/useKiroOAuth'
+import { getKiroDefaultModelMappings, kiroModels } from '@/kiro/models'
 import type {
   Proxy,
   AdminGroup,
@@ -4036,6 +4180,7 @@ const baseUrlHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   if (form.platform === 'grok') return ''
+  if (form.platform === 'kiro') return t('admin.accounts.kiro.baseUrlHint')
   return t('admin.accounts.baseUrlHint')
 })
 
@@ -4043,6 +4188,7 @@ const apiKeyHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.apiKeyHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.apiKeyHint')
   if (form.platform === 'grok') return ''
+  if (form.platform === 'kiro') return t('admin.accounts.kiro.apiKeyHint')
   return t('admin.accounts.apiKeyHint')
 })
 
@@ -4114,6 +4260,7 @@ const openaiOAuth = useOpenAIOAuth() // For OpenAI OAuth
 const geminiOAuth = useGeminiOAuth() // For Gemini OAuth
 const antigravityOAuth = useAntigravityOAuth() // For Antigravity OAuth
 const grokOAuth = useGrokOAuth() // For Grok OAuth
+const kiroOAuth = useKiroOAuth() // For Kiro OAuth / IDC
 
 // Computed: current OAuth state for template binding
 const currentAuthUrl = computed(() => {
@@ -4121,6 +4268,7 @@ const currentAuthUrl = computed(() => {
   if (form.platform === 'gemini') return geminiOAuth.authUrl.value
   if (form.platform === 'antigravity') return antigravityOAuth.authUrl.value
   if (form.platform === 'grok') return grokOAuth.authUrl.value
+  if (form.platform === 'kiro') return kiroOAuth.authUrl.value
   return oauth.authUrl.value
 })
 
@@ -4129,6 +4277,7 @@ const currentSessionId = computed(() => {
   if (form.platform === 'gemini') return geminiOAuth.sessionId.value
   if (form.platform === 'antigravity') return antigravityOAuth.sessionId.value
   if (form.platform === 'grok') return grokOAuth.sessionId.value
+  if (form.platform === 'kiro') return kiroOAuth.sessionId.value
   return oauth.sessionId.value
 })
 
@@ -4137,6 +4286,7 @@ const currentOAuthLoading = computed(() => {
   if (form.platform === 'gemini') return geminiOAuth.loading.value
   if (form.platform === 'antigravity') return antigravityOAuth.loading.value
   if (form.platform === 'grok') return grokOAuth.loading.value
+  if (form.platform === 'kiro') return kiroOAuth.loading.value
   return oauth.loading.value
 })
 
@@ -4145,6 +4295,7 @@ const currentOAuthError = computed(() => {
   if (form.platform === 'gemini') return geminiOAuth.error.value
   if (form.platform === 'antigravity') return antigravityOAuth.error.value
   if (form.platform === 'grok') return grokOAuth.error.value
+  if (form.platform === 'kiro') return kiroOAuth.error.value
   return oauth.error.value
 })
 
@@ -4171,6 +4322,13 @@ const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_acco
 const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-token'
 const apiKeyBaseUrl = ref('https://api.anthropic.com')
 const apiKeyValue = ref('')
+const kiroAccountType = ref<'oauth' | 'idc' | 'import'>('oauth') // Kiro OAuth 子模式
+const kiroOAuthProvider = ref<'google' | 'github'>('google') // Kiro 社交登录提供方
+const kiroIdcStartUrl = ref('')
+const kiroIdcRegion = ref('')
+const kiroAPIRegion = ref('us-east-1')
+const kiroTokenJson = ref('')
+const kiroDeviceRegistrationJson = ref('')
 const upstreamBillingAutoProbeEnabled = ref(true)
 
 // ── 国产供应商（Kimi / Zhipu / DeepSeek）账号类型、API 协议与端点 ──
@@ -4773,6 +4931,9 @@ const isOAuthFlow = computed(() => {
 
 const isGrokSSOInputMethod = computed(() => form.platform === 'grok' && oauthFlowRef.value?.inputMethod === 'sso_cookie')
 
+// Kiro 导入 token 模式：跳过标准 OAuth 弹窗流程，直接粘贴 token JSON
+const isKiroImportMode = computed(() => form.platform === 'kiro' && kiroAccountType.value === 'import')
+
 const isManualInputMethod = computed(() => {
   return oauthFlowRef.value?.inputMethod === 'manual'
 })
@@ -4797,6 +4958,9 @@ const canExchangeCode = computed(() => {
   }
   if (form.platform === 'grok') {
     return authCode.trim() && grokOAuth.sessionId.value && !grokOAuth.loading.value
+  }
+  if (form.platform === 'kiro') {
+    return authCode.trim() && kiroOAuth.sessionId.value && !kiroOAuth.loading.value
   }
   return authCode.trim() && oauth.sessionId.value && !oauth.loading.value
 })
@@ -4823,6 +4987,12 @@ watch(
         antigravityWhitelistModels.value = []
         antigravityModelMappings.value = []
         antigravityModelRestrictionMode.value = 'mapping'
+      }
+      // Kiro 只支持模型映射模式，默认填充官方模型映射预设
+      if (form.platform === 'kiro') {
+        modelRestrictionMode.value = 'mapping'
+        modelMappings.value = getKiroDefaultModelMappings()
+        allowedModels.value = [...kiroModels]
       }
     } else {
       resetForm()
@@ -4873,7 +5043,9 @@ watch(
               ? 'https://api.x.ai/v1'
               : newPlatform === 'typesafe'
                 ? 'https://api.typesafe.ai'
-              : 'https://api.anthropic.com'
+                : newPlatform === 'kiro'
+                  ? ''
+                  : 'https://api.anthropic.com'
     }
     // Clear model-related settings
     allowedModels.value = []
@@ -4907,6 +5079,13 @@ watch(
       modelRestrictionMode.value = 'mapping'
       form.concurrency = 1
       form.load_factor = null
+    }
+    // Kiro 只支持模型映射模式，不支持白名单模式，默认填充官方模型映射预设
+    if (newPlatform === 'kiro') {
+      accountCategory.value = 'oauth-based'
+      modelRestrictionMode.value = 'mapping'
+      modelMappings.value = getKiroDefaultModelMappings()
+      allowedModels.value = [...kiroModels]
     }
     if (newPlatform !== 'gemini' && newPlatform !== 'anthropic' && accountCategory.value === 'service_account') {
       accountCategory.value = 'oauth-based'
@@ -4958,6 +5137,7 @@ watch(
     geminiOAuth.resetState()
     antigravityOAuth.resetState()
     grokOAuth.resetState()
+    kiroOAuth.resetState()
   }
 )
 
@@ -5351,6 +5531,13 @@ const resetForm = () => {
   apiKeyBaseUrl.value = 'https://api.anthropic.com'
   apiKeyValue.value = ''
   upstreamRequestIdHeader.value = ''
+  kiroAccountType.value = 'oauth'
+  kiroOAuthProvider.value = 'google'
+  kiroIdcStartUrl.value = ''
+  kiroIdcRegion.value = ''
+  kiroAPIRegion.value = 'us-east-1'
+  kiroTokenJson.value = ''
+  kiroDeviceRegistrationJson.value = ''
   upstreamBillingAutoProbeEnabled.value = true
   editQuotaLimit.value = null
   editQuotaDailyLimit.value = null
@@ -5438,6 +5625,7 @@ const resetForm = () => {
   geminiOAuth.resetState()
   antigravityOAuth.resetState()
   grokOAuth.resetState()
+  kiroOAuth.resetState()
   oauthFlowRef.value?.reset()
   antigravityMixedChannelConfirmed.value = false
   upstreamModelsPreviewed.value = false
@@ -5809,12 +5997,17 @@ const handleSubmit = async () => {
           ? 'https://api.x.ai/v1'
           : form.platform === 'typesafe'
             ? 'https://api.typesafe.ai'
-          : 'https://api.anthropic.com'
+            : form.platform === 'kiro'
+              ? ''
+              : 'https://api.anthropic.com'
 
   // Build credentials with optional model mapping
   const credentials: Record<string, unknown> = {
     base_url: apiKeyBaseUrl.value.trim() || defaultBaseUrl,
     api_key: apiKeyValue.value.trim()
+  }
+  if (form.platform === 'kiro' && !apiKeyBaseUrl.value.trim()) {
+    credentials.api_region = kiroAPIRegion.value
   }
   if (form.platform === 'gemini') {
     credentials.tier_id = geminiTierAIStudio.value
@@ -5921,6 +6114,7 @@ const goBackToBasicInfo = () => {
   geminiOAuth.resetState()
   antigravityOAuth.resetState()
   grokOAuth.resetState()
+  kiroOAuth.resetState()
   oauthFlowRef.value?.reset()
 }
 
@@ -5938,6 +6132,17 @@ const handleGenerateUrl = async () => {
     await antigravityOAuth.generateAuthUrl(form.proxy_id)
   } else if (form.platform === 'grok') {
     await grokOAuth.generateAuthUrl(form.proxy_id)
+  } else if (form.platform === 'kiro') {
+    if (kiroAccountType.value === 'idc') {
+      await kiroOAuth.generateIDCAuthUrl({
+        proxyId: form.proxy_id,
+        startUrl: kiroIdcStartUrl.value.trim(),
+        region: kiroIdcRegion.value.trim()
+      })
+    } else {
+      const provider = kiroOAuthProvider.value === 'github' ? 'Github' : 'Google'
+      await kiroOAuth.generateAuthUrl(form.proxy_id, provider)
+    }
   } else {
     await oauth.generateAuthUrl(addMethod.value, form.proxy_id)
   }
@@ -6016,6 +6221,17 @@ const createAccountAndFinish = async (
   if (platform === 'grok') {
     if (!credentials.base_url) {
       credentials.base_url = apiKeyBaseUrl.value.trim() || 'https://api.x.ai/v1'
+    }
+    const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
+    if (modelMapping) {
+      credentials.model_mapping = modelMapping
+    } else {
+      delete credentials.model_mapping
+    }
+  }
+  if (platform === 'kiro') {
+    if (type === 'oauth') {
+      credentials.api_region = kiroAPIRegion.value
     }
     const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
     if (modelMapping) {
@@ -6916,6 +7132,62 @@ const handleGrokExchange = async (authCode: string) => {
   }
 }
 
+// Kiro OAuth / IDC 授权码兑换（社交登录与企业 IDC 登录共用同一个交换接口）
+const handleKiroExchange = async (authCode: string) => {
+  if (!authCode.trim() || !kiroOAuth.sessionId.value) return
+
+  kiroOAuth.loading.value = true
+  kiroOAuth.error.value = ''
+
+  try {
+    const stateFromInput = oauthFlowRef.value?.oauthState || ''
+    const stateToUse = stateFromInput || kiroOAuth.state.value
+    if (!stateToUse) {
+      kiroOAuth.error.value = t('admin.accounts.oauth.authFailed')
+      appStore.showError(kiroOAuth.error.value)
+      return
+    }
+
+    const tokenInfo = await kiroOAuth.exchangeAuthCode({
+      code: authCode.trim(),
+      sessionId: kiroOAuth.sessionId.value,
+      state: stateToUse,
+      loginOption: kiroAccountType.value === 'idc' ? 'idc' : 'social',
+      proxyId: form.proxy_id
+    })
+    if (!tokenInfo) return
+
+    const credentials = kiroOAuth.buildCredentials(tokenInfo)
+    await createAccountAndFinish('kiro', 'oauth', credentials)
+  } catch (error: any) {
+    kiroOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
+    appStore.showError(kiroOAuth.error.value)
+  } finally {
+    kiroOAuth.loading.value = false
+  }
+}
+
+// Kiro Token 直接导入（跳过 OAuth 弹窗流程）
+const handleKiroImport = async () => {
+  if (!kiroTokenJson.value.trim()) return
+
+  kiroOAuth.loading.value = true
+  kiroOAuth.error.value = ''
+
+  try {
+    const tokenInfo = await kiroOAuth.importToken(kiroTokenJson.value.trim(), kiroDeviceRegistrationJson.value.trim() || undefined)
+    if (!tokenInfo) return
+
+    const credentials = kiroOAuth.buildCredentials(tokenInfo)
+    await createAccountAndFinish('kiro', 'oauth', credentials)
+  } catch (error: any) {
+    kiroOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
+    appStore.showError(kiroOAuth.error.value)
+  } finally {
+    kiroOAuth.loading.value = false
+  }
+}
+
 // Anthropic OAuth 授权码兑换
 const handleAnthropicExchange = async (authCode: string) => {
   if (!authCode.trim() || !oauth.sessionId.value) return
@@ -7018,6 +7290,8 @@ const handleExchangeCode = async () => {
       return handleAntigravityExchange(authCode)
     case 'grok':
       return handleGrokExchange(authCode)
+    case 'kiro':
+      return handleKiroExchange(authCode)
     default:
       return handleAnthropicExchange(authCode)
   }

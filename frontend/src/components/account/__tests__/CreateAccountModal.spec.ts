@@ -9,6 +9,7 @@ const {
   showWarningMock,
   importCodexSessionMock,
   createOpenAICodexPATMock,
+  importKiroTokenMock,
   authIsSimpleMode,
 } = vi.hoisted(() => ({
   createAccountMock: vi.fn(),
@@ -17,6 +18,7 @@ const {
   showWarningMock: vi.fn(),
   importCodexSessionMock: vi.fn(),
   createOpenAICodexPATMock: vi.fn(),
+  importKiroTokenMock: vi.fn(),
   authIsSimpleMode: { value: true },
 }))
 
@@ -52,6 +54,9 @@ vi.mock('@/api/admin', () => ({
     },
     tlsFingerprintProfiles: {
       list: vi.fn().mockResolvedValue([]),
+    },
+    kiro: {
+      importToken: importKiroTokenMock,
     },
   },
 }))
@@ -210,9 +215,60 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
       warnings: [],
     })
     createOpenAICodexPATMock.mockReset().mockResolvedValue({})
+    importKiroTokenMock.mockReset().mockResolvedValue({
+      access_token: 'access', refresh_token: 'refresh', region: 'eu-central-1',
+    })
   })
 
   afterEach(() => vi.useRealTimers())
+
+  it('saves Kiro inference region separately from the imported login region', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kiro')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('Kiro OAuth')
+    await wrapper.get('#kiro-api-region-create').setValue('us-west-2')
+    await selectButtonByText(wrapper, 'admin.accounts.oauth.kiro.importTitle')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await wrapper.get('textarea.font-mono').setValue('{"accessToken":"test"}')
+    await selectButtonByText(wrapper, 'common.create')
+    await flushPromises()
+
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
+      api_region: 'us-west-2',
+      region: 'eu-central-1',
+    })
+    wrapper.unmount()
+  })
+
+  it('saves the inference region for a direct Kiro API key', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kiro')
+    await selectButtonByText(wrapper, 'API Key')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('Kiro direct')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('ksk_test')
+    await wrapper.get('#kiro-api-region-create').setValue('us-west-2')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ base_url: '', api_key: 'ksk_test', api_region: 'us-west-2' })
+    wrapper.unmount()
+  })
+
+  it('does not show the inference region for a Kiro API key relay', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kiro')
+    await selectButtonByText(wrapper, 'API Key')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('Kiro relay')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('relay-key')
+    await wrapper.get('input[placeholder="https://api.anthropic.com"]').setValue('https://relay.example')
+    expect(wrapper.find('#kiro-api-region-create').exists()).toBe(false)
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ base_url: 'https://relay.example', api_key: 'relay-key' })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_region')
+    wrapper.unmount()
+  })
 
   it('sets month and year expiry presets without submitting the account form', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })

@@ -82,6 +82,7 @@ export interface CreateUsageCleanupTaskRequest {
 
 export interface AdminUsageQueryParams extends UsageQueryParams {
   user_id?: number
+  kiro_session_fingerprint?: string
   exact_total?: boolean
   billing_mode?: string
   upstream_model_mismatch?: boolean

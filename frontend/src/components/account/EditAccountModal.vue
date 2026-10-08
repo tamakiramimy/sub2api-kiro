@@ -43,7 +43,9 @@
                     ? 'https://cloudcode-pa.googleapis.com'
                     : account.platform === 'grok'
                       ? 'https://api.x.ai/v1'
-                      : 'https://api.anthropic.com'
+                      : account.platform === 'kiro'
+                        ? 'https://your-kiro-upstream.example.com'
+                        : 'https://api.anthropic.com'
             "
           />
           <p v-if="baseUrlHint" class="input-hint">{{ baseUrlHint }}</p>
@@ -732,9 +734,20 @@
         </div>
       </div>
 
-      <!-- OpenAI/Grok OAuth Model Mapping (OAuth 类型没有 apikey 容器，需要独立的模型映射区域) -->
+      <!-- OpenAI/Grok/Kiro OAuth Model Mapping (OAuth 类型没有 apikey 容器，需要独立的模型映射区域) -->
+      <div v-if="account.platform === 'kiro' && (account.type === 'oauth' || (account.type === 'apikey' && !editBaseUrl.trim()))" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <label class="input-label" for="kiro-api-region-edit">{{ t('admin.accounts.kiro.apiRegion') }}</label>
+        <select id="kiro-api-region-edit" v-model="editKiroApiRegion" class="input">
+          <option v-if="!['us-east-1', 'us-west-2', 'eu-west-1'].includes(editKiroApiRegion)" :value="editKiroApiRegion">{{ editKiroApiRegion }}</option>
+          <option value="us-east-1">US East (N. Virginia)</option>
+          <option value="us-west-2">US West (Oregon)</option>
+          <option value="eu-west-1">EU West (Ireland)</option>
+        </select>
+        <p class="input-hint">{{ t('admin.accounts.kiro.apiRegionHint') }}</p>
+      </div>
+
       <div
-        v-if="(account.platform === 'openai' || account.platform === 'grok') && account.type === 'oauth'"
+        v-if="(account.platform === 'openai' || account.platform === 'grok' || account.platform === 'kiro') && account.type === 'oauth'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
@@ -3200,6 +3213,12 @@ import {
   splitModelMappingObject,
   isValidWildcardPattern
 } from '@/composables/useModelWhitelist'
+import {
+  getKiroDefaultModelMappings,
+  isKiroCompleteDefaultMapping,
+  kiroModels,
+  sanitizeKiroModelMapping
+} from '@/kiro/models'
 
 interface Props {
   show: boolean
@@ -3329,6 +3348,7 @@ const baseUrlHint = computed(() => {
   if (props.account.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (props.account.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   if (props.account.platform === 'grok') return ''
+  if (props.account.platform === 'kiro') return t('admin.accounts.kiro.baseUrlHint')
   return t('admin.accounts.baseUrlHint')
 })
 
@@ -3501,6 +3521,7 @@ const editBedrockSecretAccessKey = ref('')
 const editBedrockSessionToken = ref('')
 const editBedrockRegion = ref('')
 const editBedrockForceGlobal = ref(false)
+const editKiroApiRegion = ref('us-east-1')
 const editBedrockApiKeyValue = ref('')
 const editVertexProjectId = ref('')
 const editVertexClientEmail = ref('')
@@ -3992,6 +4013,7 @@ const defaultBaseUrl = computed(() => {
   if (props.account?.platform === 'gemini') return 'https://generativelanguage.googleapis.com'
   if (props.account?.platform === 'grok') return 'https://api.x.ai/v1'
   if (props.account?.platform === 'typesafe') return 'https://api.typesafe.ai'
+  if (props.account?.platform === 'kiro') return ''
   // CN 供应商：按当前模式/协议回落到官方预设（清空输入框提交时使用），
   // 不能落到 anthropic 默认值（会被当 CC base 拼出错误端点）。
   if (
@@ -4080,6 +4102,18 @@ const loadModelRestrictionFromMapping = (rawMapping?: Record<string, unknown>) =
     parsed.modelMappings.length > 0 && parsed.allowedModels.length === 0
       ? 'mapping'
       : 'whitelist'
+}
+
+const loadKiroModelRestrictionFromMapping = (rawMapping?: Record<string, unknown>) => {
+  const mapping = sanitizeKiroModelMapping(rawMapping)
+  const hasExplicitMapping = Object.keys(mapping).length > 0
+  if (!hasExplicitMapping || isKiroCompleteDefaultMapping(mapping)) {
+    allowedModels.value = [...kiroModels]
+    modelMappings.value = getKiroDefaultModelMappings()
+    modelRestrictionMode.value = 'whitelist'
+    return
+  }
+  loadModelRestrictionFromMapping(mapping)
 }
 
 const buildModelRestrictionMapping = () =>
@@ -4373,6 +4407,11 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   // Initialize API Key fields for apikey type
   if (newAccount.type === 'apikey' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
+    if (newAccount.platform === 'kiro') {
+      editKiroApiRegion.value = typeof credentials.api_region === 'string' && credentials.api_region.trim()
+        ? credentials.api_region.trim()
+        : 'us-east-1'
+    }
     // 国产供应商：读取 account_mode 与 api_protocol 作为可编辑初始值
     // （编辑弹窗允许修正两者，用于修复早期存错默认值的账号）。
     if (isCNProviderPlatform(newAccount.platform) || newAccount.platform === 'opencode_go') {
@@ -4443,7 +4482,9 @@ const syncFormFromAccount = (newAccount: Account | null) => {
             ? 'https://api.x.ai/v1'
             : newAccount.platform === 'typesafe'
               ? 'https://api.typesafe.ai'
-            : newAccount.platform === 'kimi' ||
+              : newAccount.platform === 'kiro'
+                ? ''
+                : newAccount.platform === 'kimi' ||
                 newAccount.platform === 'zhipu' ||
                 newAccount.platform === 'deepseek' ||
                 newAccount.platform === 'opencode_go'
@@ -4454,7 +4495,11 @@ const syncFormFromAccount = (newAccount: Account | null) => {
       : (credentials.base_url as string) || platformDefaultUrl
 
     // Load model mappings and detect mode
-    loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
+    if (newAccount.platform === 'kiro') {
+      loadKiroModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
+    } else {
+      loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
+    }
 
     // Load pool mode
     poolModeEnabled.value = credentials.pool_mode === true
@@ -4521,13 +4566,22 @@ const syncFormFromAccount = (newAccount: Account | null) => {
           ? 'https://generativelanguage.googleapis.com'
           : newAccount.platform === 'grok'
             ? 'https://api.x.ai/v1'
-            : 'https://api.anthropic.com'
+            : newAccount.platform === 'kiro'
+              ? ''
+              : 'https://api.anthropic.com'
     editBaseUrl.value = platformDefaultUrl
 
-    // Load model mappings for OpenAI/Grok OAuth accounts
-    if ((newAccount.platform === 'openai' || newAccount.platform === 'grok') && newAccount.credentials) {
+    // Load model mappings for OpenAI/Grok/Kiro OAuth accounts
+    if ((newAccount.platform === 'openai' || newAccount.platform === 'grok' || newAccount.platform === 'kiro') && newAccount.credentials) {
       const oauthCredentials = newAccount.credentials as Record<string, unknown>
-      loadModelRestrictionFromMapping(oauthCredentials.model_mapping as Record<string, unknown> | undefined)
+      if (newAccount.platform === 'kiro') {
+        editKiroApiRegion.value = typeof oauthCredentials.api_region === 'string' && oauthCredentials.api_region.trim()
+          ? oauthCredentials.api_region.trim()
+          : 'us-east-1'
+        loadKiroModelRestrictionFromMapping(oauthCredentials.model_mapping as Record<string, unknown> | undefined)
+      } else {
+        loadModelRestrictionFromMapping(oauthCredentials.model_mapping as Record<string, unknown> | undefined)
+      }
     } else {
       modelRestrictionMode.value = 'whitelist'
       modelMappings.value = []
@@ -5177,6 +5231,13 @@ const handleSubmit = async () => {
         ...currentCredentials,
         base_url: newBaseUrl
       }
+      if (props.account.platform === 'kiro') {
+        if (newBaseUrl) {
+          delete newCredentials.api_region
+        } else {
+          newCredentials.api_region = editKiroApiRegion.value
+        }
+      }
 
       // 国产供应商：模式与协议写入凭据（决定额度/余额探测与转发端点/格式）。
       if (isCNApiKeyAccount.value) {
@@ -5431,8 +5492,8 @@ const handleSubmit = async () => {
       updatePayload.credentials = newCredentials
     }
 
-    // OpenAI/Grok OAuth: persist model mapping to credentials
-    if ((props.account.platform === 'openai' || props.account.platform === 'grok') && props.account.type === 'oauth') {
+    // OpenAI/Grok/Kiro OAuth: persist model mapping to credentials
+    if ((props.account.platform === 'openai' || props.account.platform === 'grok' || props.account.platform === 'kiro') && props.account.type === 'oauth') {
       const currentCredentials = isSparkShadow.value
         ? {}
         : (updatePayload.credentials as Record<string, unknown>) ||
@@ -5446,6 +5507,9 @@ const handleSubmit = async () => {
           newCredentials.model_mapping = modelMapping
         } else {
           delete newCredentials.model_mapping
+        }
+        if (props.account.platform === 'kiro') {
+          newCredentials.api_region = editKiroApiRegion.value
         }
       }
 

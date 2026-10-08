@@ -538,7 +538,7 @@ export interface PaginationConfig {
 
 // ==================== API Key & Group Types ====================
 
-export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go' | 'typesafe' | 'composite'
+export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go' | 'typesafe' | 'composite' | 'kiro'
 
 export type VideoModelPrices = Record<string, Record<string, number>>
 
@@ -631,6 +631,10 @@ export interface AdminGroup extends Group {
   profit_control_enabled: boolean
   profit_min_margin: number
   profit_safety_buffer: number
+
+  // Kiro prompt cache 本地计费模拟配置（仅管理员可见）。
+  kiro_cache_emulation_enabled: boolean
+  kiro_cache_emulation_ratio: number
 
   // 模型路由配置（仅管理员可见，内部信息）
   model_routing: Record<string, number[]> | null
@@ -828,6 +832,8 @@ export interface CreateGroupRequest {
   profit_control_enabled?: boolean
   profit_min_margin?: number
   profit_safety_buffer?: number
+  kiro_cache_emulation_enabled?: boolean
+  kiro_cache_emulation_ratio?: number
   claude_code_only?: boolean
   fallback_group_id?: number | null
   fallback_group_id_on_invalid_request?: number | null
@@ -894,6 +900,8 @@ export interface UpdateGroupRequest {
   profit_control_enabled?: boolean
   profit_min_margin?: number
   profit_safety_buffer?: number
+  kiro_cache_emulation_enabled?: boolean
+  kiro_cache_emulation_ratio?: number
   claude_code_only?: boolean
   fallback_group_id?: number | null
   fallback_group_id_on_invalid_request?: number | null
@@ -918,7 +926,7 @@ export interface UpdateGroupRequest {
 
 // ==================== Account & Proxy Types ====================
 
-export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go' | 'typesafe'
+export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go' | 'typesafe' | 'kiro'
 export type AccountType = 'oauth' | 'setup-token' | 'apikey' | 'upstream' | 'bedrock' | 'service_account'
 export type OAuthAddMethod = 'oauth' | 'setup-token'
 export type ProxyProtocol = 'http' | 'https' | 'socks5' | 'socks5h'
@@ -1271,6 +1279,14 @@ export interface Account {
   temp_unschedulable_until: string | null
   temp_unschedulable_reason: string | null
 
+  // Kiro usage and cooldown state derived from the server runtime cache.
+  kiro_quota_state?: string
+  kiro_quota_reason?: string
+  kiro_quota_reset_at?: string | null
+  kiro_runtime_state?: string
+  kiro_runtime_reason?: string
+  kiro_runtime_reset_at?: string | null
+
   // Session window fields (5-hour window)
   session_window_start: string | null
   session_window_end: string | null
@@ -1421,6 +1437,21 @@ export interface GrokBillingSummary {
   failed_windows?: string[]
 }
 
+export interface KiroCreditProgress {
+  current_usage: number
+  usage_limit: number
+  percentage_used: number
+  days_remaining?: number
+  expiry_date?: string | null
+}
+
+export interface KiroOverageInfo {
+  current_overages: number
+  overage_charges: number
+  currency_code?: string
+  currency_symbol?: string
+}
+
 export interface AccountUsageInfo {
   source?: 'passive' | 'active'
   updated_at: string | null
@@ -1457,6 +1488,19 @@ export interface AccountUsageInfo {
     amount?: number
     minimum_balance?: number
   }> | null
+  kiro_subscription_name?: string
+  kiro_subscription_type?: string
+  kiro_reset_at?: string | null
+  kiro_overages_enabled?: boolean
+  kiro_credit?: KiroCreditProgress | null
+  kiro_bonus?: KiroCreditProgress | null
+  kiro_overage?: KiroOverageInfo | null
+  kiro_quota_state?: string
+  kiro_quota_reason?: string
+  kiro_quota_reset_at?: string | null
+  kiro_runtime_state?: string
+  kiro_runtime_reason?: string
+  kiro_runtime_reset_at?: string | null
   // Antigravity 403 forbidden 状态
   is_forbidden?: boolean
   forbidden_reason?: string
@@ -1509,6 +1553,10 @@ export interface OpenAICompactState {
   openai_compact_checked_at?: string
   openai_compact_last_status?: number
   openai_compact_last_error?: string
+  openai_requires_reauth?: boolean
+  openai_refresh_token_status?: 'reused' | 'ok' | string
+  openai_refresh_token_reused_at?: string
+  openai_refresh_token_recovered_at?: string
 }
 
 export interface OpenAIResponsesState {
@@ -1806,6 +1854,7 @@ export interface UsageLog {
 export interface UsageLogAccountSummary {
   id: number
   name: string
+  platform: string
 }
 
 export interface AdminUsageLog extends UsageLog {
@@ -1815,6 +1864,8 @@ export interface AdminUsageLog extends UsageLog {
   upstream_model_mismatch?: boolean | null
   model_mapping_chain?: string | null
   upstream_request_id?: string | null
+  kiro_session_fingerprint?: string | null
+  previous_kiro_account_id?: number | null
 
   // 账号计费倍率（仅管理员可见）
   account_rate_multiplier?: number | null

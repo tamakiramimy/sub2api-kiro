@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
+import { getKiroDefaultModelMappings, kiroModels } from '@/kiro/models'
 
 const { updateAccountMock, checkMixedChannelRiskMock, authIsSimpleMode } = vi.hoisted(() => ({
   updateAccountMock: vi.fn(),
@@ -255,6 +256,32 @@ function buildGrokOAuthAccount() {
       model_mapping: {
         'grok-latest': 'grok-4.3'
       }
+    },
+    extra: {},
+    proxy_id: null,
+    concurrency: 1,
+    priority: 1,
+    rate_multiplier: 1,
+    status: 'active',
+    group_ids: [],
+    expires_at: null,
+    auto_pause_on_expired: false
+  } as any
+}
+
+function buildKiroOAuthAccount() {
+  return {
+    id: 7,
+    name: 'Kiro OAuth',
+    notes: '',
+    platform: 'kiro',
+    type: 'oauth',
+    credentials: {
+      access_token: 'kiro-access-token',
+      refresh_token: 'kiro-refresh-token',
+      model_mapping: Object.fromEntries(
+        getKiroDefaultModelMappings().map(({ from, to }) => [from, to])
+      )
     },
     extra: {},
     proxy_id: null,
@@ -766,6 +793,115 @@ describe('EditAccountModal', () => {
       'gpt-5.2-2025-12-11': 'gpt-5.2-2025-12-11',
       'gpt-latest': 'gpt-5.2'
     })
+  })
+
+  it('loads the complete Kiro catalog in both whitelist and mapping tabs', async () => {
+    const account = buildKiroOAuthAccount()
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const whitelistValue = wrapper.get('[data-testid="model-whitelist-value"]').text().split(',')
+
+    expect(whitelistValue).toHaveLength(kiroModels.length)
+    expect(whitelistValue).toContain('claude-sonnet-4-6')
+    expect(whitelistValue).toContain('gpt-5.6-sol')
+
+    const mappingTab = wrapper.findAll('button').find(button => button.text().includes('admin.accounts.modelMapping'))
+    expect(mappingTab).toBeDefined()
+    await mappingTab?.trigger('click')
+
+    const sourceModels = wrapper.findAll('input[placeholder="admin.accounts.requestModel"]')
+      .map(input => (input.element as HTMLInputElement).value)
+    expect(sourceModels).toHaveLength(kiroModels.length)
+    expect(sourceModels).toContain('claude-sonnet-4-6')
+    expect(sourceModels).toContain('gpt-5.6-sol')
+
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping).toEqual(
+      Object.fromEntries(getKiroDefaultModelMappings().map(({ from, to }) => [from, to]))
+    )
+  })
+
+  it('edits the Kiro OAuth inference region without changing the login region', async () => {
+    const account = buildKiroOAuthAccount()
+    account.credentials.api_region = 'us-west-2'
+    account.credentials.region = 'eu-central-1'
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const region = wrapper.get<HTMLSelectElement>('#kiro-api-region-edit')
+    expect(region.element.value).toBe('us-west-2')
+    await region.setValue('eu-west-1')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
+      api_region: 'eu-west-1',
+      region: 'eu-central-1'
+    })
+    wrapper.unmount()
+  })
+
+  it('keeps an existing Kiro OAuth inference region outside the preset list', async () => {
+    const account = buildKiroOAuthAccount()
+    account.credentials.api_region = 'eu-central-1'
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    expect(wrapper.get<HTMLSelectElement>('#kiro-api-region-edit').element.value).toBe('eu-central-1')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.api_region).toBe('eu-central-1')
+    wrapper.unmount()
+  })
+
+  it('edits the inference region on a direct Kiro API key account', async () => {
+    const account = { ...buildGrokAPIKeyAccount(), platform: 'kiro', credentials: { base_url: '', api_region: 'us-west-2' } }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const region = wrapper.get<HTMLSelectElement>('#kiro-api-region-edit')
+    expect(region.element.value).toBe('us-west-2')
+    await region.setValue('eu-west-1')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({ base_url: '', api_region: 'eu-west-1' })
+    wrapper.unmount()
+  })
+
+  it('hides the inference region for a Kiro API key relay', async () => {
+    const account = { ...buildGrokAPIKeyAccount(), platform: 'kiro', credentials: { base_url: 'https://relay.example' } }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    expect(wrapper.find('#kiro-api-region-edit').exists()).toBe(false)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.base_url).toBe('https://relay.example')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('api_region')
+    wrapper.unmount()
+  })
+
+  it('removes the inference region when a direct Kiro API key switches to a relay', async () => {
+    const account = { ...buildGrokAPIKeyAccount(), platform: 'kiro', credentials: { base_url: '', api_region: 'us-west-2' } }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    await wrapper.get('input[placeholder="https://your-kiro-upstream.example.com"]').setValue('https://relay.example')
+    expect(wrapper.find('#kiro-api-region-edit').exists()).toBe(false)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.base_url).toBe('https://relay.example')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('api_region')
+    wrapper.unmount()
   })
 
   it('submits OpenAI compact mode and compact-only model mapping', async () => {

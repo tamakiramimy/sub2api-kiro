@@ -3,6 +3,18 @@
 .codex
 
 # ===================
+# 本地开发一键启停脚本（个人本地工具，非仓库策略的一部分）
+# ===================
+dev-start.sh
+dev-stop.sh
+.dev-logs/
+.dev-data/
+.dev-runtime/
+.dev-bin/
+.dev-backend.pid
+.dev-frontend.pid
+
+# ===================
 # Go 后端
 # ===================
 # 二进制文件
@@ -119,7 +131,7 @@ backend/.installed
 tests
 !deploy/tests/
 !deploy/tests/**
-CLAUDE.md
+# CLAUDE.md is intentionally tracked in this fork (kept in sync from AGENTS.md)
 .claude
 scripts
 !backend/scripts/
@@ -127,7 +139,7 @@ scripts
 .code-review-state
 #openspec/
 code-reviews/
-AGENTS.md
+# AGENTS.md is intentionally tracked in this fork (maintainer guide)
 backend/cmd/server/server
 deploy/docker-compose.override.yml
 .gocache/
@@ -142,6 +154,7 @@ docs/*
 !docs/PLUGIN_DEVELOPMENT.md
 !docs/channel-monitor-v2-safe-defaults.md
 !docs/codex-credits.md
+!docs/DOCKER_BUILD_NOTES.md
 !docs/legal/
 !docs/legal/*.md
 !docs/screenshots/

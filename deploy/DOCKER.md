@@ -1,76 +1,28 @@
-# Sub2API Docker Image
+# Sub2API Kiro Docker Image
 
-Sub2API is an AI API Gateway Platform for distributing and managing AI product subscription API quotas.
+Sub2API Kiro is the Kiro-enhanced distribution of Sub2API. The published image supports GPT-5.6, Claude Opus 5, Claude Opus 4.8, and Claude Sonnet 5 through the Kiro integration.
 
-## Quick Start
+## Image
 
-```bash
-docker run -d \
-  --name sub2api \
-  -p 8080:8080 \
-  -e DATABASE_URL="postgres://user:pass@host:5432/sub2api" \
-  -e REDIS_URL="redis://host:6379" \
-  weishaw/sub2api:latest
+```text
+tamakiramimy/sub2api-kiro:latest
 ```
+
+The `latest` tag is a multi-architecture image for `linux/amd64` and `linux/arm64`.
 
 ## Docker Compose
 
-```yaml
-version: '3.8'
+Docker Compose is the supported deployment path because it pulls the published Kiro image and configures the application, PostgreSQL, Redis, persistent storage, and required environment variables together.
 
-services:
-  sub2api:
-    image: weishaw/sub2api:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/sub2api?sslmode=disable
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - db
-      - redis
-
-  db:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=sub2api
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-
-volumes:
-  postgres_data:
-  redis_data:
+```bash
+git clone https://github.com/tamakiramimy/sub2api-kiro.git
+cd sub2api-kiro/deploy
+cp .env.example .env
+chmod 600 .env
+docker compose -f docker-compose.local.yml up -d
 ```
 
-## Startup and Database Recovery
-
-Sub2API runs database migrations while starting. PostgreSQL may still be
-recovering briefly after a host or Docker daemon restart. The application
-retries transient PostgreSQL startup and connection errors with bounded
-exponential backoff, then continues startup when the database is ready.
-Permanent errors such as invalid credentials, migration checksum mismatches,
-SQL errors, and incompatible data fail immediately.
-
-The Compose deployment also checks PostgreSQL readiness with both `pg_isready`
-and a simple SQL query. `depends_on: condition: service_healthy` helps order a
-fresh Compose start, but application-level retries are still required when
-Docker restores existing containers after a host restart.
-
-## Environment Variables
-
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes | - |
-| `REDIS_URL` | Redis connection string | Yes | - |
-| `PORT` | Server port | No | `8080` |
-| `GIN_MODE` | Gin framework mode (`debug`/`release`) | No | `release` |
+Use `docker-compose.local.yml` for local data directories that are easier to back up and migrate. To use an image from a private registry, set `SUB2API_IMAGE` before running Docker Compose; it overrides `tamakiramimy/sub2api-kiro:latest`. See [README.md](./README.md) for environment variables, upgrades, and operational commands.
 
 ## Supported Architectures
 
@@ -86,5 +38,5 @@ Docker restores existing containers after a host restart.
 
 ## Links
 
-- [GitHub Repository](https://github.com/weishaw/sub2api)
-- [Documentation](https://github.com/weishaw/sub2api#readme)
+- [GitHub Repository](https://github.com/tamakiramimy/sub2api-kiro)
+- [Deployment Guide](./README.md)

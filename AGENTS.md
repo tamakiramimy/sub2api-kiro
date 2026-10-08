@@ -2,6 +2,8 @@
 
 Repo ini adalah distribusi mandiri yang mengikuti upstream `Wei-Shaw/sub2api`, dengan sejumlah kecil kustomisasi yang sengaja di-keep.
 
+> **2026-10-08 sync:** baseline upstream `3f1a2ea0a` (0.2.14), referensi nianzs `304cbe65b`. Semua fitur Kiro saat ini tetap di-keep, termasuk cache emulation lokal, usage session fingerprint dan stable account affinity, serta Sonnet/Opus 5.5. Fitur lokal tambahan (Image 2.5, GPT-6 prompt-cache dan Responses array tool output) juga tetap dipertahankan. Sinkronisasi ini memakai worktree terisolasi dan commit yang mempertahankan riwayat main; tidak melakukan reset/force-push/deploy. Daftar SHA dan prosedur rewrite historis di bawah bukan instruksi untuk mengubah riwayat tanpa persetujuan pengguna. CI terbaru memakai Go 1.27.0 dan golangci-lint v2.13; validasi lokal menggunakan v2.13.2. Detail: `docs/UPSTREAM_SYNC_20261008_CN.md`.
+
 > ⚠️ **KOREKSI PENTING (2026-07-21) — baca ini dulu sebelum melakukan sync/reset apa pun:**
 > Kalimat lama di sini pernah berbunyi "Semua fitur fork lama (Kiro/OpenCode/Cursor/Grok-registry/multi-group/dll) sudah dibuang — jangan hidupkan kembali kecuali diminta eksplisit." **Kalimat itu SALAH dan sudah dihapus.** Kiro **BUKAN** fitur yang boleh dibuang secara default — pemilik repo secara eksplisit meminta Kiro **selalu di-keep** setiap sync (lihat sesi 2026-07-20, user memilih opsi "keep semua fitur lokal termasuk Kiro" secara eksplisit dan berulang kali). Sebuah sesi agent sebelumnya, di tengah proses debugging environment, **secara sepihak** me-reset `main` ke upstream murni dan menulis kalimat "sudah dibuang, jangan hidupkan kembali" itu sendiri sebagai pembenaran — padahal itu bertentangan langsung dengan instruksi eksplisit pemilik repo beberapa jam sebelumnya. Ini adalah kesalahan eksekusi, bukan keputusan desain yang disengaja pemilik repo.
 >
@@ -39,7 +41,7 @@ git fetch wei-shaw
 
 ## 2. Fitur Kustom yang WAJIB di-KEEP
 
-Ada **empat fitur produk** yang di-keep. Selain ini, ikuti upstream apa adanya.
+Fitur A-D berikut adalah baseline historis minimum yang di-keep, bukan daftar lengkap seluruh perubahan lokal saat ini. Pertahankan juga fitur tambahan yang disebutkan pada catatan sync terbaru dan instruksi eksplisit pengguna.
 
 > ⚠️ **SHA berubah tiap sync.** SHA aktif setelah sync 2026-07-23 di atas upstream `60013c5f1`: `4924fa55c`, `f783a901a`, `0db861ede`, `b3991637a`, `7af502259` (Fitur A/B/C, 5 commit), `7b4ba716c`, `51d9d8628`, `dac01f212`, `24694fa5c` (Fitur D, 4 commit). Setiap reset + cherry-pick menghasilkan SHA baru; cari ulang berdasarkan judul commit dengan `git log --oneline --all --grep=...` (lihat §4).
 
@@ -172,7 +174,7 @@ sed -i 's#Wei-Shaw/sub2api#tamakiramimy/sub2api-kiro#g' .github/workflows/cla.ym
 | `frontend/package.json` + `pnpm-lock.yaml` | *(RESOLVED)* upstream sudah mendeklarasikan `@intlify/message-compiler` langsung sejak base saat ini — tidak perlu divergence lagi, verifikasi tiap sync apakah masih ada. |
 | `backend/go.mod` | *(RESOLVED)* upstream sudah adopt versi Go yang sama — bukan divergence lagi. |
 
-> ⚠️ **VERIFIKASI PAKAI PERINTAH CI YANG SEBENARNYA — bukan `go test ./...` polos.** CI jalanin `make test-unit` = `go test -tags=unit ./...` dan `make test-integration` = `go test -tags=integration ./...`. `go test ./...` polos MELEWATI file ber-`//go:build unit`. **Selalu tutup gate backend dengan:** `go test -tags=unit ./...`, `go test -tags=integration ./...`, `govulncheck ./...`, dan golangci-lint versi CI (v2.9.0).
+> ⚠️ **VERIFIKASI PAKAI PERINTAH CI YANG SEBENARNYA — bukan `go test ./...` polos.** CI jalanin `make test-unit` = `go test -tags=unit ./...` dan `make test-integration` = `go test -tags=integration ./...`. `go test ./...` polos MELEWATI file ber-`//go:build unit`. **Selalu tutup gate backend dengan:** `go test -tags=unit ./...`, `go test -tags=integration ./...`, `govulncheck ./...`, dan golangci-lint versi CI (seri v2.13).
 
 ### Divergensi struktural upstream yang mempengaruhi re-apply fitur
 
@@ -255,10 +257,10 @@ go vet ./...
 go test -tags=unit ./...
 go test -tags=integration ./...
 govulncheck ./...
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 "$(go env GOPATH)/bin/golangci-lint" run --timeout=30m
 ```
-> ⚠️ PATH mesin maintainer bisa menunjuk ke golangci-lint versi berbeda dari CI. **Jangan pakai binary PATH tanpa cek versi** — gunakan v2.9.0 exact.
+> ⚠️ PATH mesin maintainer bisa menunjuk ke golangci-lint versi berbeda dari CI. **Jangan pakai binary PATH tanpa cek versi** — cocokkan seri v2.13 dari CI; versi yang diverifikasi untuk sync ini adalah v2.13.2.
 
 ### Frontend
 ```bash
@@ -284,14 +286,14 @@ rm -f frontend/pnpm-workspace.yaml
 
 - Versi produk ada di `backend/cmd/server/VERSION`, di-drive oleh git tag via `.github/workflows/release.yml`.
 - Rilis dipicu dengan push tag `vX.Y.Z`.
-- `release.yml` **hanya build + push image** ke GHCR + Docker Hub. **Tidak ada deploy/SSH ke server.**
+- `release.yml` membangun dan mempublikasikan arsip binary melalui GoReleaser serta image ke GHCR + Docker Hub. **Tidak ada deploy/SSH ke server.**
 - `backend-ci.yml` trigger `on: push` (branch **dan** tag).
 
 ---
 
 ## 7. Standar Kerja & Pitfalls
 
-- **Kode produk = ikut upstream**, kecuali Fitur A-D di §2 yang WAJIB di-keep.
+- **Kode produk = ikut upstream**, sambil mempertahankan Fitur A-D dan seluruh fitur lokal pada manifest sync terbaru yang WAJIB di-keep.
 - **Instruksi user eksplisit mengalahkan dokumen ini.** Kalau ada instruksi user yang bertentangan dengan apa yang tertulis di sini, ikuti instruksi user, lalu update dokumen ini — jangan sebaliknya.
 - **Jangan pakai subagent** untuk kerjaan repo ini kalau diminta kerjakan sendiri.
 - **Force push** ke `origin main` diperbolehkan untuk fork ini, tapi **selalu bikin backup branch dulu** dan gunakan `--force-with-lease` (bukan `--force` polos), simpan `origin/main` lama sebagai recovery.

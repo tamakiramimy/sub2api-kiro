@@ -11,6 +11,15 @@ import (
 
 func TestAccountKiroDefaultMappingRestrictsUnsupportedModels(t *testing.T) {
 	account := &Account{Platform: PlatformKiro}
+	for _, model := range []string{"claude-opus-5-5", "claude-opus-5.5", "claude-opus-5-5-thinking", " CLAUDE-OPUS-5.5-THINKING ", "claude-sonnet-5-5", "claude-sonnet-5.5", "claude-sonnet-5-5-thinking", " CLAUDE-SONNET-5.5-THINKING "} {
+		require.True(t, account.IsModelSupported(model), model)
+		require.Contains(t, []string{"claude-opus-5.5", "claude-sonnet-5.5"}, account.GetMappedModel(model))
+	}
+	restricted := &Account{Platform: PlatformKiro, Credentials: map[string]any{"model_mapping": map[string]any{"claude-sonnet-4-6": "claude-sonnet-4.6"}}}
+	for _, model := range []string{"claude-opus-5-5", "claude-opus-5.5-thinking", "claude-sonnet-5-5", "claude-sonnet-5.5-thinking"} {
+		require.False(t, restricted.IsModelSupported(model), model)
+	}
+	require.Len(t, restricted.GetModelMapping(), 1)
 
 	require.False(t, account.IsModelSupported("gpt-4o"))
 	require.False(t, account.IsModelSupported("kiro-gpt-4o"))

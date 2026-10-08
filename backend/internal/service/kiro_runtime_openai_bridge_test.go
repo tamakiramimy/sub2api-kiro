@@ -24,6 +24,54 @@ import (
 // canned response through httpUpstreamRecorder without touching the network.
 // This mirrors internal/kiro/translator_test.go's buildEventStreamFrame (kept
 // as a separate copy here because it is unexported in another package).
+func TestKiroClaude55RejectsForcedToolsAcrossProtocols(t *testing.T) {
+	for _, model := range []string{"claude-sonnet-5-5", "claude-opus-5-5"} {
+		for _, protocol := range []string{"messages", "responses", "chat_completions"} {
+			t.Run(model+"/"+protocol, func(t *testing.T) {
+				recorder := httptest.NewRecorder()
+				ginContext, _ := gin.CreateTestContext(recorder)
+				ginContext.Request = httptest.NewRequest(http.MethodPost, "/v1/"+protocol, nil)
+				schema := map[string]any{"type": "object", "properties": map[string]any{}}
+				request := map[string]any{"model": model, "messages": []map[string]string{{"role": "user", "content": "hello"}}}
+				switch protocol {
+				case "messages":
+					request["tool_choice"] = map[string]string{"type": "any"}
+					request["tools"] = []map[string]any{{"name": "lookup", "input_schema": schema}}
+				case "responses":
+					request["input"] = "hello"
+					request["tool_choice"] = "required"
+					request["tools"] = []map[string]any{{"type": "function", "name": "lookup", "parameters": schema}}
+				case "chat_completions":
+					request["tool_choice"] = "required"
+					request["tools"] = []map[string]any{{"type": "function", "function": map[string]any{"name": "lookup", "parameters": schema}}}
+				}
+				body, err := json.Marshal(request)
+				require.NoError(t, err)
+				svc := &GatewayService{}
+				account := &Account{Platform: PlatformKiro, Type: AccountTypeOAuth}
+				switch protocol {
+				case "messages":
+					parsed, parseErr := ParseGatewayRequest(NewRequestBodyRef(body), "anthropic")
+					require.NoError(t, parseErr)
+					_, err = svc.forwardKiroMessages(t.Context(), ginContext, account, parsed, time.Now())
+				case "responses":
+					_, err = svc.forwardKiroAsResponses(t.Context(), ginContext, account, body, nil, time.Now())
+				case "chat_completions":
+					_, err = svc.forwardKiroAsChatCompletions(t.Context(), ginContext, account, body, nil, time.Now())
+				}
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "forced tool_choice")
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+				errorField := "error.type"
+				if protocol == "responses" {
+					errorField = "error.code"
+				}
+				require.Equal(t, "invalid_request_error", gjson.GetBytes(recorder.Body.Bytes(), errorField).String())
+			})
+		}
+	}
+}
+
 func buildKiroBridgeEventStreamFrame(t *testing.T, eventType string, payload any) []byte {
 	t.Helper()
 	payloadBytes, err := json.Marshal(payload)

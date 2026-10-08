@@ -12,6 +12,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
+	kiropkg "github.com/Wei-Shaw/sub2api/internal/kiro"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	dbmigrations "github.com/Wei-Shaw/sub2api/migrations"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,8 @@ func TestUserPlatformQuotaRepository_KiroMigrationPreservesPlatforms(t *testing.
 	tx := testTx(t)
 	migrationSQL, err := dbmigrations.FS.ReadFile("241_user_platform_quotas_add_kiro.sql")
 	require.NoError(t, err)
-	_, err = tx.ExecContext(ctx, string(migrationSQL))
+	executableSQL := kiropkg.AdaptPlatformQuotaMigrationSQL("241_user_platform_quotas_add_kiro.sql", string(migrationSQL))
+	_, err = tx.ExecContext(ctx, executableSQL)
 	require.NoError(t, err)
 	var userID int64
 	require.NoError(t, tx.QueryRowContext(ctx,
@@ -34,7 +36,7 @@ func TestUserPlatformQuotaRepository_KiroMigrationPreservesPlatforms(t *testing.
 			userID, platform)
 		require.NoError(t, err, platform)
 	}
-	_, err = tx.ExecContext(ctx, string(migrationSQL))
+	_, err = tx.ExecContext(ctx, executableSQL)
 	require.NoError(t, err)
 	var count int
 	require.NoError(t, tx.QueryRowContext(ctx,

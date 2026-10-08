@@ -12,11 +12,11 @@ func TestDefaultModels_MatchesKiroReferenceModelsPlusGPTExtension(t *testing.T) 
 		ids = append(ids, model.ID)
 	}
 
-	// 基线为经过真实 Kiro 上游验证的 Claude 模型，加上 Kiro 近期新增的 3 个
-	// OpenAI GPT-5.6 代理模型（sol/terra/luna）。Sonnet 5 的 Kiro modelId
-	// 是 claude-sonnet-5，Opus 5 的 Kiro modelId 是 claude-opus-5；两者同时
-	// 对外暴露 canonical ID 与 -0 兼容别名。
 	require.Equal(t, []string{
+		"claude-opus-5-5",
+		"claude-opus-5-5-thinking",
+		"claude-sonnet-5-5",
+		"claude-sonnet-5-5-thinking",
 		"claude-opus-5",
 		"claude-opus-5-thinking",
 		"claude-opus-5-0",

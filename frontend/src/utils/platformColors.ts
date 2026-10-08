@@ -18,6 +18,7 @@ export type Platform =
   | 'deepseek'
   | 'minimax'
   | 'opencode_go'
+  | 'typesafe'
   | 'composite'
   | 'kiro'
 
@@ -33,6 +34,7 @@ const BADGE: Record<Platform, string> = {
   deepseek: 'bg-teal-500/10 text-teal-600 border-teal-500/30 dark:text-teal-400',
   minimax: 'bg-rose-500/10 text-rose-600 border-rose-500/30 dark:text-rose-400',
   opencode_go: 'bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-300',
+  typesafe: 'bg-sky-500/10 text-sky-700 border-sky-500/30 dark:text-sky-300',
   composite: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/30 dark:text-cyan-300',
   kiro: kiroColors.badge,
 }
@@ -50,6 +52,7 @@ const BADGE_LIGHT: Record<Platform, string> = {
   deepseek: 'bg-teal-500/10 text-teal-600 dark:bg-teal-500/10 dark:text-teal-300',
   minimax: 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300',
   opencode_go: 'bg-amber-500/10 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
+  typesafe: 'bg-sky-500/10 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300',
   composite: 'bg-cyan-500/10 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300',
   kiro: kiroColors.badgeLight,
 }
@@ -66,6 +69,7 @@ const BORDER: Record<Platform, string> = {
   deepseek: 'border-teal-500/20 dark:border-teal-500/20',
   minimax: 'border-rose-500/20 dark:border-rose-500/20',
   opencode_go: 'border-amber-500/20 dark:border-amber-500/20',
+  typesafe: 'border-sky-500/20 dark:border-sky-500/20',
   composite: 'border-cyan-500/20 dark:border-cyan-500/20',
   kiro: kiroColors.border,
 }
@@ -83,6 +87,7 @@ const BORDER_STRONG: Record<Platform, string> = {
   deepseek: 'border-teal-500/35 dark:border-teal-500/30',
   minimax: 'border-rose-500/35 dark:border-rose-500/30',
   opencode_go: 'border-amber-500/35 dark:border-amber-500/30',
+  typesafe: 'border-sky-500/35 dark:border-sky-500/30',
   composite: 'border-cyan-500/35 dark:border-cyan-500/30',
   kiro: kiroColors.borderStrong,
 }
@@ -101,6 +106,7 @@ const ACCENT: Record<Platform, string> = {
   deepseek: '#14b8a6', // teal-500
   minimax: '#f43f5e', // rose-500
   opencode_go: '#f59e0b', // amber-500
+  typesafe: '#0ea5e9', // sky-500
   composite: '#06b6d4', // cyan-500
   kiro: kiroColors.accent,
 }
@@ -118,6 +124,7 @@ const ACCENT_BAR: Record<Platform, string> = {
   deepseek: 'bg-gradient-to-r from-teal-400 to-teal-500',
   minimax: 'bg-gradient-to-r from-rose-400 to-rose-500',
   opencode_go: 'bg-gradient-to-r from-amber-400 to-amber-500',
+  typesafe: 'bg-gradient-to-r from-sky-400 to-sky-500',
   composite: 'bg-gradient-to-r from-slate-500 to-cyan-500',
   kiro: kiroColors.accentBar,
 }
@@ -135,6 +142,7 @@ const TEXT: Record<Platform, string> = {
   deepseek: 'text-teal-600 dark:text-teal-400',
   minimax: 'text-rose-600 dark:text-rose-400',
   opencode_go: 'text-amber-700 dark:text-amber-300',
+  typesafe: 'text-sky-700 dark:text-sky-300',
   composite: 'text-cyan-700 dark:text-cyan-300',
   kiro: kiroColors.text,
 }
@@ -152,6 +160,7 @@ const ICON: Record<Platform, string> = {
   deepseek: 'text-teal-500 dark:text-teal-400',
   minimax: 'text-rose-500 dark:text-rose-400',
   opencode_go: 'text-amber-500 dark:text-amber-300',
+  typesafe: 'text-sky-500 dark:text-sky-300',
   composite: 'text-cyan-600 dark:text-cyan-300',
   kiro: kiroColors.icon,
 }
@@ -169,6 +178,7 @@ const BUTTON: Record<Platform, string> = {
   deepseek: 'bg-teal-500 text-white hover:bg-teal-600 active:bg-teal-700 dark:bg-teal-500/80 dark:hover:bg-teal-500',
   minimax: 'bg-rose-500 text-white hover:bg-rose-600 active:bg-rose-700 dark:bg-rose-500/80 dark:hover:bg-rose-500',
   opencode_go: 'bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700 dark:bg-amber-500/80 dark:hover:bg-amber-500',
+  typesafe: 'bg-sky-600 text-white hover:bg-sky-700 active:bg-sky-800 dark:bg-sky-600/80 dark:hover:bg-sky-600',
   composite: 'bg-cyan-700 text-white hover:bg-cyan-800 active:bg-cyan-900 dark:bg-cyan-600 dark:hover:bg-cyan-500',
   kiro: kiroColors.button,
 }
@@ -186,6 +196,7 @@ const DISCOUNT: Record<Platform, string> = {
   deepseek: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',
   minimax: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
   opencode_go: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+  typesafe: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300',
   composite: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
   kiro: kiroColors.discount,
 }
@@ -203,6 +214,7 @@ const GRADIENT: Record<Platform, string> = {
   deepseek: 'from-teal-500 to-teal-600',
   minimax: 'from-rose-500 to-rose-600',
   opencode_go: 'from-amber-500 to-amber-600',
+  typesafe: 'from-sky-500 to-sky-600',
   composite: 'from-slate-600 to-cyan-600',
   kiro: kiroColors.gradient,
 }
@@ -220,6 +232,7 @@ const GRADIENT_TEXT: Record<Platform, string> = {
   deepseek: 'text-teal-100',
   minimax: 'text-rose-100',
   opencode_go: 'text-amber-100',
+  typesafe: 'text-sky-100',
   composite: 'text-cyan-100',
   kiro: kiroColors.gradientText,
 }
@@ -236,6 +249,7 @@ const GRADIENT_SUBTEXT: Record<Platform, string> = {
   deepseek: 'text-teal-200',
   minimax: 'text-rose-200',
   opencode_go: 'text-amber-200',
+  typesafe: 'text-sky-200',
   composite: 'text-cyan-200',
   kiro: kiroColors.gradientSubtext,
 }
@@ -255,6 +269,7 @@ function isPlatform(p: string): p is Platform {
     p === 'deepseek' ||
     p === 'minimax' ||
     p === 'opencode_go' ||
+    p === 'typesafe' ||
     p === 'composite' ||
     p === 'kiro'
   )
@@ -324,6 +339,7 @@ export function platformLabel(p: string): string {
     case 'deepseek': return 'DeepSeek'
     case 'minimax': return 'MiniMax'
     case 'opencode_go': return 'OpenCode'
+    case 'typesafe': return 'TypeSafe / Jev'
     case 'composite': return 'Composite'
     case 'kiro': return 'Kiro'
     default: return p || 'API'

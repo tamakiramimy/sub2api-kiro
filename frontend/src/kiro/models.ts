@@ -1,5 +1,9 @@
 /** Kiro 默认模型映射；其键同时是白名单、分组和 API Key 对外可见的模型目录。 */
 const kiroDefaultMappings: Array<{ from: string; to: string }> = [
+  { from: 'claude-opus-5-5', to: 'claude-opus-5.5' },
+  { from: 'claude-opus-5-5-thinking', to: 'claude-opus-5.5' },
+  { from: 'claude-sonnet-5-5', to: 'claude-sonnet-5.5' },
+  { from: 'claude-sonnet-5-5-thinking', to: 'claude-sonnet-5.5' },
   { from: 'claude-opus-5', to: 'claude-opus-5' },
   { from: 'claude-opus-5-thinking', to: 'claude-opus-5' },
   { from: 'claude-opus-5-0', to: 'claude-opus-5' },

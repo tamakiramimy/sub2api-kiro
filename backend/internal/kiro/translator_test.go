@@ -63,6 +63,54 @@ func TestBuildKiroPayloadBasic(t *testing.T) {
 	require.Equal(t, "I will follow these instructions.", gjson.GetBytes(payload, "conversationState.history.1.assistantResponseMessage.content").String())
 }
 
+func TestBuildKiroPayloadModelOutputLimits(t *testing.T) {
+	for _, testCase := range []struct {
+		model     string
+		maxTokens int
+		want      int64
+	}{
+		{"claude-sonnet-5-5", -1, 128000},
+		{"claude-opus-5-5-thinking", -1, 128000},
+		{"claude-sonnet-5.5-thinking", 1024, 1024},
+		{"claude-opus-5.5", 128001, 128000},
+		{"claude-sonnet-5", -1, 32000},
+		{"claude-opus-4-8", 64000, 64000},
+	} {
+		t.Run(fmt.Sprintf("%s/%d", testCase.model, testCase.maxTokens), func(t *testing.T) {
+			body := []byte(fmt.Sprintf(`{"model":%q,"max_tokens":%d,"messages":[{"role":"user","content":"hello"}]}`, testCase.model, testCase.maxTokens))
+			result, err := BuildKiroPayloadWithContext(body, MapModel(testCase.model), "", "AI_EDITOR", nil)
+			require.NoError(t, err)
+			require.Equal(t, testCase.want, gjson.GetBytes(result.Payload, "inferenceConfig.maxTokens").Int())
+			require.Equal(t, MapModel(testCase.model), gjson.GetBytes(result.Payload, "conversationState.currentMessage.userInputMessage.modelId").String())
+		})
+	}
+}
+
+func TestBuildKiroPayloadClaude55AdaptiveFields(t *testing.T) {
+	for _, model := range []string{"claude-sonnet-5-5", "claude-opus-5-5"} {
+		t.Run(model, func(t *testing.T) {
+			body := []byte(fmt.Sprintf(`{"model":%q,"thinking":{"type":"adaptive"},"output_config":{"effort":"low"},"messages":[{"role":"user","content":"hello"}]}`, model))
+			result, err := BuildKiroPayloadWithContext(body, MapModel(model), "", "AI_EDITOR", nil)
+			require.NoError(t, err)
+			require.True(t, result.Context.ThinkingEnabled)
+			require.Equal(t, "adaptive", gjson.GetBytes(result.Payload, "additionalModelRequestFields.thinking.type").String())
+			require.Equal(t, "summarized", gjson.GetBytes(result.Payload, "additionalModelRequestFields.thinking.display").String())
+			require.Equal(t, "low", gjson.GetBytes(result.Payload, "additionalModelRequestFields.output_config.effort").String())
+			body = []byte(fmt.Sprintf(`{"model":%q,"output_config":{"effort":"low"},"messages":[{"role":"user","content":"hello"}]}`, model+"-thinking"))
+			result, err = BuildKiroPayloadWithContext(body, MapModel(model), "", "AI_EDITOR", nil)
+			require.NoError(t, err)
+			require.Equal(t, "low", gjson.GetBytes(result.Payload, "additionalModelRequestFields.output_config.effort").String())
+			body = []byte(fmt.Sprintf(`{"model":%q,"messages":[{"role":"user","content":"hello"}]}`, model))
+			result, err = BuildKiroPayloadWithContext(body, MapModel(model), "", "AI_EDITOR", nil)
+			require.NoError(t, err)
+			require.False(t, result.Context.ThinkingEnabled)
+			require.False(t, gjson.GetBytes(result.Payload, "additionalModelRequestFields").Exists())
+		})
+	}
+	require.Nil(t, buildAdditionalModelRequestFields(&thinkingDirective{Mode: "adaptive", Effort: "high"}, "gpt-5.6-sol"))
+	require.Nil(t, buildAdditionalModelRequestFields(&thinkingDirective{Mode: "adaptive", Effort: "high"}, "claude-opus-4.6"))
+}
+
 func TestBuildKiroTemporalContextDefaultIsEmpty(t *testing.T) {
 	t.Setenv("SUB2API_KIRO_TIME_CONTEXT", "")
 
@@ -1735,6 +1783,14 @@ func TestMapModel_MatchesKiroReferenceMapping(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]string{
+		"claude-opus-5-5":                     "claude-opus-5.5",
+		"claude-opus-5-5-thinking":            "claude-opus-5.5",
+		"claude-opus-5.5":                     "claude-opus-5.5",
+		" CLAUDE-OPUS-5.5-THINKING ":          "claude-opus-5.5",
+		"claude-sonnet-5-5":                   "claude-sonnet-5.5",
+		"claude-sonnet-5-5-thinking":          "claude-sonnet-5.5",
+		"claude-sonnet-5.5":                   "claude-sonnet-5.5",
+		" CLAUDE-SONNET-5.5-THINKING ":        "claude-sonnet-5.5",
 		"claude-opus-5-0":                     "claude-opus-5",
 		"claude-opus-5-0-thinking":            "claude-opus-5",
 		"claude-opus-5.0":                     "claude-opus-5",

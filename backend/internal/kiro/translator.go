@@ -110,9 +110,10 @@ type KiroBuildResult struct {
 }
 
 type KiroPayload struct {
-	ConversationState KiroConversationState `json:"conversationState"`
-	ProfileArn        string                `json:"profileArn,omitempty"`
-	InferenceConfig   *KiroInferenceConfig  `json:"inferenceConfig,omitempty"`
+	ConversationState            KiroConversationState `json:"conversationState"`
+	ProfileArn                   string                `json:"profileArn,omitempty"`
+	InferenceConfig              *KiroInferenceConfig  `json:"inferenceConfig,omitempty"`
+	AdditionalModelRequestFields map[string]any        `json:"additionalModelRequestFields,omitempty"`
 }
 
 type KiroInferenceConfig struct {
@@ -260,6 +261,10 @@ type kiroSemanticEvent struct {
 
 func MapModel(model string) string {
 	switch strings.TrimSpace(strings.ToLower(model)) {
+	case "claude-opus-5-5", "claude-opus-5-5-thinking", "claude-opus-5.5", "claude-opus-5.5-thinking":
+		return "claude-opus-5.5"
+	case "claude-sonnet-5-5", "claude-sonnet-5-5-thinking", "claude-sonnet-5.5", "claude-sonnet-5.5-thinking":
+		return "claude-sonnet-5.5"
 	case "claude-opus-5-0", "claude-opus-5-0-thinking", "claude-opus-5.0", "claude-opus-5", "claude-opus-5-thinking":
 		return "claude-opus-5"
 	case "claude-opus-4-7", "claude-opus-4-7-thinking", "claude-opus-4.7":
@@ -333,13 +338,16 @@ func BuildKiroPayloadWithContinuation(claudeBody []byte, modelID, profileArn, or
 }
 
 func buildKiroPayload(claudeBody []byte, modelID, profileArn, origin string, headers http.Header) (*KiroBuildResult, error) {
-	const kiroMaxOutputTokens = 32000
+	outputCap := kiroMaxOutputTokensForModel(modelID)
 	requestCtx := KiroRequestContext{ToolNameMap: map[string]string{}}
 	var maxTokens int64
 	if mt := gjson.GetBytes(claudeBody, "max_tokens"); mt.Exists() {
 		maxTokens = mt.Int()
 		if maxTokens == -1 {
-			maxTokens = kiroMaxOutputTokens
+			maxTokens = int64(outputCap)
+		}
+		if outputCap == 128000 && maxTokens > int64(outputCap) {
+			maxTokens = int64(outputCap)
 		}
 	}
 
@@ -432,8 +440,9 @@ func buildKiroPayload(claudeBody []byte, modelID, profileArn, origin string, hea
 			CurrentMessage:  currentMessage,
 			History:         history,
 		},
-		ProfileArn:      profileArn,
-		InferenceConfig: inferenceConfig,
+		ProfileArn:                   profileArn,
+		InferenceConfig:              inferenceConfig,
+		AdditionalModelRequestFields: buildAdditionalModelRequestFields(thinking, modelID),
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -1206,6 +1215,9 @@ func extractInlineSystemPrompts(messages gjson.Result) (string, []gjson.Result) 
 
 func deriveThinkingDirective(body []byte, headers http.Header) *thinkingDirective {
 	if override := thinkingDirectiveFromModel(gjson.GetBytes(body, "model").String()); override != nil {
+		if effort := strings.TrimSpace(gjson.GetBytes(body, "output_config.effort").String()); override.Mode == "adaptive" && effort != "" {
+			override.Effort = effort
+		}
 		return override
 	}
 	switch thinkingType := strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "thinking.type").String())); thinkingType {
@@ -1248,6 +1260,8 @@ func thinkingDirectiveFromModel(model string) *thinkingDirective {
 	}
 
 	switch normalizeModelAlias(model) {
+	case "claude-opus-5-5", "claude-opus-5.5", "claude-sonnet-5-5", "claude-sonnet-5.5":
+		return &thinkingDirective{Mode: "adaptive", BudgetTokens: 20000, Effort: "high"}
 	case "claude-opus-4-6", "claude-opus-4.6":
 		return &thinkingDirective{
 			Mode:         "adaptive",
@@ -1259,6 +1273,25 @@ func thinkingDirectiveFromModel(model string) *thinkingDirective {
 			Mode:         "enabled",
 			BudgetTokens: 20000,
 		}
+	}
+}
+
+func kiroMaxOutputTokensForModel(model string) int {
+	switch MapModel(model) {
+	case "claude-opus-5.5", "claude-sonnet-5.5":
+		return 128000
+	default:
+		return 32000
+	}
+}
+
+func buildAdditionalModelRequestFields(thinking *thinkingDirective, modelID string) map[string]any {
+	if thinking == nil || thinking.Mode != "adaptive" || kiroMaxOutputTokensForModel(modelID) != 128000 {
+		return nil
+	}
+	return map[string]any{
+		"thinking":      map[string]any{"type": "adaptive", "display": "summarized"},
+		"output_config": map[string]any{"effort": thinking.Effort},
 	}
 }
 

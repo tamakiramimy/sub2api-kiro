@@ -53,6 +53,13 @@ func (e *kiroHTTPErrorAsBridgeError) Error() string {
 	return fmt.Sprintf("kiro upstream error: %d %s", e.StatusCode, e.Message)
 }
 
+func (e *kiroHTTPErrorAsBridgeError) clientErrorType() string {
+	if e.StatusCode == http.StatusBadRequest {
+		return "invalid_request_error"
+	}
+	return "server_error"
+}
+
 // kiroAnthropicBridgeResult 是 bridgeKiroAsAnthropic 成功时的返回值：一个 Anthropic
 // 形状 SSE 的 resp，加上请求/映射后的模型名，供调用方选择 Responses 或
 // ChatCompletions 终端处理函数使用。
@@ -90,6 +97,9 @@ func (s *GatewayService) bridgeKiroAsAnthropic(
 	anthropicBody, err := json.Marshal(anthropicReq)
 	if err != nil {
 		return nil, fmt.Errorf("marshal anthropic request for kiro: %w", err)
+	}
+	if err := validateClaude55Request(anthropicBody, mappedModel); err != nil {
+		return nil, &kiroHTTPErrorAsBridgeError{&kiroHTTPErrorOutcome{StatusCode: http.StatusBadRequest, Message: err.Error()}}
 	}
 
 	kiroParsed, err := ParseGatewayRequest(NewRequestBodyRef(anthropicBody), domain.PlatformAnthropic)
@@ -163,6 +173,7 @@ func (s *GatewayService) forwardKiroAsResponses(
 
 	anthropicReq, err := apicompat.ResponsesToAnthropicRequest(&responsesReq)
 	if err != nil {
+		writeResponsesError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return nil, fmt.Errorf("convert responses to anthropic: %w", err)
 	}
 
@@ -174,7 +185,7 @@ func (s *GatewayService) forwardKiroAsResponses(
 		}
 		var bridgeErr *kiroHTTPErrorAsBridgeError
 		if errors.As(err, &bridgeErr) {
-			writeResponsesError(c, bridgeErr.StatusCode, "server_error", bridgeErr.Message)
+			writeResponsesError(c, bridgeErr.StatusCode, bridgeErr.clientErrorType(), bridgeErr.Message)
 			return nil, bridgeErr
 		}
 		writeResponsesError(c, http.StatusBadGateway, "server_error", "Upstream request failed")
@@ -208,15 +219,16 @@ func (s *GatewayService) forwardKiroAsChatCompletions(
 	}
 	originalModel := ccReq.Model
 	clientStream := ccReq.Stream
-	includeUsage := ccReq.StreamOptions != nil && ccReq.StreamOptions.IncludeUsage
 	reasoningEffort := extractCCReasoningEffortFromBody(body)
 
 	responsesReq, err := apicompat.ChatCompletionsToResponses(&ccReq)
 	if err != nil {
+		writeGatewayCCError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return nil, fmt.Errorf("convert chat completions to responses: %w", err)
 	}
 	anthropicReq, err := apicompat.ResponsesToAnthropicRequest(responsesReq)
 	if err != nil {
+		writeGatewayCCError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return nil, fmt.Errorf("convert responses to anthropic: %w", err)
 	}
 
@@ -228,7 +240,7 @@ func (s *GatewayService) forwardKiroAsChatCompletions(
 		}
 		var bridgeErr *kiroHTTPErrorAsBridgeError
 		if errors.As(err, &bridgeErr) {
-			writeGatewayCCError(c, bridgeErr.StatusCode, "server_error", bridgeErr.Message)
+			writeGatewayCCError(c, bridgeErr.StatusCode, bridgeErr.clientErrorType(), bridgeErr.Message)
 			return nil, bridgeErr
 		}
 		writeGatewayCCError(c, http.StatusBadGateway, "server_error", "Upstream request failed")
@@ -237,7 +249,7 @@ func (s *GatewayService) forwardKiroAsChatCompletions(
 	defer func() { _ = bridge.Resp.Body.Close() }()
 
 	if clientStream {
-		return s.handleCCStreamingFromAnthropic(bridge.Resp, c, originalModel, bridge.MappedModel, reasoningEffort, startTime, includeUsage)
+		return s.handleCCStreamingFromAnthropic(bridge.Resp, c, originalModel, bridge.MappedModel, reasoningEffort, startTime)
 	}
 	return s.handleCCBufferedFromAnthropic(bridge.Resp, c, originalModel, bridge.MappedModel, reasoningEffort, startTime)
 }

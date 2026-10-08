@@ -78,6 +78,10 @@ func (s *GatewayService) forwardKiroMessages(ctx context.Context, c *gin.Context
 	if mappedModel != originalModel {
 		body = s.replaceModelInBody(body, mappedModel)
 	}
+	if err := validateClaude55Request(body, mappedModel); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"type": "error", "error": gin.H{"type": "invalid_request_error", "message": err.Error()}})
+		return nil, err
+	}
 	logger.L().Debug("gateway forward_kiro_messages: request prepared",
 		zap.Int64("account_id", account.ID),
 		zap.String("auth_method", strings.TrimSpace(account.GetCredential("auth_method"))),
@@ -157,7 +161,7 @@ func (s *GatewayService) forwardKiroMessages(ctx context.Context, c *gin.Context
 	if err != nil {
 		return nil, err
 	}
-	if tokenType != "oauth" && !(account.Type == AccountTypeAPIKey && tokenType == "apikey") {
+	if tokenType != "oauth" && (account.Type != AccountTypeAPIKey || tokenType != "apikey") {
 		return nil, fmt.Errorf("kiro requires oauth or direct api key token, got %s", tokenType)
 	}
 	if isOnlyWebSearchToolInBody(body) {
@@ -276,7 +280,7 @@ func (s *GatewayService) openKiroAnthropicStreamResponse(ctx context.Context, ac
 	if err != nil {
 		return nil, 0, err
 	}
-	if tokenType != "oauth" && !(account.Type == AccountTypeAPIKey && tokenType == "apikey") {
+	if tokenType != "oauth" && (account.Type != AccountTypeAPIKey || tokenType != "apikey") {
 		return nil, 0, fmt.Errorf("kiro requires oauth or direct api key token, got %s", tokenType)
 	}
 

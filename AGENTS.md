@@ -151,20 +151,22 @@ OpenAI `/v1/responses` upstream punya **request-level hard guard** untuk harmony
 
 ## 3. Kebijakan `.github/` — IKUT UPSTREAM, keep hanya divergence minimal
 
-**Kebijakan aktif:** `.github/` workflow **ikut versi upstream terbaru**, dengan dua divergence yang di-keep: referensi repo `tamakiramimy/sub2api-kiro` di `cla.yml`, dan `continue-on-error: true` pada step `Update DockerHub description` di `release.yml`. Selebihnya ikut upstream apa adanya.
+**Kebijakan aktif:** `.github/` workflow **ikut versi upstream terbaru**, dengan divergence minimal: referensi repo `tamakiramimy/sub2api-kiro` di `cla.yml`, `continue-on-error: true` pada step `Update DockerHub description`, serta nama image/paket yang diturunkan dari nama repositori saat ini. Selebihnya ikut upstream apa adanya.
 
 | File | Delta fork vs upstream | Alasan |
 |---|---|---|
 | `cla.yml` | 5 baris: `github.repository == 'tamakiramimy/sub2api-kiro'` (2×) + `path-to-document`/link CLA `github.com/tamakiramimy/sub2api-kiro` (3×) | Guard job CLA hanya jalan di repositori utama pemilik; link ke CLA.md repositori tersebut. |
-| `release.yml` | 1 baris: `continue-on-error: true` di step `Update DockerHub description` | Step itu bisa `403 Forbidden` (token perms) dan menandai job Release merah walau image sukses publish. |
+| `release.yml` | `continue-on-error: true` pada deskripsi DockerHub; nama repo dinamis pada deskripsi/notifikasi | Pertahankan publikasi ke `sub2api-kiro`, bukan image upstream `sub2api`; kegagalan deskripsi tidak membatalkan rilis. |
+| `.github/release-tools/release-images.sh` + test | Nama image diturunkan dari `GITHUB_REPOSITORY`; test mencakup fork | GHCR/DockerHub full release tetap AMD64+ARM64, termasuk manifest `latest`. |
 | **semua file `.github` lain** | **TIDAK ADA** — 100% ikut upstream | pnpm/golangci/step ikut upstream terbaru. |
 
 **Cara apply `.github` setelah reset ke upstream:**
 ```bash
 sed -i 's#Wei-Shaw/sub2api#tamakiramimy/sub2api-kiro#g' .github/workflows/cla.yml
 # + tambahkan 'continue-on-error: true' di bawah '- name: Update DockerHub description' di release.yml
+# + pertahankan nama image/paket dinamis dan test fork pada release helpers
 ```
-> ⚠️ **JANGAN** `git checkout <fork-backup> -- .github` — itu membawa balik divergence usang. Cukup reset-ke-upstream + sed cla.yml + 1 baris continue-on-error.
+> ⚠️ **JANGAN** `git checkout <fork-backup> -- .github` — itu membawa balik divergence usang. Re-apply hanya daftar divergence minimal di atas pada versi upstream terbaru, tanpa membuang penamaan image fork.
 
 ### Divergensi lain di luar `.github/`
 

@@ -165,12 +165,12 @@ class ReleaseMatrixTest(unittest.TestCase):
         docker = fake_bin / 'docker'
         docker.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$DOCKER_LOG"\n')
         docker.chmod(0o755)
-        for simple in (False, True):
-            with self.subTest(simple=simple):
-                log_path = Path(f'docker-{simple}.log').resolve()
+        for simple, image_name in ((False, 'sub2api'), (True, 'sub2api'), (False, 'sub2api-kiro')):
+            with self.subTest(simple=simple, image_name=image_name):
+                log_path = Path(f'docker-{simple}-{image_name}.log').resolve()
                 env = {**os.environ, 'PATH': str(fake_bin.resolve()) + os.pathsep + os.environ['PATH'],
                        'DOCKER_LOG': str(log_path), 'RUNNER_TEMP': self.temp.name,
-                       'RELEASE_VERSION': '9.8.7', 'RELEASE_SHA': 'a' * 40, 'GITHUB_REPOSITORY': 'ExampleOwner/sub2api',
+                       'RELEASE_VERSION': '9.8.7', 'RELEASE_SHA': 'a' * 40, 'GITHUB_REPOSITORY': f'ExampleOwner/{image_name}',
                        'DRY_RUN': 'false', 'SIMPLE_RELEASE': str(simple).lower(), 'DOCKERHUB_USERNAME': 'fixturehub'}
                 subprocess.run(['bash', str(ROOT / '.github/release-tools/release-images.sh')], env=env, check=True)
                 log = log_path.read_text()
@@ -182,8 +182,11 @@ class ReleaseMatrixTest(unittest.TestCase):
                     self.assertIn('ghcr.io/exampleowner/sub2api:latest', log)
                 else:
                     self.assertEqual(log.count('imagetools create'), 2)
-                    self.assertIn('fixturehub/sub2api:9.8', log)
-                    self.assertIn('ghcr.io/exampleowner/sub2api:9', log)
+                    self.assertIn(f'fixturehub/{image_name}:9.8', log)
+                    self.assertIn(f'ghcr.io/exampleowner/{image_name}:9', log)
+                    self.assertIn('linux/amd64', log)
+                    self.assertIn('linux/arm64', log)
+                    self.assertIn(f'fixturehub/{image_name}:latest', log)
 
 
 

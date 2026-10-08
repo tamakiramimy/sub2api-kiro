@@ -15,6 +15,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	kiropkg "github.com/Wei-Shaw/sub2api/internal/kiro"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
@@ -289,13 +290,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		UserAgent: c.GetHeader("User-Agent"),
 		APIKeyID:  apiKey.ID,
 	}
-	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
-
-	// [DEBUG-STICKY] 打印会话 hash 生成结果
-	reqLog.Info("sticky.session_hash_generated",
-		zap.String("session_hash", sessionHash),
-		zap.String("metadata_user_id_raw", parsedReq.MetadataUserID),
-	)
 
 	// 获取平台：优先使用强制平台（/antigravity 路由），其次使用 composite 解析出的目标平台，否则使用分组平台
 	platform := ""
@@ -306,6 +300,13 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	} else if apiKey.Group != nil {
 		platform = apiKey.Group.Platform
 	}
+	sessionHash := h.gatewayService.GenerateSessionHashForPlatform(parsedReq, platform)
+
+	// [DEBUG-STICKY] 打印会话 hash 生成结果
+	reqLog.Info("sticky.session_hash_generated",
+		zap.String("session_hash", sessionHash),
+		zap.String("metadata_user_id_raw", parsedReq.MetadataUserID),
+	)
 	sessionKey := sessionHash
 	if platform == service.PlatformGemini && sessionHash != "" {
 		sessionKey = "gemini:" + sessionHash
@@ -596,24 +597,29 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			forceCacheBilling := fs.ForceCacheBilling
 			quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 			sessionID := service.ExtractClientSessionID(c)
+			kiroSessionFingerprint := ""
+			if account.Platform == service.PlatformKiro {
+				kiroSessionFingerprint = h.gatewayService.KiroUsageSessionFingerprint(h.gatewayService.GenerateKiroSessionHash(parsedReq))
+			}
 			h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
-					Result:             result,
-					QuotaPlatform:      quotaPlatform,
-					APIKey:             apiKey,
-					User:               apiKey.User,
-					Account:            account,
-					Subscription:       subscription,
-					PricingAt:          pricingAt,
-					InboundEndpoint:    inboundEndpoint,
-					UpstreamEndpoint:   upstreamEndpoint,
-					UserAgent:          userAgent,
-					IPAddress:          clientIP,
-					SessionID:          sessionID,
-					RequestPayloadHash: requestPayloadHash,
-					ForceCacheBilling:  forceCacheBilling,
-					APIKeyService:      h.apiKeyService,
-					ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
+					Result:                 result,
+					QuotaPlatform:          quotaPlatform,
+					APIKey:                 apiKey,
+					User:                   apiKey.User,
+					Account:                account,
+					Subscription:           subscription,
+					PricingAt:              pricingAt,
+					InboundEndpoint:        inboundEndpoint,
+					UpstreamEndpoint:       upstreamEndpoint,
+					UserAgent:              userAgent,
+					IPAddress:              clientIP,
+					SessionID:              sessionID,
+					KiroSessionFingerprint: kiroSessionFingerprint,
+					RequestPayloadHash:     requestPayloadHash,
+					ForceCacheBilling:      forceCacheBilling,
+					APIKeyService:          h.apiKeyService,
+					ChannelUsageFields:     clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
 				}); err != nil {
 					logger.L().With(
 						zap.String("component", "handler.gateway.messages"),
@@ -962,24 +968,29 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				forceCacheBilling := fs.ForceCacheBilling
 				quotaPlatform := service.QuotaPlatform(c.Request.Context(), currentAPIKey)
 				sessionID := service.ExtractClientSessionID(c)
+				kiroSessionFingerprint := ""
+				if account.Platform == service.PlatformKiro {
+					kiroSessionFingerprint = h.gatewayService.KiroUsageSessionFingerprint(h.gatewayService.GenerateKiroSessionHash(attemptParsedReq))
+				}
 				h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 					if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
-						Result:             result,
-						QuotaPlatform:      quotaPlatform,
-						APIKey:             currentAPIKey,
-						User:               currentAPIKey.User,
-						Account:            account,
-						Subscription:       currentSubscription,
-						PricingAt:          pricingAt,
-						InboundEndpoint:    inboundEndpoint,
-						UpstreamEndpoint:   upstreamEndpoint,
-						UserAgent:          userAgent,
-						IPAddress:          clientIP,
-						SessionID:          sessionID,
-						RequestPayloadHash: requestPayloadHash,
-						ForceCacheBilling:  forceCacheBilling,
-						APIKeyService:      h.apiKeyService,
-						ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
+						Result:                 result,
+						QuotaPlatform:          quotaPlatform,
+						APIKey:                 currentAPIKey,
+						User:                   currentAPIKey.User,
+						Account:                account,
+						Subscription:           currentSubscription,
+						PricingAt:              pricingAt,
+						InboundEndpoint:        inboundEndpoint,
+						UpstreamEndpoint:       upstreamEndpoint,
+						UserAgent:              userAgent,
+						IPAddress:              clientIP,
+						SessionID:              sessionID,
+						KiroSessionFingerprint: kiroSessionFingerprint,
+						RequestPayloadHash:     requestPayloadHash,
+						ForceCacheBilling:      forceCacheBilling,
+						APIKeyService:          h.apiKeyService,
+						ChannelUsageFields:     clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
 					}); err != nil {
 						logger.L().With(
 							zap.String("component", "handler.gateway.messages"),
@@ -1212,6 +1223,13 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	}
 	if platform == service.PlatformTypeSafe {
 		writeModelsList(c, platform, []string{typesafe.JevLatestModel})
+		return
+	}
+	if platform == service.PlatformKiro {
+		c.JSON(http.StatusOK, gin.H{
+			"object": "list",
+			"data":   kiropkg.DefaultModels,
+		})
 		return
 	}
 
@@ -1504,6 +1522,12 @@ func defaultModelIDsForPlatform(platform string) []string {
 				seen[id] = struct{}{}
 				ids = append(ids, id)
 			}
+		}
+		return ids
+	case service.PlatformKiro:
+		ids := make([]string, 0, len(kiropkg.DefaultModels))
+		for _, model := range kiropkg.DefaultModels {
+			ids = append(ids, model.ID)
 		}
 		return ids
 	default:
@@ -2607,11 +2631,14 @@ func (h *GatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, 
 // getUserMsgQueueMode 获取当前请求的 UMQ 模式
 // 返回 "serialize" | "throttle" | ""
 func (h *GatewayHandler) getUserMsgQueueMode(account *service.Account, parsed *service.ParsedRequest) string {
-	if h.userMsgQueueHelper == nil {
+	if h.userMsgQueueHelper == nil || account == nil {
 		return ""
 	}
-	// 仅适用于 Anthropic OAuth/SetupToken 账号
-	if !account.IsAnthropicOAuthOrSetupToken() {
+	// Kiro OAuth 与 Anthropic OAuth/SetupToken 都需要避免同一账号的真实用户消息
+	// 并发重放；Kiro 的无状态重放在并发时会显著放大上游延迟。
+	isSupportedAccount := account.IsAnthropicOAuthOrSetupToken() ||
+		(account.Platform == service.PlatformKiro && account.Type == service.AccountTypeOAuth)
+	if !isSupportedAccount {
 		return ""
 	}
 	if !service.IsRealUserMessage(parsed) {

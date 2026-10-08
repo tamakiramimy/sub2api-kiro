@@ -607,6 +607,14 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 
 	// DeepSeek / Kimi 原生 Responses 端点为无状态实现（见 normalizeDeepSeekResponsesRequestBody）。
 	body = normalizeDeepSeekResponsesRequestBody(account, body)
+	// 与 buildUpstreamRequest 一致：中和 harmony `<|channel|>` 头，规避上游 invalid_prompt
+	// 硬拦截。透传路径有独立的上游请求构造点，故此处同样收口一次（默认开启）。
+	if s.cfg == nil || s.cfg.Gateway.NeutralizeHarmonyChannelToken {
+		if neutralized, changed := neutralizeOpenAIHarmonyChannelToken(body); changed {
+			body = neutralized
+			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Neutralized harmony <|channel|> token in passthrough request body (account: %s)", account.Name)
+		}
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if err != nil {
@@ -2074,8 +2082,10 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				// 再打 cyber 标记，否则 mark 记到的是解析前的 0，导致流式 cyber 按 0 token 计费
 				// 而漏记真实用量。对齐 WS V2 / Chat 流式路径（均先解析 usage 再 Mark）。
 				s.parseSSEUsageBytesWithType(dataBytes, eventType, usage)
+				cyberMarked := false
 				if hit, code, msg := detectOpenAICyberPolicy(dataBytes); hit {
 					cyberHit = true
+					cyberMarked = true
 					MarkOpsCyberPolicy(c, CyberPolicyMark{
 						Code:           code,
 						Message:        msg,
@@ -2134,6 +2144,17 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 							})
 							return resultWithUsage(), fmt.Errorf("upstream response failed: passthrough rule matched message=%s", errMsg)
 						}
+					}
+				}
+				// Layer 2 观测：到这里说明该 response.failed 既不是 cyber，也未命中透传规则、
+				// 且不 failover——即将原样透传给客户端后返回，当前不会写 ops_error_logs。
+				// 若 error.code=invalid_prompt（如 harmony `<|channel|>analysis` 伪造隐藏推理
+				// 通道被上游硬拦截），补记一条 ops 事件（kind=invalid_prompt），使该拦截在监控
+				// 可见、便于及早发现新拦截模式（如中和逻辑因护栏收紧而失效）。仅记录，不改变
+				// 既有透传/返回行为。cyber 已单独打标，避免重复记录。
+				if !cyberMarked {
+					if ipHit, _, ipMsg := detectOpenAIInvalidPrompt(dataBytes); ipHit {
+						s.recordOpenAIStreamUpstreamError(c, account, true, upstreamRequestID, "invalid_prompt", dataBytes, ipMsg)
 					}
 				}
 				forceFlushFailedEvent = true

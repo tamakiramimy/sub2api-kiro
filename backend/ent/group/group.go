@@ -148,6 +148,10 @@ const (
 	FieldProfitMinMargin = "profit_min_margin"
 	// FieldProfitSafetyBuffer holds the string denoting the profit_safety_buffer field in the database.
 	FieldProfitSafetyBuffer = "profit_safety_buffer"
+	// FieldKiroCacheEmulationEnabled holds the string denoting the kiro_cache_emulation_enabled field in the database.
+	FieldKiroCacheEmulationEnabled = "kiro_cache_emulation_enabled"
+	// FieldKiroCacheEmulationRatio holds the string denoting the kiro_cache_emulation_ratio field in the database.
+	FieldKiroCacheEmulationRatio = "kiro_cache_emulation_ratio"
 	// EdgeAPIKeys holds the string denoting the api_keys edge name in mutations.
 	EdgeAPIKeys = "api_keys"
 	// EdgeRedeemCodes holds the string denoting the redeem_codes edge name in mutations.
@@ -289,6 +293,8 @@ var Columns = []string{
 	FieldProfitControlEnabled,
 	FieldProfitMinMargin,
 	FieldProfitSafetyBuffer,
+	FieldKiroCacheEmulationEnabled,
+	FieldKiroCacheEmulationRatio,
 }
 
 var (
@@ -434,6 +440,10 @@ var (
 	DefaultProfitMinMargin float64
 	// DefaultProfitSafetyBuffer holds the default value on creation for the "profit_safety_buffer" field.
 	DefaultProfitSafetyBuffer float64
+	// DefaultKiroCacheEmulationEnabled holds the default value on creation for the "kiro_cache_emulation_enabled" field.
+	DefaultKiroCacheEmulationEnabled bool
+	// DefaultKiroCacheEmulationRatio holds the default value on creation for the "kiro_cache_emulation_ratio" field.
+	DefaultKiroCacheEmulationRatio float64
 )
 
 // OrderOption defines the ordering options for the Group queries.
@@ -732,6 +742,16 @@ func ByProfitMinMargin(opts ...sql.OrderTermOption) OrderOption {
 // ByProfitSafetyBuffer orders the results by the profit_safety_buffer field.
 func ByProfitSafetyBuffer(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProfitSafetyBuffer, opts...).ToFunc()
+}
+
+// ByKiroCacheEmulationEnabled orders the results by the kiro_cache_emulation_enabled field.
+func ByKiroCacheEmulationEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldKiroCacheEmulationEnabled, opts...).ToFunc()
+}
+
+// ByKiroCacheEmulationRatio orders the results by the kiro_cache_emulation_ratio field.
+func ByKiroCacheEmulationRatio(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldKiroCacheEmulationRatio, opts...).ToFunc()
 }
 
 // ByAPIKeysCount orders the results by api_keys count.

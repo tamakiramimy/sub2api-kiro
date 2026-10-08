@@ -169,13 +169,14 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	if parsedReq == nil {
 		parsedReq = &service.ParsedRequest{Model: reqModel, Stream: reqStream, Body: bodyRef}
 	}
+	parsedReq.GroupID = apiKey.GroupID
 	parsedReq.SessionContext = &service.SessionContext{
 		ClientIP:  ip.GetClientIP(c),
 		UserAgent: c.GetHeader("User-Agent"),
 		APIKeyID:  apiKey.ID,
 	}
-	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
 	groupPlatform := effectiveAPIKeyPlatform(c, apiKey)
+	sessionHash := h.gatewayService.GenerateSessionHashForPlatform(parsedReq, groupPlatform)
 	selectionSessionHash := sessionHash
 	if groupPlatform == service.PlatformGemini && selectionSessionHash != "" {
 		selectionSessionHash = "gemini:" + selectionSessionHash
@@ -359,24 +360,29 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 		sessionID := service.ExtractClientSessionID(c)
+		kiroSessionFingerprint := ""
+		if account.Platform == service.PlatformKiro {
+			kiroSessionFingerprint = h.gatewayService.KiroUsageSessionFingerprint(h.gatewayService.GenerateKiroSessionHash(parsedReq))
+		}
 		stampForwardRequestedReasoningEffort(result, service.RequestedReasoningEffortFromContext(c.Request.Context()))
 		h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
-				Result:             result,
-				QuotaPlatform:      quotaPlatform,
-				APIKey:             apiKey,
-				User:               apiKey.User,
-				Account:            account,
-				Subscription:       subscription,
-				PricingAt:          pricingAt,
-				InboundEndpoint:    inboundEndpoint,
-				UpstreamEndpoint:   upstreamEndpoint,
-				UserAgent:          userAgent,
-				IPAddress:          clientIP,
-				RequestPayloadHash: requestPayloadHash,
-				APIKeyService:      h.apiKeyService,
-				SessionID:          sessionID,
-				ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
+				Result:                 result,
+				QuotaPlatform:          quotaPlatform,
+				APIKey:                 apiKey,
+				User:                   apiKey.User,
+				Account:                account,
+				Subscription:           subscription,
+				PricingAt:              pricingAt,
+				InboundEndpoint:        inboundEndpoint,
+				UpstreamEndpoint:       upstreamEndpoint,
+				UserAgent:              userAgent,
+				IPAddress:              clientIP,
+				RequestPayloadHash:     requestPayloadHash,
+				APIKeyService:          h.apiKeyService,
+				SessionID:              sessionID,
+				KiroSessionFingerprint: kiroSessionFingerprint,
+				ChannelUsageFields:     clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
 			}); err != nil {
 				reqLog.Error("gateway.cc.record_usage_failed",
 					zap.Int64("account_id", account.ID),

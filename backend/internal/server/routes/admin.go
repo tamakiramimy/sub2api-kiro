@@ -64,6 +64,9 @@ func RegisterAdminRoutes(
 		// 国产供应商（kimi/zhipu/deepseek）额度与余额
 		registerCNProviderRoutes(admin, h)
 
+		// Kiro OAuth
+		registerKiroOAuthRoutes(admin, h)
+
 		// 代理管理
 		registerProxyRoutes(admin, h, stepUpAuth)
 
@@ -515,6 +518,17 @@ func registerCNProviderRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	}
 }
 
+func registerKiroOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	kiro := admin.Group("/kiro")
+	{
+		kiro.POST("/oauth/auth-url", h.Admin.KiroOAuth.GenerateAuthURL)
+		kiro.POST("/oauth/idc-auth-url", h.Admin.KiroOAuth.GenerateIDCAuthURL)
+		kiro.POST("/oauth/exchange-code", h.Admin.KiroOAuth.ExchangeCode)
+		kiro.POST("/oauth/refresh-token", h.Admin.KiroOAuth.RefreshToken)
+		kiro.POST("/oauth/import-token", h.Admin.KiroOAuth.ImportToken)
+	}
+}
+
 func registerProxyRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
 	proxies := admin.Group("/proxies")
 	{
@@ -595,6 +609,9 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		// 流超时处理配置
 		adminSettings.GET("/stream-timeout", h.Admin.Setting.GetStreamTimeoutSettings)
 		adminSettings.PUT("/stream-timeout", h.Admin.Setting.UpdateStreamTimeoutSettings)
+		adminSettings.GET("/stream-retry", h.Admin.Setting.GetStreamRetrySettings)
+		adminSettings.PUT("/stream-retry", h.Admin.Setting.UpdateStreamRetrySettings)
+		adminSettings.GET("/stream-retry/metrics", h.Admin.Setting.GetStreamRetryMetrics)
 		// 请求整流器配置
 		adminSettings.GET("/rectifier", h.Admin.Setting.GetRectifierSettings)
 		adminSettings.PUT("/rectifier", h.Admin.Setting.UpdateRectifierSettings)

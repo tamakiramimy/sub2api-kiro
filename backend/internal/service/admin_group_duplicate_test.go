@@ -182,6 +182,8 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 		MaxReasoningEffort:          "medium",
 		MaxReasoningEffortOverLimit: ReasoningEffortOverLimitDeny,
 		ReasoningEffortMappings:     []ReasoningEffortMapping{{From: "max", To: "xhigh"}},
+		KiroCacheEmulationEnabled:   true,
+		KiroCacheEmulationRatio:     0.65,
 		CreatedAt:                   createdAt,
 		UpdatedAt:                   createdAt,
 		AccountCount:                12,
@@ -222,6 +224,8 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 	require.Equal(t, source.MaxReasoningEffort, duplicate.MaxReasoningEffort)
 	require.Equal(t, source.MaxReasoningEffortOverLimit, duplicate.MaxReasoningEffortOverLimit)
 	require.Equal(t, source.ReasoningEffortMappings, duplicate.ReasoningEffortMappings)
+	require.Equal(t, source.KiroCacheEmulationEnabled, duplicate.KiroCacheEmulationEnabled)
+	require.Equal(t, source.KiroCacheEmulationRatio, duplicate.KiroCacheEmulationRatio)
 	require.EqualValues(t, 2, duplicate.AccountCount)
 	require.EqualValues(t, 2, duplicate.ActiveAccountCount)
 	require.NotEmpty(t, duplicate.DuplicateOperationID)

@@ -65,6 +65,61 @@ func (u *anthropicHTTPUpstreamRecorder) DoWithTLS(req *http.Request, proxyURL st
 	return u.Do(req, proxyURL, accountID, accountConcurrency)
 }
 
+func TestGatewayService_ForwardCountTokens_KiroFallsBackWithoutUpstreamRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages/count_tokens", nil)
+	upstream := &anthropicHTTPUpstreamRecorder{}
+	svc := &GatewayService{httpUpstream: upstream}
+	account := &Account{Platform: PlatformKiro, Type: AccountTypeOAuth}
+	parsed := &ParsedRequest{
+		Body:  NewRequestBodyRef([]byte(`{"model":"claude-opus-4-8","messages":[{"role":"user","content":"hello"}]}`)),
+		Model: "claude-opus-4-8",
+	}
+
+	err := svc.ForwardCountTokens(context.Background(), c, account, parsed)
+
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, recorder.Code)
+	require.Contains(t, recorder.Body.String(), "count_tokens endpoint is not supported for this platform")
+	require.Nil(t, upstream.lastReq)
+}
+
+func TestGatewayService_ForwardCountTokens_KiroRelayUsesUpstream(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ginContext, _ := gin.CreateTestContext(recorder)
+	ginContext.Request = httptest.NewRequest(http.MethodPost, "/v1/messages/count_tokens", nil)
+	upstream := &anthropicHTTPUpstreamRecorder{
+		resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"input_tokens":42}`)),
+		},
+	}
+	service := &GatewayService{
+		cfg:              &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}},
+		httpUpstream:     upstream,
+		rateLimitService: &RateLimitService{},
+	}
+	account := &Account{
+		ID: 402, Platform: PlatformKiro, Type: AccountTypeAPIKey, Concurrency: 1,
+		Credentials: map[string]any{"base_url": "https://relay.example", "api_key": "relay-key"},
+	}
+	parsed := &ParsedRequest{
+		Body:  NewRequestBodyRef([]byte(`{"model":"claude-sonnet-4-6","messages":[{"role":"user","content":"hello"}]}`)),
+		Model: "claude-sonnet-4-6",
+	}
+
+	require.NoError(t, service.ForwardCountTokens(context.Background(), ginContext, account, parsed))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "https://relay.example/v1/messages/count_tokens?beta=true", upstream.lastReq.URL.String())
+	require.Equal(t, "relay-key", getHeaderRaw(upstream.lastReq.Header, "x-api-key"))
+	require.JSONEq(t, `{"input_tokens":42}`, recorder.Body.String())
+}
+
 type streamReadCloser struct {
 	payload []byte
 	sent    bool

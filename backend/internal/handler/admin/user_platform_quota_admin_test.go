@@ -101,7 +101,8 @@ func TestUpdateUserPlatformQuotas_Success(t *testing.T) {
 		{"platform":"openai","daily_limit_usd":80.0,"weekly_limit_usd":300.0,"monthly_limit_usd":null},
 		{"platform":"gemini","daily_limit_usd":null,"weekly_limit_usd":null,"monthly_limit_usd":null},
 		{"platform":"antigravity","daily_limit_usd":null,"weekly_limit_usd":null,"monthly_limit_usd":null},
-		{"platform":"grok","daily_limit_usd":null,"weekly_limit_usd":null,"monthly_limit_usd":null}
+		{"platform":"grok","daily_limit_usd":null,"weekly_limit_usd":null,"monthly_limit_usd":null},
+		{"platform":"kiro","daily_limit_usd":null,"weekly_limit_usd":null,"monthly_limit_usd":null}
 	]}`
 	c, w := putReq(t, body)
 	h.UpdateUserPlatformQuotas(c)
@@ -122,7 +123,7 @@ func TestUpdateUserPlatformQuotas_Success(t *testing.T) {
 			t.Errorf("platform %q has no configured limit and must not be upserted", r.Platform)
 		}
 	}
-	// 缓存失效：按全部允许平台统一失效（含 kimi/zhipu/deepseek）。
+	// 缓存失效：按全部允许平台统一失效（含 kimi/zhipu/deepseek/kiro）。
 	if len(cache.deleteCalls) != len(service.AllowedQuotaPlatforms) {
 		t.Errorf("expected %d cache delete calls, got %d: %+v", len(service.AllowedQuotaPlatforms), len(cache.deleteCalls), cache.deleteCalls)
 	}

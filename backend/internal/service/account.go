@@ -55,6 +55,14 @@ type Account struct {
 	TempUnschedulableUntil  *time.Time
 	TempUnschedulableReason string
 
+	// Kiro 用量/运行时状态（仅 kiro 平台使用，运行时派生字段，非持久化）
+	KiroQuotaState     string
+	KiroQuotaReason    string
+	KiroQuotaResetAt   *time.Time
+	KiroRuntimeState   string
+	KiroRuntimeReason  string
+	KiroRuntimeResetAt *time.Time
+
 	SessionWindowStart  *time.Time
 	SessionWindowEnd    *time.Time
 	SessionWindowStatus string
@@ -636,6 +644,9 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 		if a.Platform == domain.PlatformGrok {
 			return xai.DefaultModelMapping()
 		}
+		if a.Platform == domain.PlatformKiro {
+			return domain.DefaultKiroModelMapping
+		}
 		// Bedrock 默认映射由 forwardBedrock 统一处理（需配合 region prefix 调整）
 		return nil
 	}
@@ -650,6 +661,9 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 		if a.Platform == domain.PlatformGrok {
 			return xai.DefaultModelMapping()
 		}
+		if a.Platform == domain.PlatformKiro {
+			return domain.DefaultKiroModelMapping
+		}
 		return nil
 	}
 
@@ -660,6 +674,9 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 		}
 	}
 	if len(result) > 0 {
+		if a.Platform == domain.PlatformKiro {
+			normalizeKiroClaude5Mappings(result)
+		}
 		if a.Platform == domain.PlatformAntigravity {
 			ensureAntigravityDefaultPassthroughs(result, []string{
 				"gemini-3-flash",
@@ -697,6 +714,39 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 		return xai.DefaultModelMapping()
 	}
 	return nil
+}
+
+func normalizeKiroClaude5Mappings(mapping map[string]string) {
+	for model, canonical := range map[string]string{
+		"claude-opus-5-0":            "claude-opus-5",
+		"claude-opus-5-0-thinking":   "claude-opus-5",
+		"claude-opus-5.0":            "claude-opus-5",
+		"claude-opus-5":              "claude-opus-5",
+		"claude-opus-5-thinking":     "claude-opus-5",
+		"claude-sonnet-5-0":          "claude-sonnet-5",
+		"claude-sonnet-5-0-thinking": "claude-sonnet-5",
+		"claude-sonnet-5.0":          "claude-sonnet-5",
+		"claude-sonnet-5":            "claude-sonnet-5",
+		"claude-sonnet-5-thinking":   "claude-sonnet-5",
+	} {
+		if _, exists := mapping[model]; exists {
+			mapping[model] = canonical
+		}
+	}
+	for legacyModel, clientModel := range map[string]string{
+		"claude-opus-5-0":            "claude-opus-5",
+		"claude-opus-5-0-thinking":   "claude-opus-5-thinking",
+		"claude-opus-5.0":            "claude-opus-5",
+		"claude-sonnet-5-0":          "claude-sonnet-5",
+		"claude-sonnet-5-0-thinking": "claude-sonnet-5-thinking",
+		"claude-sonnet-5.0":          "claude-sonnet-5",
+	} {
+		if _, legacyExists := mapping[legacyModel]; legacyExists {
+			if _, clientExists := mapping[clientModel]; !clientExists {
+				mapping[clientModel] = strings.TrimSuffix(clientModel, "-thinking")
+			}
+		}
+	}
 }
 
 func mapPtr(m map[string]any) uintptr {
@@ -988,6 +1038,9 @@ func (a *Account) GetBaseURL() string {
 		// TypeSafe keys must never fall back to the Anthropic host.
 		if a.Platform == PlatformTypeSafe {
 			return typesafe.DefaultBaseURL
+		}
+		if a.Platform == PlatformKiro {
+			return ""
 		}
 		return "https://api.anthropic.com"
 	}

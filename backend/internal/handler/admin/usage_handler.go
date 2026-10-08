@@ -111,6 +111,7 @@ func (h *UsageHandler) List(c *gin.Context) {
 
 	model := c.Query("model")
 	requestID := strings.TrimSpace(c.Query("request_id"))
+	kiroSessionFingerprint := strings.TrimSpace(c.Query("kiro_session_fingerprint"))
 	billingMode := strings.TrimSpace(c.Query("billing_mode"))
 
 	var requestType *int16
@@ -189,22 +190,23 @@ func (h *UsageHandler) List(c *gin.Context) {
 		SortOrder: c.DefaultQuery("sort_order", "desc"),
 	}
 	filters := usagestats.UsageLogFilters{
-		UserID:                userID,
-		APIKeyID:              apiKeyID,
-		AccountID:             accountID,
-		GroupID:               groupID,
-		RequestID:             requestID,
-		Model:                 model,
-		ModelFilterSource:     usagestats.ModelSourceRequested,
-		RequestType:           requestType,
-		Stream:                stream,
-		NativeCompactionV2:    nativeCompactionV2,
-		BillingType:           billingType,
-		BillingMode:           billingMode,
-		UpstreamModelMismatch: upstreamModelMismatch,
-		StartTime:             startTime,
-		EndTime:               endTime,
-		ExactTotal:            exactTotal,
+		UserID:                 userID,
+		APIKeyID:               apiKeyID,
+		AccountID:              accountID,
+		GroupID:                groupID,
+		RequestID:              requestID,
+		KiroSessionFingerprint: kiroSessionFingerprint,
+		Model:                  model,
+		ModelFilterSource:      usagestats.ModelSourceRequested,
+		RequestType:            requestType,
+		Stream:                 stream,
+		NativeCompactionV2:     nativeCompactionV2,
+		BillingType:            billingType,
+		BillingMode:            billingMode,
+		UpstreamModelMismatch:  upstreamModelMismatch,
+		StartTime:              startTime,
+		EndTime:                endTime,
+		ExactTotal:             exactTotal,
 	}
 
 	records, result, err := h.usageService.ListWithFilters(c.Request.Context(), params, filters)

@@ -13,8 +13,34 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	dbmigrations "github.com/Wei-Shaw/sub2api/migrations"
 	"github.com/stretchr/testify/require"
 )
+
+func TestUserPlatformQuotaRepository_KiroMigrationPreservesPlatforms(t *testing.T) {
+	ctx := context.Background()
+	tx := testTx(t)
+	migrationSQL, err := dbmigrations.FS.ReadFile("241_user_platform_quotas_add_kiro.sql")
+	require.NoError(t, err)
+	_, err = tx.ExecContext(ctx, string(migrationSQL))
+	require.NoError(t, err)
+	var userID int64
+	require.NoError(t, tx.QueryRowContext(ctx,
+		`INSERT INTO users (email, password_hash) VALUES ('kiro-quota-migration@test.com', 'test') RETURNING id`,
+	).Scan(&userID))
+	for _, platform := range service.AllowedQuotaPlatforms {
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO user_platform_quotas (user_id, platform, daily_limit_usd) VALUES ($1, $2, 10)`,
+			userID, platform)
+		require.NoError(t, err, platform)
+	}
+	_, err = tx.ExecContext(ctx, string(migrationSQL))
+	require.NoError(t, err)
+	var count int
+	require.NoError(t, tx.QueryRowContext(ctx,
+		`SELECT count(*) FROM user_platform_quotas WHERE user_id = $1`, userID).Scan(&count))
+	require.Equal(t, len(service.AllowedQuotaPlatforms), count)
+}
 
 // mustCreateUserForQuota 在指定 client 上创建测试用户（满足 FK 约束）。
 func mustCreateUserForQuota(t *testing.T, client *dbent.Client) int64 {

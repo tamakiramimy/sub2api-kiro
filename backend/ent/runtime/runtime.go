@@ -1223,6 +1223,14 @@ func init() {
 	groupDescProfitSafetyBuffer := groupFields[62].Descriptor()
 	// group.DefaultProfitSafetyBuffer holds the default value on creation for the profit_safety_buffer field.
 	group.DefaultProfitSafetyBuffer = groupDescProfitSafetyBuffer.Default.(float64)
+	// groupDescKiroCacheEmulationEnabled is the schema descriptor for kiro_cache_emulation_enabled field.
+	groupDescKiroCacheEmulationEnabled := groupFields[63].Descriptor()
+	// group.DefaultKiroCacheEmulationEnabled holds the default value on creation for the kiro_cache_emulation_enabled field.
+	group.DefaultKiroCacheEmulationEnabled = groupDescKiroCacheEmulationEnabled.Default.(bool)
+	// groupDescKiroCacheEmulationRatio is the schema descriptor for kiro_cache_emulation_ratio field.
+	groupDescKiroCacheEmulationRatio := groupFields[64].Descriptor()
+	// group.DefaultKiroCacheEmulationRatio holds the default value on creation for the kiro_cache_emulation_ratio field.
+	group.DefaultKiroCacheEmulationRatio = groupDescKiroCacheEmulationRatio.Default.(float64)
 	idempotencyrecordMixin := schema.IdempotencyRecord{}.Mixin()
 	idempotencyrecordMixinFields0 := idempotencyrecordMixin[0].Fields()
 	_ = idempotencyrecordMixinFields0

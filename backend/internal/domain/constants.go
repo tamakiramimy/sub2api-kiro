@@ -33,6 +33,7 @@ const (
 	// 值保持 opencode_go 以兼容已落库的分组、配额与 Composite 路由 CHECK。
 	PlatformOpenCodeGo = "opencode_go"
 	PlatformComposite  = "composite"
+	PlatformKiro       = "kiro"
 )
 
 // Account mode constants 区分国产供应商的「按量付费（余额）」与「Coding Plan」两种接入方式。
@@ -170,6 +171,43 @@ var DefaultAntigravityModelMapping = map[string]string{
 	// 其他官方模型
 	"gpt-oss-120b-medium":    "gpt-oss-120b-medium",
 	"tab_flash_lite_preview": "tab_flash_lite_preview",
+}
+
+// DefaultKiroModelMapping 是 Kiro 平台的默认模型映射。
+// 键为对外暴露/允许请求的模型名，值为实际发送到 Kiro 上游的模型名。
+var DefaultKiroModelMapping = map[string]string{
+	"claude-opus-5-5":                     "claude-opus-5.5",
+	"claude-opus-5-5-thinking":            "claude-opus-5.5",
+	"claude-sonnet-5-5":                   "claude-sonnet-5.5",
+	"claude-sonnet-5-5-thinking":          "claude-sonnet-5.5",
+	"claude-opus-5":                       "claude-opus-5",
+	"claude-opus-5-thinking":              "claude-opus-5",
+	"claude-opus-5-0":                     "claude-opus-5",
+	"claude-opus-5-0-thinking":            "claude-opus-5",
+	"claude-opus-4-8":                     "claude-opus-4.8",
+	"claude-opus-4-8-thinking":            "claude-opus-4.8",
+	"claude-opus-4-7":                     "claude-opus-4.7",
+	"claude-opus-4-7-thinking":            "claude-opus-4.7",
+	"claude-sonnet-5":                     "claude-sonnet-5",
+	"claude-sonnet-5-thinking":            "claude-sonnet-5",
+	"claude-sonnet-5-0":                   "claude-sonnet-5",
+	"claude-sonnet-5-0-thinking":          "claude-sonnet-5",
+	"claude-opus-4-6":                     "claude-opus-4.6",
+	"claude-opus-4-6-thinking":            "claude-opus-4.6",
+	"claude-sonnet-4-6":                   "claude-sonnet-4.6",
+	"claude-sonnet-4-6-thinking":          "claude-sonnet-4.6",
+	"claude-opus-4-5-20251101":            "claude-opus-4.5",
+	"claude-opus-4-5-20251101-thinking":   "claude-opus-4.5",
+	"claude-sonnet-4-5-20250929":          "claude-sonnet-4.5",
+	"claude-sonnet-4-5-20250929-thinking": "claude-sonnet-4.5",
+	"claude-haiku-4-5-20251001":           "claude-haiku-4.5",
+	"claude-haiku-4-5-20251001-thinking":  "claude-haiku-4.5",
+	// 实验性 / 未经真实账号验证：见 internal/kiro/translator.go 的 kiroPassthroughModel
+	// 注释——只确认了请求侧 modelId 直通不会被拦截，Kiro 对这几个 GPT 模型的响应事件流
+	// 是否与 Claude 家族语义一致尚未验证。
+	"gpt-5.6-sol":   "gpt-5.6-sol",
+	"gpt-5.6-terra": "gpt-5.6-terra",
+	"gpt-5.6-luna":  "gpt-5.6-luna",
 }
 
 // DefaultBedrockModelMapping 是 AWS Bedrock 平台的默认模型映射

@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	kiropkg "github.com/Wei-Shaw/sub2api/internal/kiro"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -301,6 +303,12 @@ func defaultModelsListCandidateIDs(platform string) []string {
 		return []string{typesafe.JevLatestModel}
 	case PlatformComposite:
 		return compositeDefaultModelsListCandidateIDs()
+	case PlatformKiro:
+		ids := make([]string, 0, len(kiropkg.DefaultModels))
+		for _, model := range kiropkg.DefaultModels {
+			ids = append(ids, model.ID)
+		}
+		return ids
 	default:
 		ids := make([]string, 0, len(claude.DefaultModels))
 		for _, model := range claude.DefaultModels {
@@ -378,6 +386,16 @@ func normalizeUpdateGroupInputForSimpleMode(input *UpdateGroupInput) {
 		return
 	}
 	*input = UpdateGroupInput{Name: input.Name, Description: input.Description}
+}
+
+func normalizeAdminKiroCacheEmulationRatio(ratio *float64) (float64, error) {
+	if ratio == nil {
+		return 1, nil
+	}
+	if math.IsNaN(*ratio) || math.IsInf(*ratio, 0) || *ratio <= 0 || *ratio > 1 {
+		return 0, infraerrors.BadRequest("INVALID_KIRO_CACHE_EMULATION_RATIO", "kiro_cache_emulation_ratio must be > 0 and <= 1")
+	}
+	return *ratio, nil
 }
 
 func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error) {
@@ -493,6 +511,10 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	if err := ValidateProfitControlConfig(platform, profitControlEnabled, profitMinMargin, profitSafetyBuffer); err != nil {
 		return nil, err
 	}
+	kiroCacheEmulationRatio, err := normalizeAdminKiroCacheEmulationRatio(input.KiroCacheEmulationRatio)
+	if err != nil {
+		return nil, err
+	}
 
 	// 校验降级分组
 	if input.FallbackGroupID != nil {
@@ -586,6 +608,8 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		ProfitControlEnabled:            profitControlEnabled,
 		ProfitMinMargin:                 profitMinMargin,
 		ProfitSafetyBuffer:              profitSafetyBuffer,
+		KiroCacheEmulationEnabled:       input.KiroCacheEmulationEnabled,
+		KiroCacheEmulationRatio:         kiroCacheEmulationRatio,
 		ImagePrice1K:                    imagePrice1K,
 		ImagePrice2K:                    imagePrice2K,
 		ImagePrice4K:                    imagePrice4K,
@@ -621,6 +645,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		MaxReasoningEffortOverLimit: maxReasoningEffortOverLimit,
 		ReasoningEffortMappings:     reasoningEffortMappings,
 	}
+	NormalizeGroupRuntimeFields(group)
 	sanitizeGroupMessagesDispatchFields(group)
 	sanitizeGroupOpenAIFast(group)
 	if group.Platform != PlatformOpenAI && group.Platform != PlatformComposite {
@@ -892,6 +917,17 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if err := ValidateProfitControlConfig(group.Platform, group.ProfitControlEnabled, group.ProfitMinMargin, group.ProfitSafetyBuffer); err != nil {
 		return nil, err
 	}
+	if input.KiroCacheEmulationEnabled != nil {
+		group.KiroCacheEmulationEnabled = *input.KiroCacheEmulationEnabled
+	}
+	if input.KiroCacheEmulationRatio != nil {
+		kiroCacheEmulationRatio, err := normalizeAdminKiroCacheEmulationRatio(input.KiroCacheEmulationRatio)
+		if err != nil {
+			return nil, err
+		}
+		group.KiroCacheEmulationRatio = kiroCacheEmulationRatio
+	}
+	NormalizeGroupRuntimeFields(group)
 	if input.ImagePrice1K != nil {
 		group.ImagePrice1K = normalizePrice(input.ImagePrice1K)
 	}

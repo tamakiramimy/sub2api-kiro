@@ -1218,6 +1218,41 @@ func (_u *GroupUpdate) AddProfitSafetyBuffer(v float64) *GroupUpdate {
 	return _u
 }
 
+// SetKiroCacheEmulationEnabled sets the "kiro_cache_emulation_enabled" field.
+func (_u *GroupUpdate) SetKiroCacheEmulationEnabled(v bool) *GroupUpdate {
+	_u.mutation.SetKiroCacheEmulationEnabled(v)
+	return _u
+}
+
+// SetNillableKiroCacheEmulationEnabled sets the "kiro_cache_emulation_enabled" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableKiroCacheEmulationEnabled(v *bool) *GroupUpdate {
+	if v != nil {
+		_u.SetKiroCacheEmulationEnabled(*v)
+	}
+	return _u
+}
+
+// SetKiroCacheEmulationRatio sets the "kiro_cache_emulation_ratio" field.
+func (_u *GroupUpdate) SetKiroCacheEmulationRatio(v float64) *GroupUpdate {
+	_u.mutation.ResetKiroCacheEmulationRatio()
+	_u.mutation.SetKiroCacheEmulationRatio(v)
+	return _u
+}
+
+// SetNillableKiroCacheEmulationRatio sets the "kiro_cache_emulation_ratio" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableKiroCacheEmulationRatio(v *float64) *GroupUpdate {
+	if v != nil {
+		_u.SetKiroCacheEmulationRatio(*v)
+	}
+	return _u
+}
+
+// AddKiroCacheEmulationRatio adds value to the "kiro_cache_emulation_ratio" field.
+func (_u *GroupUpdate) AddKiroCacheEmulationRatio(v float64) *GroupUpdate {
+	_u.mutation.AddKiroCacheEmulationRatio(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdate) AddAPIKeyIDs(ids ...int64) *GroupUpdate {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -1916,6 +1951,15 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedProfitSafetyBuffer(); ok {
 		_spec.AddField(group.FieldProfitSafetyBuffer, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.KiroCacheEmulationEnabled(); ok {
+		_spec.SetField(group.FieldKiroCacheEmulationEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.KiroCacheEmulationRatio(); ok {
+		_spec.SetField(group.FieldKiroCacheEmulationRatio, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedKiroCacheEmulationRatio(); ok {
+		_spec.AddField(group.FieldKiroCacheEmulationRatio, field.TypeFloat64, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -3412,6 +3456,41 @@ func (_u *GroupUpdateOne) AddProfitSafetyBuffer(v float64) *GroupUpdateOne {
 	return _u
 }
 
+// SetKiroCacheEmulationEnabled sets the "kiro_cache_emulation_enabled" field.
+func (_u *GroupUpdateOne) SetKiroCacheEmulationEnabled(v bool) *GroupUpdateOne {
+	_u.mutation.SetKiroCacheEmulationEnabled(v)
+	return _u
+}
+
+// SetNillableKiroCacheEmulationEnabled sets the "kiro_cache_emulation_enabled" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableKiroCacheEmulationEnabled(v *bool) *GroupUpdateOne {
+	if v != nil {
+		_u.SetKiroCacheEmulationEnabled(*v)
+	}
+	return _u
+}
+
+// SetKiroCacheEmulationRatio sets the "kiro_cache_emulation_ratio" field.
+func (_u *GroupUpdateOne) SetKiroCacheEmulationRatio(v float64) *GroupUpdateOne {
+	_u.mutation.ResetKiroCacheEmulationRatio()
+	_u.mutation.SetKiroCacheEmulationRatio(v)
+	return _u
+}
+
+// SetNillableKiroCacheEmulationRatio sets the "kiro_cache_emulation_ratio" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableKiroCacheEmulationRatio(v *float64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetKiroCacheEmulationRatio(*v)
+	}
+	return _u
+}
+
+// AddKiroCacheEmulationRatio adds value to the "kiro_cache_emulation_ratio" field.
+func (_u *GroupUpdateOne) AddKiroCacheEmulationRatio(v float64) *GroupUpdateOne {
+	_u.mutation.AddKiroCacheEmulationRatio(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdateOne) AddAPIKeyIDs(ids ...int64) *GroupUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -4140,6 +4219,15 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.AddedProfitSafetyBuffer(); ok {
 		_spec.AddField(group.FieldProfitSafetyBuffer, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.KiroCacheEmulationEnabled(); ok {
+		_spec.SetField(group.FieldKiroCacheEmulationEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.KiroCacheEmulationRatio(); ok {
+		_spec.SetField(group.FieldKiroCacheEmulationRatio, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedKiroCacheEmulationRatio(); ok {
+		_spec.AddField(group.FieldKiroCacheEmulationRatio, field.TypeFloat64, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

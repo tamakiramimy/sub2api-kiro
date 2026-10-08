@@ -15,7 +15,7 @@ Wei-Shaw 相对共同祖先有 173 个提交、408 个变更文件；原本地�
 
 在隔离 worktree 中以完整 Wei-Shaw 树为基底，三方重放本地累积差异，并将冲突适配到新的上游实现。Ent 与 Wire 从合并后的源文件重新生成，不用旧生成文件覆盖上游。GPT-6.1 Sol 的公开 ID 为 `gpt-6.1-sol`，其模型支持随完整 Wei-Shaw 基线带入，不添加猜测的 `gpt-6.1` ID。
 
-原 main 通过保留历史的同步提交采纳已验证的树，同时保留 Wei-Shaw 及隔离检查点的祖先关系。备份分支为 `backup/pre-sync-20261008`。本次不执行远程推送、release tag、应用镜像部署或共享数据库升级。
+原 main 通过保留历史的同步提交采纳已验证的树，同时保留 Wei-Shaw 及隔离检查点的祖先关系。备份分支为 `backup/pre-sync-20261008`。同步阶段未执行远程推送、release tag、应用镜像部署或共享数据库升级；随后按用户新指令执行的部署与镜像发布见文末记录。
 
 ## 保留清单
 
@@ -77,7 +77,7 @@ CI 与依赖跟随新上游；`.github` 只保留 CLA 仓库引用及 DockerHub 
 - Python 3.12 / Linux Bash：10 项 release-matrix 测试；安装器 GitHub-token 测试、脚本语法检查通过，未运行真实发布命令。
 - 四个已发布 Kiro 迁移内容不变；没有删除上游文件；补丁格式检查通过。
 
-现有 TypeScript-eslint 版本支持范围提示和构建大 chunk warning 仍存在，不是本次新增失败。原共享应用、PostgreSQL 和 Redis 没有替换；只清理本次测试创建并核对 ID 的容器。
+现有 TypeScript-eslint 版本支持范围提示和构建大 chunk warning 仍存在，不是本次新增失败。同步验收阶段没有替换原共享应用、PostgreSQL 或 Redis；只清理本次测试创建并核对 ID 的容器。后续应用部署的结果见下文。
 
 未使用真实获授权账号调用 GPT-6.1 Sol / Kiro 两款 5.5，故账号可用性、上游对 adaptive 字段及 128,000 输出的实际接受能力仍需实际调用验收。单元/协议/集成测试通过不能代替这些真实 provider 能力验证。
 
@@ -88,3 +88,21 @@ CI 与依赖跟随新上游；`.github` 只保留 CLA 仓库引用及 DockerHub 
 - `6b0bdc153`：迁移双平台兼容、别名 lookup 和三协议 5.5 请求错误处理。
 
 这些检查点均为本地提交；最终同步提交的树由隔离 worktree 的已验证成果组成，并保留同步前 main 的祖先关系。
+
+## 后续本地部署与镜像发布
+
+用户随后授权提交并推送相关代码、使用本地 10002 配置验证、构建镜像并更新服务，以及推送 Docker Hub。
+
+- 应用源码提交：`5fff467da`；后续本报告更新不改变镜像内的应用源码。
+- Docker Hub 镜像：`tamakiramimy/sub2api-kiro:20261008_135949`，已推送并通过远端原始 manifest 校验。
+- 镜像摘要：`sha256:c739b6543399e5de38bd1efbb9e029f82e6e19cc5121a8429bec5b0f4c61889f`；运行平台为 `linux/arm64`，另含构建 attestation，不将其视为第二个运行架构。
+- 原 Docker Hub `latest` 保持既有 AMD64/ARM64 多架构发行，本次未覆盖它；也未推送 GitLab、Quay 或创建 release tag。
+- 本地 `sub2api-kiro` Compose 的应用镜像引用已持久化为上述独立版本，使用 `--no-deps --wait` 单独替换应用。
+- `http://localhost:10002/health` 返回 `{"status":"ok"}`，容器 healthy；管理员账号页显示新版本，浏览器控制台无 error/warn。
+- 60 个环境项、端口、挂载、重启策略、两张网络及别名保持一致；PostgreSQL/Redis 容器 ID 不变，未重建或重启它们。
+- 应用启动已完成迁移；六条 Kiro/TypeSafe 目标迁移的数据库记录与原 SQL checksum 一致，配额 CHECK 同时允许两平台。
+- 匿名管理 API 返回 401；未扩大自定义模型白名单，未读取 API Key，未发起收费的上游模型测试。
+- 回滚镜像标签为 `sub2api:rollback-20261008_135949`，指向部署前镜像 `sha256:2ae46a6f3dd417767022ee0517765dc856a5cd04f85f5ee045d6ec6e6dfc8af9`。
+- 数据库备份为 `/tmp/sub2api-release-20261008_135949-database.dump`，约 3 MB，已用 `pg_restore --list` 校验；原 Compose 备份为 `/tmp/sub2api-release-20261008_135949-compose-before.yml`。备份权限受限，未纳入 Git；应在系统清理临时目录前转存到受控备份位置。
+
+应用镜像回滚不等于数据库迁移回滚。恢复数据库备份需单独评估，以免覆盖部署后的业务数据。GitHub 发布目标为原 `origin/main`，采用普通 fast-forward push，保留原历史。

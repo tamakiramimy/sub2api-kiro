@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/kiro"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,8 +39,9 @@ func TestLaterMigrationsDoNotRestorePlatformCheckConstraints(t *testing.T) {
 		t.Run(entry.Name(), func(t *testing.T) {
 			content, err := FS.ReadFile(entry.Name())
 			require.NoError(t, err)
-			sql := comments.ReplaceAll(content, nil)
-			require.Nil(t, addConstraint.Find(sql), "platform CHECK constraints removed in 242 must remain managed by application validation")
+			executable := kiro.AdaptPlatformQuotaMigrationSQL(entry.Name(), strings.TrimSpace(string(content)))
+			sql := comments.ReplaceAllString(executable, "")
+			require.Nil(t, addConstraint.FindStringIndex(sql), "platform CHECK constraints removed in 242 must remain managed by application validation")
 		})
 	}
 }

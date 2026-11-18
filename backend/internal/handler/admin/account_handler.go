@@ -20,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
+	kiropkg "github.com/Wei-Shaw/sub2api/internal/kiro"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -366,6 +367,10 @@ func (h *AccountHandler) isSimpleMode() bool {
 }
 
 func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, account *service.Account) AccountWithConcurrency {
+	if account != nil && h.accountUsageService != nil {
+		h.accountUsageService.EnrichAccountWithKiroRuntimeState(ctx, account)
+	}
+
 	item := AccountWithConcurrency{
 		Account:            h.accountResponseFromService(account),
 		simpleMode:         h.isSimpleMode(),
@@ -1689,6 +1694,15 @@ func (h *AccountHandler) ApplyOAuthCredentials(c *gin.Context) {
 		}
 	}
 
+	if updatedAccount.IsOpenAI() && updatedAccount.Type == service.AccountTypeOAuth {
+		if clearErr := h.adminService.UpdateAccountExtra(ctx, accountID, service.OpenAIRefreshTokenRecoveredExtra(time.Now().UTC())); clearErr != nil {
+			slog.Warn("apply_oauth_credentials.clear_openai_refresh_token_marker_failed",
+				"account_id", accountID,
+				"err", clearErr,
+			)
+		}
+	}
+
 	if cleared, clearErr := h.adminService.ClearAccountError(ctx, accountID); clearErr != nil {
 		slog.Warn("apply_oauth_credentials.clear_error_failed",
 			"account_id", accountID,
@@ -2819,6 +2833,47 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 }
 
 func (h *AccountHandler) respondAvailableModels(c *gin.Context, account *service.Account) {
+	if account.Platform == service.PlatformKiro {
+		hasExplicitMapping := false
+		switch rawMapping := account.Credentials["model_mapping"].(type) {
+		case map[string]any:
+			hasExplicitMapping = len(rawMapping) > 0
+		case map[string]string:
+			hasExplicitMapping = len(rawMapping) > 0
+		}
+		if !hasExplicitMapping {
+			response.Success(c, kiropkg.DefaultModels)
+			return
+		}
+
+		mapping := account.GetModelMapping()
+		defaultsByID := make(map[string]kiropkg.Model, len(kiropkg.DefaultModels))
+		for _, model := range kiropkg.DefaultModels {
+			defaultsByID[model.ID] = model
+		}
+		requestedModels := make([]string, 0, len(mapping))
+		for requestedModel := range mapping {
+			requestedModels = append(requestedModels, requestedModel)
+		}
+		sort.Strings(requestedModels)
+
+		models := make([]kiropkg.Model, 0, len(requestedModels))
+		for _, requestedModel := range requestedModels {
+			if model, found := defaultsByID[requestedModel]; found {
+				models = append(models, model)
+				continue
+			}
+			models = append(models, kiropkg.Model{
+				ID:          requestedModel,
+				Type:        "model",
+				DisplayName: requestedModel,
+			})
+		}
+
+		response.Success(c, models)
+		return
+	}
+
 	// Handle OpenAI accounts
 	if account.IsOpenAI() {
 		// Prefer the shared, account-keyed upstream catalog. If discovery fails,

@@ -103,6 +103,25 @@ func TestGPT62CompatHTTPRejectsDisabledReasoning(t *testing.T) {
 	}
 }
 
+func TestGPT62NativeResponsesRejectsDisabledReasoning(t *testing.T) {
+	body := []byte(`{"model":"public","input":"hi","reasoning":{"effort":"minimal"}}`)
+	for _, kind := range []string{AccountTypeAPIKey, AccountTypeOAuth, AccountTypeSetupToken} {
+		t.Run(kind, func(t *testing.T) {
+			account := &Account{ID: 1, Platform: PlatformOpenAI, Type: kind, Credentials: map[string]any{"model_mapping": map[string]any{"public": "gpt-6.2-astra"}}}
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+			svc := &OpenAIGatewayService{cfg: &config.Config{}}
+			_, err := svc.Forward(context.Background(), c, account, body)
+			require.ErrorContains(t, err, "gpt-6.2-astra does not support reasoning effort")
+			require.Equal(t, http.StatusBadRequest, recorder.Code)
+
+			_, _, err = normalizeOpenAIResponsesWebSocketCompatibilityBody(body, account, false)
+			require.ErrorContains(t, err, "gpt-6.2-astra does not support reasoning effort")
+		})
+	}
+}
+
 func TestGPT62PricingAtRequestTime(t *testing.T) {
 	before := time.Date(2027, 3, 1, 7, 59, 59, 0, time.UTC)
 	after := before.Add(time.Second)

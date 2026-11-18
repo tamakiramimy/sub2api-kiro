@@ -1319,7 +1319,8 @@ function generateRoutedCodexFiles(
     deepseek: 'deepseek-v4-pro',
     minimax: 'MiniMax-M3',
     opencode_go: 'glm-5.3',
-    composite: 'gpt-6.1-sol'
+    composite: 'gpt-6.1-sol',
+    kiro: 'claude-sonnet-4.6'
   }
   const preferredModel = preferredModels[platform] || ''
   const model = selectCodexCatalogModel(preferredModel)
@@ -1337,7 +1338,8 @@ function generateRoutedCodexFiles(
     typesafe: 'TypeSafe / Jev',
     command_code: 'Command Code',
     cline: 'Cline',
-    composite: 'Composite'
+    composite: 'Composite',
+    kiro: 'Kiro'
   }
   const label = labels[platform]
   const envContent = isWindows

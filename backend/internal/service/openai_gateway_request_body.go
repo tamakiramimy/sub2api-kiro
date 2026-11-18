@@ -1696,8 +1696,15 @@ func normalizeOpenAIResponsesCompatibilityBodyWithOptions(body []byte, account *
 		normalized = sanitized
 		changed = true
 	}
-	if account != nil && account.IsOpenAI() && account.IsOAuth() {
-		if reasoningBody, reasoningChanged, err := normalizeOpenAIResponsesReasoningMode(normalized, account.GetMappedModel(gjson.GetBytes(normalized, "model").String())); err != nil {
+	mappedModel := account.GetMappedModel(gjson.GetBytes(normalized, "model").String())
+	isGPT62 := openai.GPT62ModelID(mappedModel) != ""
+	if isGPT62 {
+		if err := validateGPT61CompatRequest(normalized, mappedModel); err != nil {
+			return body, false, err
+		}
+	}
+	if account.IsOAuth() || isGPT62 {
+		if reasoningBody, reasoningChanged, err := normalizeOpenAIResponsesReasoningMode(normalized, mappedModel); err != nil {
 			return body, false, err
 		} else if reasoningChanged {
 			normalized = reasoningBody

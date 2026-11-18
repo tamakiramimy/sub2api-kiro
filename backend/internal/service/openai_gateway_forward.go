@@ -25,6 +25,15 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
 		SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
 	}
+	reasoningModel := account.GetMappedModel(gjson.GetBytes(body, "model").String())
+	isGPT62 := account.IsOpenAI() && openai.GPT62ModelID(reasoningModel) != ""
+	if isGPT62 {
+		// Validate before compatibility handling can discard a disabled effort.
+		if err := validateGPT61CompatRequest(body, reasoningModel); err != nil {
+			writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+			return nil, err
+		}
+	}
 	filteredBody, filterErr := filterOpenAIResponsesNoneReasoningEffortForAccount(account, body)
 	if filterErr != nil {
 		return nil, filterErr
@@ -82,8 +91,8 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	} else if toolSchemaSanitized {
 		body = sanitizedToolBody
 	}
-	if account.IsOpenAIOAuthLike() {
-		reasoningBody, reasoningChanged, reasoningErr := normalizeOpenAIResponsesReasoningMode(body, account.GetMappedModel(gjson.GetBytes(body, "model").String()))
+	if account.IsOpenAIOAuthLike() || isGPT62 {
+		reasoningBody, reasoningChanged, reasoningErr := normalizeOpenAIResponsesReasoningMode(body, reasoningModel)
 		if reasoningErr != nil {
 			return nil, fmt.Errorf("normalize OpenAI Responses reasoning.mode: %w", reasoningErr)
 		}
@@ -1432,6 +1441,15 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 	// DeepSeek / Kimi 原生 Responses 端点为无状态实现：强制 store=false、清除
 	// previous_response_id，避免携带状态字段被上游拒绝。
 	body = normalizeDeepSeekResponsesRequestBody(account, body)
+	// 中和 harmony `<|channel|>` 头，规避上游对伪造隐藏 analysis 通道的 invalid_prompt
+	// 硬拦截（默认开启，可用 gateway.neutralize_harmony_channel_token=false 关闭）。
+	// 放在所有转发路径（改写/透传/compact）共同收口的上游请求构造点，一处覆盖全部。
+	if s.cfg == nil || s.cfg.Gateway.NeutralizeHarmonyChannelToken {
+		if neutralized, changed := neutralizeOpenAIHarmonyChannelToken(body); changed {
+			body = neutralized
+			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Neutralized harmony <|channel|> token in request body (account: %s)", account.Name)
+		}
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
 	if err != nil {

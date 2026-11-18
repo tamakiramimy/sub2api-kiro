@@ -55,7 +55,7 @@ const (
 	PlatformComposite   = domain.PlatformComposite
 	// PlatformKiro is retained for unsupported-platform threshold tests and legacy
 	// account rows. Scheduling-threshold evaluation never pauses kiro accounts.
-	PlatformKiro = "kiro"
+	PlatformKiro = domain.PlatformKiro
 )
 
 // 账号接入模式（国产供应商）：按量付费 vs Coding Plan。
@@ -591,6 +591,11 @@ const (
 
 	// SettingKeyStreamTimeoutSettings stores JSON config for stream timeout handling.
 	SettingKeyStreamTimeoutSettings = "stream_timeout_settings"
+
+	// SettingKeyStreamRetrySettings stores JSON config for stale-stream detection
+	// and failover (TTFT + inter-chunk gap watchdog). Complements
+	// SettingKeyStreamTimeoutSettings, which only governs post-timeout action.
+	SettingKeyStreamRetrySettings = "stream_retry_settings"
 
 	// =========================
 	// Request Rectifier (请求整流器)

@@ -195,6 +195,33 @@ Please read the following carefully before using this project:
 
 Sub2API is an AI API gateway platform designed to distribute and manage API quotas from AI product subscriptions. Users can access upstream AI services through platform-generated API Keys, while the platform handles authentication, billing, load balancing, and request forwarding.
 
+## Kiro-Enabled Distribution
+
+This independent distribution tracks stable updates from [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) while maintaining first-class Kiro support.
+
+Kiro-specific capabilities include:
+
+- Kiro account integration through OAuth, AWS Builder ID, token import, and API-key-compatible upstream access.
+- OpenAI Responses and Chat Completions protocol bridging for Kiro accounts.
+- Anthropic Prompt Cache usage emulation for Kiro traffic, with per-group enablement and adjustable ratios.
+- Kiro model compatibility for Claude Sonnet 5.5 and Opus 5.5, including thinking aliases, while retaining GPT-5.6 Sol, Terra, and Luna; Claude Opus 4.8; and Claude Sonnet 5 compatibility.
+
+## Latest Model Support
+
+This distribution includes the Wei-Shaw 0.2.14 baseline and the following model support:
+
+| Provider | Model | Client model IDs |
+| --- | --- | --- |
+| OpenAI | GPT-6.1 Sol | `gpt-6.1-sol` |
+| Kiro | Claude Sonnet 5.5 | `claude-sonnet-5-5`, `claude-sonnet-5-5-thinking` |
+| Kiro | Claude Opus 5.5 | `claude-opus-5-5`, `claude-opus-5-5-thinking` |
+
+Kiro also accepts the dotted `claude-sonnet-5.5` and `claude-opus-5.5` spellings and their thinking aliases. The two Claude 5.5 models support adaptive thinking request fields; `max_tokens=-1` selects a 128,000-token output limit, while smaller explicit limits remain unchanged. Kiro accounts remain accessible through Anthropic Messages, OpenAI Responses, and Chat Completions gateways.
+
+Actual model availability and accepted output limits depend on the upstream account and region. Existing custom account/group/API-key model allowlists are not automatically expanded. Kiro cache read/create figures are **local billing emulation**, not evidence of upstream cache hits or reduced Kiro quota usage. See the [sync and compatibility report](docs/UPSTREAM_SYNC_20261008_CN.md) for implementation and validation limits.
+
+Full releases provide Linux AMD64/ARM64, macOS AMD64/ARM64, and Windows AMD64 archives with checksums. Docker Hub `tamakiramimy/sub2api-kiro:<version>` and `:latest` use multi-architecture manifests for `linux/amd64` and `linux/arm64`.
+
 ## Features
 
 - **Multi-Account Management** - Support multiple upstream account types (OAuth, API Key)
@@ -203,6 +230,10 @@ Sub2API is an AI API gateway platform designed to distribute and manage API quot
 - **Smart Scheduling** - Intelligent account selection with sticky sessions
 - **Concurrency Control** - Per-user and per-account concurrency limits
 - **Rate Limiting** - Configurable request and token rate limits
+- **Kiro Channel Support** - Kiro accounts are available through native Anthropic, OpenAI Responses, and Chat Completions compatible gateways
+- **Latest Models** - OpenAI GPT-6.1 Sol and Kiro Claude Sonnet/Opus 5.5 with thinking aliases
+- **Kiro Model Compatibility** - Preserve GPT-5.6, Claude Opus 4.8, and Claude Sonnet 5 model aliases
+- **Kiro Cache Emulation** - Simulate Anthropic Prompt Cache usage for Kiro groups with adjustable per-group ratios
 - **Built-in Payment System** - Supports EasyPay, Alipay, WeChat Pay, and Stripe for user self-service top-up, no separate payment service needed ([Configuration Guide](docs/PAYMENT.md))
 - **Admin Dashboard** - Web interface for monitoring and management
 - **Composite Groups** - Admin routing layer that resolves requested models to concrete providers for multi-provider groups ([Operator Guide](docs/COMPOSITE_GROUPS.md))

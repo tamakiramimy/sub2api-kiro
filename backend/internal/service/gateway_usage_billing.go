@@ -39,21 +39,22 @@ func (s *GatewayService) ResolveUserGroupRateMultiplier(ctx context.Context, use
 // RecordUsageInput 记录使用量的输入参数。
 // 异步 worker 只接收计费所需快照，不能持有 ParsedRequest/RequestBodyRef 这类大请求体引用。
 type RecordUsageInput struct {
-	Result             *ForwardResult
-	APIKey             *APIKey
-	User               *User
-	Account            *Account
-	Subscription       *UserSubscription  // 可选：订阅信息
-	PricingAt          time.Time          // token 售价固定时刻；零值保持既有的记录时刻语义
-	InboundEndpoint    string             // 入站端点（客户端请求路径）
-	UpstreamEndpoint   string             // 上游端点（标准化后的上游路径）
-	UserAgent          string             // 请求的 User-Agent
-	IPAddress          string             // 请求的客户端 IP 地址
-	SessionID          string             // 客户端显式会话标识（session_id / X-Session-Id 等请求头），仅用于用量行会话关联
-	RequestPayloadHash string             // 请求体语义哈希，用于降低 request_id 误复用时的静默误去重风险
-	ForceCacheBilling  bool               // 强制缓存计费：将 input_tokens 转为 cache_read 计费（用于粘性会话切换）
-	APIKeyService      APIKeyQuotaUpdater // 可选：用于更新API Key配额
-	QuotaPlatform      string             // user×platform 配额计量平台：handler 在请求 ctx 内经 QuotaPlatform() 算定后传入（后扣运行在 worker 池 background ctx 上，取不到 ForcePlatform）
+	Result                 *ForwardResult
+	APIKey                 *APIKey
+	User                   *User
+	Account                *Account
+	Subscription           *UserSubscription  // 可选：订阅信息
+	PricingAt              time.Time          // token 售价固定时刻；零值保持既有的记录时刻语义
+	InboundEndpoint        string             // 入站端点（客户端请求路径）
+	UpstreamEndpoint       string             // 上游端点（标准化后的上游路径）
+	UserAgent              string             // 请求的 User-Agent
+	IPAddress              string             // 请求的客户端 IP 地址
+	SessionID              string             // 客户端显式会话标识（session_id / X-Session-Id 等请求头），仅用于用量行会话关联
+	KiroSessionFingerprint string             // Kiro 调度会话的不可逆管理员审计标识
+	RequestPayloadHash     string             // 请求体语义哈希，用于降低 request_id 误复用时的静默误去重风险
+	ForceCacheBilling      bool               // 强制缓存计费：将 input_tokens 转为 cache_read 计费（用于粘性会话切换）
+	APIKeyService          APIKeyQuotaUpdater // 可选：用于更新API Key配额
+	QuotaPlatform          string             // user×platform 配额计量平台：handler 在请求 ctx 内经 QuotaPlatform() 算定后传入（后扣运行在 worker 池 background ctx 上，取不到 ForcePlatform）
 
 	ChannelUsageFields // 渠道映射信息（由 handler 在 Forward 前解析）
 }
@@ -656,45 +657,55 @@ func writeUsageLogBestEffort(ctx context.Context, repo UsageLogRepository, usage
 	}
 }
 
+// recordUsageOpts contains optional provider-specific billing behavior.
+type recordUsageOpts struct {
+	// Kiro 账号在上游返回 auto 等无法定价模型时使用保守计费兜底。
+	IsKiroAccount bool
+}
+
 // RecordUsage 记录使用量并扣费（或更新订阅用量）
 func (s *GatewayService) RecordUsage(ctx context.Context, input *RecordUsageInput) error {
 	return s.recordUsageCore(ctx, &recordUsageCoreInput{
-		Result:             input.Result,
-		APIKey:             input.APIKey,
-		User:               input.User,
-		Account:            input.Account,
-		Subscription:       input.Subscription,
-		PricingAt:          input.PricingAt,
-		InboundEndpoint:    input.InboundEndpoint,
-		UpstreamEndpoint:   input.UpstreamEndpoint,
-		UserAgent:          input.UserAgent,
-		IPAddress:          input.IPAddress,
-		SessionID:          input.SessionID,
-		RequestPayloadHash: input.RequestPayloadHash,
-		ForceCacheBilling:  input.ForceCacheBilling,
-		APIKeyService:      input.APIKeyService,
-		QuotaPlatform:      input.QuotaPlatform,
-		ChannelUsageFields: input.ChannelUsageFields,
+		Result:                 input.Result,
+		APIKey:                 input.APIKey,
+		User:                   input.User,
+		Account:                input.Account,
+		Subscription:           input.Subscription,
+		PricingAt:              input.PricingAt,
+		InboundEndpoint:        input.InboundEndpoint,
+		UpstreamEndpoint:       input.UpstreamEndpoint,
+		UserAgent:              input.UserAgent,
+		IPAddress:              input.IPAddress,
+		SessionID:              input.SessionID,
+		KiroSessionFingerprint: input.KiroSessionFingerprint,
+		RequestPayloadHash:     input.RequestPayloadHash,
+		ForceCacheBilling:      input.ForceCacheBilling,
+		APIKeyService:          input.APIKeyService,
+		QuotaPlatform:          input.QuotaPlatform,
+		ChannelUsageFields:     input.ChannelUsageFields,
+	}, &recordUsageOpts{
+		IsKiroAccount: input.Account != nil && input.Account.Platform == PlatformKiro,
 	})
 }
 
 // recordUsageCoreInput 是 recordUsageCore 的公共输入字段，从两种输入结构体中提取。
 type recordUsageCoreInput struct {
-	Result             *ForwardResult
-	APIKey             *APIKey
-	User               *User
-	Account            *Account
-	Subscription       *UserSubscription
-	PricingAt          time.Time
-	InboundEndpoint    string
-	UpstreamEndpoint   string
-	UserAgent          string
-	IPAddress          string
-	SessionID          string
-	RequestPayloadHash string
-	ForceCacheBilling  bool
-	APIKeyService      APIKeyQuotaUpdater
-	QuotaPlatform      string
+	Result                 *ForwardResult
+	APIKey                 *APIKey
+	User                   *User
+	Account                *Account
+	Subscription           *UserSubscription
+	PricingAt              time.Time
+	InboundEndpoint        string
+	UpstreamEndpoint       string
+	UserAgent              string
+	IPAddress              string
+	SessionID              string
+	KiroSessionFingerprint string
+	RequestPayloadHash     string
+	ForceCacheBilling      bool
+	APIKeyService          APIKeyQuotaUpdater
+	QuotaPlatform          string
 	ChannelUsageFields
 }
 
@@ -773,7 +784,7 @@ func logResponseModelBillingApplied(component string, account *Account, requestI
 }
 
 // recordUsageCore 是 RecordUsage 的核心实现。
-func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsageCoreInput) error {
+func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsageCoreInput, opts *recordUsageOpts) error {
 	result := input.Result
 	apiKey := input.APIKey
 	user := input.User
@@ -810,7 +821,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 
 	// 计算费用
-	cost := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, pricingAt)
+	cost := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, pricingAt, opts)
 	// response_model：按上游成功响应自报的模型计费（渠道显式开启才生效）。
 	// 采纳条件见 responseModelBillingDeclaration + hasIdentifiedResponseModelPricing
 	// + responseModelBillingAdoptable。任一条件不满足都静默回落基线，即开启本模式前的
@@ -822,7 +833,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		result.ImageCount > 0 || result.AudioUsage != nil || result.SearchCount > 0 || result.CacheStorageTokenHours > 0,
 	); responseModel != "" && !strings.EqualFold(responseModel, strings.TrimSpace(billingModel)) {
 		if identified, responseChannelPriced := s.hasIdentifiedResponseModelPricing(ctx, responseModel, apiKey); identified {
-			responseCost := s.calculateRecordUsageCost(ctx, result, apiKey, responseModel, multiplier, imageMultiplier, pricingAt)
+			responseCost := s.calculateRecordUsageCost(ctx, result, apiKey, responseModel, multiplier, imageMultiplier, pricingAt, opts)
 			baselineChannelPriced := s.resolveChannelPricing(ctx, billingModel, apiKey) != nil
 			if responseModelBillingAdoptable(cost, responseCost, baselineChannelPriced, responseChannelPriced) {
 				// billingModel 到此为止只是定价查表的入参，后续流程只消费 cost，
@@ -1040,6 +1051,7 @@ func (s *GatewayService) calculateRecordUsageCost(
 	multiplier float64,
 	imageMultiplier float64,
 	pricingAt time.Time,
+	opts ...*recordUsageOpts,
 ) *CostBreakdown {
 	// 图片生成：渠道定价为 token 计费时走 token 路径，否则走图片计费。
 	// 分组按张计费开关只对专用图片端点生效，混合请求仍按 token 计费。
@@ -1047,7 +1059,7 @@ func (s *GatewayService) calculateRecordUsageCost(
 		if !imageCountBillingApplies(apiKey, result.ImageEndpoint) {
 			if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil && resolved.Mode == BillingModeToken {
 				// resolved 来自分组价或渠道价，是管理员配置的最终价，不叠加上游端点价格倍数。
-				return s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, pricingAt)
+				return s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, pricingAt, opts...)
 			}
 		}
 		return s.calculateImageCost(ctx, result, apiKey, billingModel, imageMultiplier)
@@ -1077,7 +1089,7 @@ func (s *GatewayService) calculateRecordUsageCost(
 	if isCacheStorageOnlyResult(result) {
 		tokenCost = &CostBreakdown{}
 	} else {
-		tokenCost = s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, pricingAt)
+		tokenCost = s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, pricingAt, opts...)
 		if s.upstreamPriceFactorApplies(ctx, result, apiKey, billingModel) {
 			applyUpstreamPriceFactor(tokenCost, result)
 		}
@@ -1283,6 +1295,7 @@ func (s *GatewayService) calculateTokenCost(
 	billingModel string,
 	multiplier float64,
 	pricingAt time.Time,
+	opts ...*recordUsageOpts,
 ) *CostBreakdown {
 	tokens := UsageTokens{
 		InputTokens:           result.Usage.InputTokens,
@@ -1313,6 +1326,19 @@ func (s *GatewayService) calculateTokenCost(
 		Resolved:        resolved,
 	})
 	if err != nil {
+		var recordOpts *recordUsageOpts
+		if len(opts) > 0 {
+			recordOpts = opts[0]
+		}
+		if shouldUseKiroConservativeBillingFallback(result, billingModel, recordOpts) {
+			modelHint := result.UpstreamModel
+			if modelHint == "" {
+				modelHint = result.Model
+			}
+			if fallbackCost := s.calculateKiroConservativeTokenCost(tokens, multiplier, modelHint); fallbackCost != nil {
+				return fallbackCost
+			}
+		}
 		logger.LegacyPrintf("service.gateway", "Calculate cost failed: %v", err)
 		return &CostBreakdown{ActualCost: 0}
 	}
@@ -1390,6 +1416,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		UserAgent:                optionalTrimmedStringPtr(input.UserAgent),
 		IPAddress:                optionalTrimmedStringPtr(input.IPAddress),
 		SessionID:                optionalTrimmedStringPtr(input.SessionID),
+		KiroSessionFingerprint:   optionalTrimmedStringPtr(input.KiroSessionFingerprint),
 		GroupID:                  apiKey.GroupID,
 		SubscriptionID:           optionalSubscriptionID(subscription),
 		CreatedAt:                time.Now(),

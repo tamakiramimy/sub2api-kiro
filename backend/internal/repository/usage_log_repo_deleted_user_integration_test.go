@@ -63,3 +63,30 @@ func TestUsageLog_ListWithFilters_ResolvesSoftDeletedUser(t *testing.T) {
 	require.NotNil(t, actLog.User)
 	require.Nil(t, actLog.User.DeletedAt)
 }
+
+func TestUsageLog_ListWithFilters_ResolvesSoftDeletedAccountPlatform(t *testing.T) {
+	ctx := context.Background()
+	tx := testEntTx(t)
+	client := tx.Client()
+	repo := newUsageLogRepositoryWithSQL(client, tx)
+
+	user := mustCreateUser(t, client, &service.User{Email: "deleted-account-listfilter@test.com"})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{UserID: user.ID, Key: "sk-deleted-account", Name: "k"})
+	account := mustCreateAccount(t, client, &service.Account{Name: "deleted-kiro-account", Platform: service.PlatformKiro})
+	_, err := repo.Create(ctx, &service.UsageLog{
+		UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID,
+		Model: "claude-sonnet-4", InputTokens: 10, OutputTokens: 2,
+		TotalCost: 0.1, ActualCost: 0.1, CreatedAt: time.Now().UTC(),
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, client.Account.DeleteOneID(account.ID).Exec(ctx))
+
+	logs, _, err := repo.ListWithFilters(ctx, pagination.PaginationParams{Page: 1, PageSize: 50},
+		usagestats.UsageLogFilters{AccountID: account.ID, ExactTotal: true})
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+	require.NotNil(t, logs[0].Account, "deleted account identity must resolve")
+	require.Equal(t, account.ID, logs[0].Account.ID)
+	require.Equal(t, service.PlatformKiro, logs[0].Account.Platform)
+}

@@ -25,7 +25,7 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 	// Antigravity 账户不支持 count_tokens，返回 404 让客户端 fallback 到本地估算。
 	// 返回 nil 避免 handler 层记录为错误，也不设置 ops 上游错误上下文。
 	// 凭据只能走其他协议的 OAuth 账号同理，且必须在取 token、建请求之前拦下。
-	if account != nil && (account.Platform == PlatformAntigravity || !anthropicMessagesCredentialAllowed(account)) {
+	if account != nil && (account.Platform == PlatformAntigravity || isKiroDirectModeAccount(account) || !anthropicMessagesCredentialAllowed(account)) {
 		s.countTokensError(c, http.StatusNotFound, "not_found_error", "count_tokens endpoint is not supported for this platform")
 		return nil
 	}

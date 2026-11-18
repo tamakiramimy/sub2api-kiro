@@ -385,6 +385,15 @@ func (s *BillingService) initFallbackPricing() {
 		SupportsCacheBreakdown:     false,
 	}
 
+	// Claude 4.5 Haiku（价格与 3.5 Haiku 相同，独立维护便于未来官方调价时区分）
+	s.fallbackPrices["claude-haiku-4-5"] = &ModelPricing{
+		InputPricePerToken:         1e-6,    // $1 per MTok
+		OutputPricePerToken:        5e-6,    // $5 per MTok
+		CacheCreationPricePerToken: 1.25e-6, // $1.25 per MTok
+		CacheReadPricePerToken:     0.1e-6,  // $0.10 per MTok
+		SupportsCacheBreakdown:     false,
+	}
+
 	// Claude 3 Opus
 	s.fallbackPrices["claude-3-opus"] = &ModelPricing{
 		InputPricePerToken:         15e-6,    // $15 per MTok
@@ -628,7 +637,7 @@ func (s *BillingService) initFallbackPricing() {
 		LongContextInputMultiplier:         2,
 		LongContextOutputMultiplier:        1.5,
 	}
-	// GPT-6 Sol/Luna official rates, 2026-09-22.
+	// GPT-6.2 Astra official rates, 2026-11-17.
 	s.fallbackPrices["gpt-6.2-astra"] = &ModelPricing{
 		InputPricePerToken:                 8e-6,
 		InputPricePerTokenPriority:         16e-6,
@@ -1211,6 +1220,9 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 		return s.fallbackPrices["claude-3-5-sonnet"]
 	}
 	if strings.Contains(modelLower, "haiku") {
+		if strings.Contains(modelLower, "4-5") || strings.Contains(modelLower, "4.5") {
+			return s.fallbackPrices["claude-haiku-4-5"]
+		}
 		if strings.Contains(modelLower, "3-5") || strings.Contains(modelLower, "3.5") {
 			return s.fallbackPrices["claude-3-5-haiku"]
 		}

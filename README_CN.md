@@ -198,6 +198,40 @@
 
 Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅的 API 配额。用户通过平台生成的 API Key 调用上游 AI 服务，平台负责鉴权、计费、负载均衡和请求转发。
 
+## Kiro 增强发行版
+
+本仓库是独立维护的发行版：持续同步 [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) 的稳定更新，同时提供完整的 Kiro 支持。
+
+Kiro 专属能力包括：
+
+- 支持 Kiro OAuth、AWS Builder ID、Token 导入，以及兼容 API Key 的上游接入。
+- Kiro 账号可通过 OpenAI Responses 和 Chat Completions 协议桥接使用。
+- 面向 Kiro 流量的 Anthropic Prompt Cache 用量模拟，支持按分组启用和调整模拟比例。
+- 支持 Claude Sonnet 5.5、Opus 5.5 及 thinking 别名，同时保留 GPT-5.6 Sol、Terra、Luna，Claude Opus 4.8 与 Claude Sonnet 5 的兼容能力。
+
+## 最新模型支持
+
+本发行版已同步 Wei-Shaw 0.2.14 基线，支持以下模型：
+
+| 平台 | 模型 | 客户端模型 ID |
+| --- | --- | --- |
+| OpenAI | GPT-6.2 Astra | `gpt-6.2-astra` |
+| OpenAI | GPT-6.2 Sol | `gpt-6.2-sol` |
+| OpenAI | GPT-6.1 Sol | `gpt-6.1-sol` |
+| OpenAI | GPT-6.1 Terra | `gpt-6.1-terra` |
+| Kiro | Claude Sonnet 5.5 | `claude-sonnet-5-5`、`claude-sonnet-5-5-thinking` |
+| Kiro | Claude Opus 5.5 | `claude-opus-5-5`、`claude-opus-5-5-thinking` |
+
+GPT-6.2 支持参考 [Wei-Shaw/sub2api#8906](https://github.com/Wei-Shaw/sub2api/pull/8906)。在 OpenAI 账号选择对应模型映射，并在启用白名单的分组中放行。两款模型支持 `low / medium / high / xhigh / max`，工具调用使用 Responses 上游。OpenAI API Key 账号适用 272,000 输入 Token 的长上下文阶梯价，OpenAI OAuth/setup-token 订阅账号沿用模型长上下文豁免。Ultrafast 取决于上游账号权限，按请求开始时间应用 [OpenAI 价目表](https://developers.openai.com/api/docs/pricing) 的倍率。
+
+GPT-6.1 Terra 专项回移自 [Wei-Shaw/sub2api#8364](https://github.com/Wei-Shaw/sub2api/pull/8364) 和 [Wei-Shaw/sub2api#8365](https://github.com/Wei-Shaw/sub2api/pull/8365)（2026-10-27 尚未合入上游 main），未同步其他上游功能。使用前需在 OpenAI 账号模型映射中添加 `gpt-6.1-terra` → `gpt-6.1-terra`；已开启模型白名单的分组还需放行该模型。支持 Responses，以及经 Responses 转换的 Chat Completions / Messages；工具调用必须走 Responses 上游。API 推理档位为 `none / low / medium / high / xhigh / max`；Codex 目录使用独立能力描述，默认 `low`、500k 上下文，最大 872k。内置 API 价格为每百万 Token 输入 $1、缓存读取 $0.05、缓存写入 $1.25、输出 $5；OAuth/setup-token 订阅免收模型长上下文附加费，自定义分段价格不变，实际可用性以账号权限为准。
+
+Kiro 同时接受 dotted 写法 `claude-sonnet-5.5`、`claude-opus-5.5` 及对应 thinking 别名。两款 Claude 5.5 支持 adaptive thinking 请求字段；`max_tokens=-1` 使用 128,000 Token 输出上限，显式设置的较小上限保持不变。Kiro 账号继续支持 Anthropic Messages、OpenAI Responses 和 Chat Completions 三种协议入口。
+
+实际模型可用性及输出上限是否被接受取决于上游账号和区域。不会自动扩大现有账号、分组或 API Key 的自定义模型白名单。Kiro cache read/create 数据属于**本地计费模拟**，不代表上游真实缓存命中，也不表示减少 Kiro 配额消耗。实施细节与验证边界见[同步和兼容说明](docs/UPSTREAM_SYNC_20261008_CN.md)。
+
+完整 Release 提供 Linux AMD64/ARM64、macOS AMD64/ARM64 和 Windows AMD64 二进制归档及校验和。Docker Hub `tamakiramimy/sub2api-kiro:<version>` 与 `:latest` 使用支持 `linux/amd64` 和 `linux/arm64` 的双架构 manifest。
+
 ## 核心功能
 
 - **多账号管理** - 支持多种上游账号类型（OAuth、API Key）
@@ -206,6 +240,10 @@ Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅的
 - **智能调度** - 智能账号选择，支持粘性会话
 - **并发控制** - 用户级和账号级并发限制
 - **速率限制** - 可配置的请求和 Token 速率限制
+- **Kiro 渠道支持** - Kiro 账号可通过原生 Anthropic、OpenAI Responses 和 Chat Completions 兼容网关调用
+- **最新模型** - 支持 OpenAI GPT-6.2 Astra/Sol、GPT-6.1 Sol/Terra，以及 Kiro Claude Sonnet/Opus 5.5 和 thinking 别名
+- **Kiro 模型兼容** - 保留 GPT-5.6、Claude Opus 4.8、Claude Sonnet 5 的模型别名
+- **Kiro 模拟缓存** - 为 Kiro 分组模拟 Anthropic Prompt Cache 用量，并支持按分组调整模拟比例
 - **内置支付系统** - 支持 EasyPay 易支付、支付宝官方、微信官方、Stripe，用户自助充值，无需独立部署支付服务（[配置指南](docs/PAYMENT_CN.md)）
 - **管理后台** - Web 界面进行监控和管理
 - **外部系统集成** - 支持通过 iframe 嵌入外部系统（如工单等），扩展管理后台功能

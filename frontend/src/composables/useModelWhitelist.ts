@@ -4,6 +4,8 @@ import { getProviderProfile } from '@/constants/platformCatalog'
 // 模型列表（硬编码，与 new-api 一致）
 // =====================
 
+import { kiroModels, kiroPresetMappings } from '@/kiro/models'
+
 // OpenAI
 const openaiModels = [
   // GPT-5.2 系列
@@ -309,6 +311,7 @@ const allModelsList: string[] = Array.from(new Set([
   ...mistralModels,
   ...metaModels,
   ...xaiModels,
+  ...kiroModels,
   ...cohereModels,
   ...yiModels,
   ...moonshotModels,
@@ -525,6 +528,7 @@ export function getModelsByPlatform(platform: string): string[] {
     case 'claude': return claudeModels
     case 'gemini': return geminiModels
     case 'antigravity': return antigravityModels
+    case 'kiro': return kiroModels
     case 'zhipu': return zhipuModels
     case 'qwen': return qwenModels
     case 'deepseek': return deepseekModels
@@ -568,6 +572,7 @@ export function getPresetMappingsByPlatform(platform: string) {
   if (platform === 'gemini') return geminiPresetMappings
   if (platform === 'grok' || platform === 'xai') return grokPresetMappings
   if (platform === 'antigravity') return antigravityPresetMappings
+  if (platform === 'kiro') return kiroPresetMappings
   if (platform === 'bedrock') return bedrockPresetMappings
   return anthropicPresetMappings
 }

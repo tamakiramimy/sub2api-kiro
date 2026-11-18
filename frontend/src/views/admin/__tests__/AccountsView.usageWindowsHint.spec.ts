@@ -7,12 +7,14 @@ const {
   listAccounts,
   listWithEtag,
   getBatchTodayStats,
+  getBatchUsage,
   getAllProxies,
   getAllGroups
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
+  getBatchUsage: vi.fn(),
   getAllProxies: vi.fn(),
   getAllGroups: vi.fn()
 }))
@@ -23,6 +25,7 @@ vi.mock('@/api/admin', () => ({
       list: listAccounts,
       listWithEtag,
       getBatchTodayStats,
+      getBatchUsage,
       getUpstreamBillingProbeSettings: vi.fn().mockResolvedValue({ enabled: true, interval_minutes: 30 }),
       delete: vi.fn(),
       batchClearError: vi.fn(),
@@ -77,6 +80,7 @@ const DataTableStub = {
       </template>
       <div v-for="row in data" :key="row.id" data-test="account-rate">
         <slot name="cell-rate_multiplier" :row="row" />
+        <slot name="cell-usage" :row="row" />
       </div>
     </div>
   `
@@ -88,7 +92,7 @@ const HelpTooltipStub = {
   template: '<span data-test="usage-windows-hint">{{ content }}</span>'
 }
 
-function mountView() {
+function mountView(accountUsageCell: unknown = true) {
   return mount(AccountsView, {
     global: {
       stubs: {
@@ -124,7 +128,7 @@ function mountView() {
         AccountStatusIndicator: true,
         AccountTodayStatsCell: true,
         AccountGroupsCell: true,
-        AccountUsageCell: true,
+        AccountUsageCell: accountUsageCell,
         Icon: true
       }
     }
@@ -138,6 +142,7 @@ describe('admin AccountsView usage windows hint', () => {
     listAccounts.mockReset()
     listWithEtag.mockReset()
     getBatchTodayStats.mockReset()
+    getBatchUsage.mockReset()
     getAllProxies.mockReset()
     getAllGroups.mockReset()
 
@@ -154,6 +159,7 @@ describe('admin AccountsView usage windows hint', () => {
       data: null
     })
     getBatchTodayStats.mockResolvedValue({ stats: {} })
+    getBatchUsage.mockResolvedValue({ usage: {}, errors: {} })
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
   })
@@ -180,6 +186,52 @@ describe('admin AccountsView usage windows hint', () => {
     const hint = wrapper.find('[data-test="usage-windows-hint"]')
     expect(hint.exists()).toBe(true)
     expect(hint.text()).toBe('admin.accounts.usageWindowsHint')
+  })
+
+  it('loads Kiro OAuth usage through the desktop batch endpoint', async () => {
+    listAccounts.mockResolvedValueOnce({
+      items: [{
+        id: 4,
+        name: 'kiro-account',
+        platform: 'kiro',
+        type: 'oauth',
+        status: 'active',
+        schedulable: true,
+        concurrency: 1,
+        priority: 1,
+        created_at: '2026-09-09T00:00:00Z',
+        updated_at: '2026-09-09T00:00:00Z'
+      }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+    getBatchUsage.mockResolvedValueOnce({
+      usage: {
+        4: {
+          updated_at: '2026-09-09T00:00:00Z',
+          five_hour: null,
+          seven_day: null,
+          seven_day_sonnet: null,
+          kiro_subscription_name: 'KIRO PRO',
+          kiro_credit: { current_usage: 4.1, usage_limit: 1000, percentage_used: 0.41 }
+        }
+      },
+      errors: {}
+    })
+
+    const usageCell = {
+      props: ['account', 'requestBatchedUsage'],
+      template: '<button data-test="load-usage" @click="requestBatchedUsage(account)">load</button>'
+    }
+    const wrapper = mountView(usageCell)
+    await flushPromises()
+    await wrapper.get('[data-test="load-usage"]').trigger('click')
+    await new Promise(resolve => setTimeout(resolve, 0))
+    await flushPromises()
+
+    expect(getBatchUsage).toHaveBeenCalledWith([4], false)
   })
 
   it('keeps Ollama Cloud in the single usage column and ignores legacy column preferences', async () => {

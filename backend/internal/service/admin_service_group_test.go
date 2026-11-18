@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"testing"
 
@@ -376,6 +377,111 @@ func TestAdminService_UpdateGroup_RejectsTimePricing(t *testing.T) {
 	require.Equal(t, int32(http.StatusBadRequest), appErr.Code)
 	require.Equal(t, "GROUP_MODEL_TIME_PRICING_UNSUPPORTED", appErr.Reason)
 	require.Nil(t, repo.updated)
+}
+
+func TestAdminService_CreateGroup_NormalizesKiroCacheEmulation(t *testing.T) {
+	t.Run("kiro defaults ratio to one", func(t *testing.T) {
+		repo := &groupRepoStubForAdmin{createID: 51}
+		svc := &adminServiceImpl{groupRepo: repo}
+
+		group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
+			Name:                      "kiro-cache",
+			Platform:                  PlatformKiro,
+			RateMultiplier:            1,
+			KiroCacheEmulationEnabled: true,
+		})
+
+		require.NoError(t, err)
+		require.True(t, group.KiroCacheEmulationEnabled)
+		require.Equal(t, 1.0, group.KiroCacheEmulationRatio)
+	})
+
+	t.Run("non kiro platform clears config", func(t *testing.T) {
+		ratio := 0.4
+		repo := &groupRepoStubForAdmin{createID: 52}
+		svc := &adminServiceImpl{groupRepo: repo}
+
+		group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
+			Name:                      "openai-cache",
+			Platform:                  PlatformOpenAI,
+			RateMultiplier:            1,
+			KiroCacheEmulationEnabled: true,
+			KiroCacheEmulationRatio:   &ratio,
+		})
+
+		require.NoError(t, err)
+		require.False(t, group.KiroCacheEmulationEnabled)
+		require.Zero(t, group.KiroCacheEmulationRatio)
+	})
+}
+
+func TestAdminService_CreateGroup_RejectsInvalidKiroCacheEmulationRatio(t *testing.T) {
+	for name, ratio := range map[string]float64{
+		"zero":     0,
+		"negative": -0.1,
+		"over one": 1.1,
+		"nan":      math.NaN(),
+		"infinite": math.Inf(1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo := &groupRepoStubForAdmin{}
+			svc := &adminServiceImpl{groupRepo: repo}
+
+			_, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
+				Name:                    "invalid-kiro-cache",
+				Platform:                PlatformKiro,
+				RateMultiplier:          1,
+				KiroCacheEmulationRatio: &ratio,
+			})
+
+			require.Error(t, err)
+			require.Equal(t, "INVALID_KIRO_CACHE_EMULATION_RATIO", infraerrors.Reason(err))
+			require.Nil(t, repo.created)
+		})
+	}
+}
+
+func TestAdminService_UpdateGroup_UpdatesKiroCacheEmulationPartially(t *testing.T) {
+	t.Run("omitted fields remain unchanged", func(t *testing.T) {
+		existing := &Group{
+			ID:                        1,
+			Name:                      "kiro-cache",
+			Platform:                  PlatformKiro,
+			Status:                    StatusActive,
+			KiroCacheEmulationEnabled: true,
+			KiroCacheEmulationRatio:   0.4,
+		}
+		repo := &groupRepoStubForAdmin{getByID: existing}
+		svc := &adminServiceImpl{groupRepo: repo}
+
+		group, err := svc.UpdateGroup(context.Background(), existing.ID, &UpdateGroupInput{})
+
+		require.NoError(t, err)
+		require.True(t, group.KiroCacheEmulationEnabled)
+		require.Equal(t, 0.4, group.KiroCacheEmulationRatio)
+	})
+
+	t.Run("explicit false disables emulation", func(t *testing.T) {
+		existing := &Group{
+			ID:                        2,
+			Name:                      "kiro-cache",
+			Platform:                  PlatformKiro,
+			Status:                    StatusActive,
+			KiroCacheEmulationEnabled: true,
+			KiroCacheEmulationRatio:   0.4,
+		}
+		disabled := false
+		repo := &groupRepoStubForAdmin{getByID: existing}
+		svc := &adminServiceImpl{groupRepo: repo}
+
+		group, err := svc.UpdateGroup(context.Background(), existing.ID, &UpdateGroupInput{
+			KiroCacheEmulationEnabled: &disabled,
+		})
+
+		require.NoError(t, err)
+		require.False(t, group.KiroCacheEmulationEnabled)
+		require.Equal(t, 0.4, group.KiroCacheEmulationRatio)
+	})
 }
 
 func TestNormalizeGroupModelPricing_NormalizesEmptyTimePricing(t *testing.T) {

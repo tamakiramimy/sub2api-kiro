@@ -540,6 +540,22 @@ func newConfiguredCodexModelDescriptor(modelID string) configuredCodexModelDescr
 		}
 	}
 
+	// The embedded catalog describes the Codex client, whose windows can
+	// differ from the public API limits. Live account metadata still wins.
+	var metadata json.RawMessage
+	switch openai.GPT62ModelID(modelID) {
+	case "gpt-6.2-sol":
+		metadata = openai.CodexGPT62SolMetadata
+	case "gpt-6.2-astra":
+		metadata = openai.CodexGPT62AstraMetadata
+	}
+	if len(metadata) > 0 {
+		if err := json.Unmarshal(metadata, &descriptor); err != nil {
+			panic(err)
+		}
+		descriptor.Slug = modelID
+		descriptor.officialMetadata = metadata
+	}
 	if openai.IsGPT61SolModelSpelling(modelID) {
 		if err := json.Unmarshal(openai.CodexGPT61SolMetadata, &descriptor); err != nil {
 			panic(err)
@@ -2077,6 +2093,8 @@ func CodexModelsManifestETag(body []byte) string {
 }
 
 var apiKeyCodexModelsWithoutResponsesLite = map[string]struct{}{
+	"gpt-6.2-sol":   {},
+	"gpt-6.2-astra": {},
 	"gpt-6.1-terra": {},
 	"gpt-6.1-sol":   {},
 	"gpt-6-astra":   {},

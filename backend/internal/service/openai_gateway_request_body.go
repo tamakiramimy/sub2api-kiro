@@ -1333,7 +1333,7 @@ func normalizeOpenAIOAuthResponsesCompatibilityBody(body []byte) ([]byte, bool, 
 }
 
 func normalizeGPT6ResponsesSampling(body []byte, model string) ([]byte, bool, error) {
-	if (!openai.IsGPT6SolOrLunaModelSpelling(model) && !openai.IsGPT61SolModelSpelling(model)) || gjson.GetBytes(body, "reasoning.effort").String() == "none" {
+	if (!openai.IsGPT6SolOrLunaModelSpelling(model) && !openai.IsGPT61SolModelSpelling(model) && openai.GPT62ModelID(model) == "") || gjson.GetBytes(body, "reasoning.effort").String() == "none" {
 		return body, false, nil
 	}
 	out := body
@@ -1468,8 +1468,15 @@ func normalizeOpenAIResponsesWebSocketCompatibilityBody(body []byte, account *Ac
 		normalized = sanitized
 		changed = true
 	}
-	if account != nil && account.IsOpenAI() && account.IsOAuth() {
-		if reasoningBody, reasoningChanged, err := normalizeOpenAIResponsesReasoningMode(normalized, account.GetMappedModel(gjson.GetBytes(normalized, "model").String())); err != nil {
+	mappedModel := account.GetMappedModel(gjson.GetBytes(normalized, "model").String())
+	isGPT62 := openai.GPT62ModelID(mappedModel) != ""
+	if isGPT62 {
+		if err := validateGPT61CompatRequest(normalized, mappedModel); err != nil {
+			return body, false, err
+		}
+	}
+	if account.IsOAuth() || isGPT62 {
+		if reasoningBody, reasoningChanged, err := normalizeOpenAIResponsesReasoningMode(normalized, mappedModel); err != nil {
 			return body, false, err
 		} else if reasoningChanged {
 			normalized = reasoningBody
@@ -2580,7 +2587,7 @@ func supportsOpenAIReasoningEffortMax(model string) bool {
 // validateGPT61CompatRequest runs after model mapping, before conversion can
 // discard unsupported explicit effort selections or disabled thinking.
 func validateGPT61CompatRequest(body []byte, model string) error {
-	if !openai.IsGPT61SolModelSpelling(model) && !openai.IsGPT61TerraModelSpelling(model) {
+	if !openai.RequiresResponsesForToolCalls(model) {
 		return nil
 	}
 	for _, path := range []string{"reasoning.effort", "reasoning_effort", "output_config.effort"} {

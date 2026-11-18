@@ -194,10 +194,14 @@ Kiro 专属能力包括：
 
 | 平台 | 模型 | 客户端模型 ID |
 | --- | --- | --- |
+| OpenAI | GPT-6.2 Astra | `gpt-6.2-astra` |
+| OpenAI | GPT-6.2 Sol | `gpt-6.2-sol` |
 | OpenAI | GPT-6.1 Sol | `gpt-6.1-sol` |
 | OpenAI | GPT-6.1 Terra | `gpt-6.1-terra` |
 | Kiro | Claude Sonnet 5.5 | `claude-sonnet-5-5`、`claude-sonnet-5-5-thinking` |
 | Kiro | Claude Opus 5.5 | `claude-opus-5-5`、`claude-opus-5-5-thinking` |
+
+GPT-6.2 支持参考 [Wei-Shaw/sub2api#8906](https://github.com/Wei-Shaw/sub2api/pull/8906)。在 OpenAI 账号选择对应模型映射，并在启用白名单的分组中放行。两款模型支持 `low / medium / high / xhigh / max`，工具调用使用 Responses 上游。OpenAI API Key 账号适用 272,000 输入 Token 的长上下文阶梯价，OpenAI OAuth/setup-token 订阅账号沿用模型长上下文豁免。Ultrafast 取决于上游账号权限，按请求开始时间应用 [OpenAI 价目表](https://developers.openai.com/api/docs/pricing) 的倍率。
 
 GPT-6.1 Terra 专项回移自 [Wei-Shaw/sub2api#8364](https://github.com/Wei-Shaw/sub2api/pull/8364) 和 [Wei-Shaw/sub2api#8365](https://github.com/Wei-Shaw/sub2api/pull/8365)（2026-10-27 尚未合入上游 main），未同步其他上游功能。使用前需在 OpenAI 账号模型映射中添加 `gpt-6.1-terra` → `gpt-6.1-terra`；已开启模型白名单的分组还需放行该模型。支持 Responses，以及经 Responses 转换的 Chat Completions / Messages；工具调用必须走 Responses 上游。API 推理档位为 `none / low / medium / high / xhigh / max`；Codex 目录使用独立能力描述，默认 `low`、500k 上下文，最大 872k。内置 API 价格为每百万 Token 输入 $1、缓存读取 $0.05、缓存写入 $1.25、输出 $5；OAuth/setup-token 订阅免收模型长上下文附加费，自定义分段价格不变，实际可用性以账号权限为准。
 
@@ -216,7 +220,7 @@ Kiro 同时接受 dotted 写法 `claude-sonnet-5.5`、`claude-opus-5.5` 及对�
 - **并发控制** - 用户级和账号级并发限制
 - **速率限制** - 可配置的请求和 Token 速率限制
 - **Kiro 渠道支持** - Kiro 账号可通过原生 Anthropic、OpenAI Responses 和 Chat Completions 兼容网关调用
-- **最新模型** - 支持 OpenAI GPT-6.1 Sol/Terra，以及 Kiro Claude Sonnet/Opus 5.5 和 thinking 别名
+- **最新模型** - 支持 OpenAI GPT-6.2 Astra/Sol、GPT-6.1 Sol/Terra，以及 Kiro Claude Sonnet/Opus 5.5 和 thinking 别名
 - **Kiro 模型兼容** - 保留 GPT-5.6、Claude Opus 4.8、Claude Sonnet 5 的模型别名
 - **Kiro 模拟缓存** - 为 Kiro 分组模拟 Anthropic Prompt Cache 用量，并支持按分组调整模拟比例
 - **内置支付系统** - 支持 EasyPay 易支付、支付宝官方、微信官方、Stripe，用户自助充值，无需独立部署支付服务（[配置指南](docs/PAYMENT_CN.md)）

@@ -24,6 +24,15 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
 		SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
 	}
+	reasoningModel := account.GetMappedModel(gjson.GetBytes(body, "model").String())
+	isGPT62 := account.IsOpenAI() && openai.GPT62ModelID(reasoningModel) != ""
+	if isGPT62 {
+		// Validate before compatibility handling can discard a disabled effort.
+		if err := validateGPT61CompatRequest(body, reasoningModel); err != nil {
+			writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+			return nil, err
+		}
+	}
 	filteredBody, filterErr := filterOpenAIResponsesNoneReasoningEffortForAccount(account, body)
 	if filterErr != nil {
 		return nil, filterErr
@@ -80,8 +89,8 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	} else if toolSchemaSanitized {
 		body = sanitizedToolBody
 	}
-	if account.IsOpenAIOAuthLike() {
-		reasoningBody, reasoningChanged, reasoningErr := normalizeOpenAIResponsesReasoningMode(body, account.GetMappedModel(gjson.GetBytes(body, "model").String()))
+	if account.IsOpenAIOAuthLike() || isGPT62 {
+		reasoningBody, reasoningChanged, reasoningErr := normalizeOpenAIResponsesReasoningMode(body, reasoningModel)
 		if reasoningErr != nil {
 			return nil, fmt.Errorf("normalize OpenAI Responses reasoning.mode: %w", reasoningErr)
 		}

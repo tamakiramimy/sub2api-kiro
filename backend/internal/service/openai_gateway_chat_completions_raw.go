@@ -104,6 +104,14 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 		upstreamBody = normalizedBody
 	}
 
+	if openai.GPT62ModelID(upstreamModel) != "" {
+		normalizedBody, _, err := normalizeGPT6ResponsesSampling(upstreamBody, upstreamModel)
+		if err != nil {
+			return nil, err
+		}
+		upstreamBody = normalizedBody
+	}
+
 	// 4. Apply OpenAI fast policy on the CC body
 	updatedBody, policyErr := s.applyOpenAIFastPolicyToBody(ctx, account, upstreamModel, upstreamBody)
 	if policyErr != nil {

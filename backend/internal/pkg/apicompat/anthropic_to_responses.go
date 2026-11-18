@@ -62,7 +62,7 @@ func AnthropicToResponses(req *AnthropicRequest) (*ResponsesRequest, error) {
 
 	// An explicit thinking disable takes precedence over output_config.effort.
 	effort := anthropicReasoningEffort(req)
-	if (openai.IsGPT61SolModelSpelling(req.Model) || openai.IsGPT61TerraModelSpelling(req.Model)) && req.OutputConfig != nil && req.OutputConfig.Effort == "max" && effort != "none" {
+	if (openai.GPT62ModelID(req.Model) != "" || openai.IsGPT61SolModelSpelling(req.Model) || openai.IsGPT61TerraModelSpelling(req.Model)) && req.OutputConfig != nil && req.OutputConfig.Effort == "max" && effort != "none" {
 		effort = "max"
 	}
 	out.Reasoning = &ResponsesReasoning{

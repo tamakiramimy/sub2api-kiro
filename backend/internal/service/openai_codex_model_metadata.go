@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 var codexToolCapabilityFields = []string{
@@ -23,6 +25,9 @@ func applyCodexToolCapabilities(dst, src map[string]json.RawMessage, overwrite b
 		value := bytes.TrimSpace(src[field])
 		if len(value) == 0 {
 			continue
+		}
+		if field == "service_tiers" && bytes.Equal(value, []byte("null")) {
+			value = []byte("[]")
 		}
 		// These Codex fields are nullable booleans or strings, never arbitrary objects.
 		if !bytes.Equal(value, []byte("null")) {
@@ -50,6 +55,30 @@ func applyCodexToolCapabilities(dst, src map[string]json.RawMessage, overwrite b
 		changed = true
 	}
 	return changed
+}
+
+// On ChatGPT subscriptions, Pro 200 includes GPT-6.2 Sol Ultrafast and
+// Pro 500 includes both GPT-6.2 models. Workspace grants come from discovery.
+func gpt62PlanIncludesUltrafast(account *Account, base string) bool {
+	if !account.IsOpenAIOAuthLike() || (base != "gpt-6.2-sol" && base != "gpt-6.2-astra") {
+		return false
+	}
+	// Use the same subscription SKU aliases as the account plan picker.
+	plan := strings.Map(func(r rune) rune {
+		switch r {
+		case ' ', '-', '_':
+			return -1
+		}
+		return r
+	}, strings.ToLower(strings.TrimSpace(account.GetCredential("plan_type"))))
+	switch plan {
+	case "pro", "chatgptpro":
+		return base == "gpt-6.2-sol"
+	case "promax":
+		return true
+	default:
+		return false
+	}
 }
 
 func accountCodexToolCapabilities(account *Account, modelID string) map[string]json.RawMessage {
@@ -97,16 +126,28 @@ func accountCodexToolCapabilities(account *Account, modelID string) map[string]j
 			capabilities["use_responses_lite"] = json.RawMessage("false")
 		}
 	}
-	// Official API models can advertise Ultrafast. OAuth must advertise it in its
-	// account manifest; a subscription label alone does not grant the capability.
-	if account.IsOpenAIApiKey() && isOfficialOpenAIModelsBaseURL(baseURL) && (openai.GPT62ModelID(modelID) != "" || isOpenAIGPT6AstraModel(modelID)) {
-		tiers := configuredCodexServiceTiersForModel(modelID)
-		tiers = append(tiers, configuredCodexServiceTier{ID: OpenAIFastTierUltrafast, Name: "Ultrafast", Description: fmt.Sprintf("Lowest latency; %gx Standard token pricing.", openAIUltrafastMultiplier(modelID, time.Now()))})
-		encoded, err := json.Marshal(tiers)
+	// Preserve declared tiers (including their provider-specific fields). An older
+	// OAuth snapshot can list only Fast even for a newly entitled subscription.
+	base := openai.GPT62ModelID(modelID)
+	planIncludesUltra := gpt62PlanIncludesUltrafast(account, base)
+	apiUltra := account.IsOpenAIApiKey() && isOfficialOpenAIModelsBaseURL(baseURL) && (base != "" || isOpenAIGPT6AstraModel(modelID))
+	tiers := capabilities["service_tiers"]
+	if (apiUltra && len(tiers) == 0) || (planIncludesUltra && !gjson.GetBytes(tiers, `#(id=="ultrafast")`).Exists()) {
+		if len(tiers) == 0 {
+			tiers, err = json.Marshal(configuredCodexServiceTiersForModel(modelID))
+			if err != nil {
+				panic(err)
+			}
+		}
+		description := "Lowest latency; increased subscription usage."
+		if apiUltra {
+			description = fmt.Sprintf("Lowest latency; %gx Standard token pricing.", openAIUltrafastMultiplier(modelID, time.Now()))
+		}
+		tiers, err = sjson.SetBytes(tiers, "-1", configuredCodexServiceTier{ID: OpenAIFastTierUltrafast, Name: "Ultrafast", Description: description})
 		if err != nil {
 			panic(err)
 		}
-		applyCodexToolCapabilities(capabilities, map[string]json.RawMessage{"service_tiers": encoded}, false)
+		capabilities["service_tiers"] = tiers
 	}
 	return capabilities
 }
@@ -121,6 +162,12 @@ func codexModelRoutingAccountIDs(group *Group, modelID string) []int64 {
 		return nil
 	}
 	return group.GetRoutingAccountIDs(strings.TrimSpace(modelID))
+}
+
+func codexAccountServesPlatformModel(account *Account, platform, modelID string) bool {
+	return account.Platform == platform ||
+		(account.Platform == PlatformAntigravity && mixedListingAccountAllowed(platform, account) &&
+			mixedListingModelAllowed(platform, modelID))
 }
 
 func groupCodexModelMetadata(
@@ -168,7 +215,7 @@ func groupCodexModelMetadata(
 			if routed && !containsInt64(routedAccountIDs, account.ID) {
 				continue
 			}
-			if account.Platform == platform && codexExplicitModelMappingClaims(*account, modelID) {
+			if codexAccountServesPlatformModel(account, platform, modelID) && codexExplicitModelMappingClaims(*account, modelID) {
 				explicitClaims = true
 				break
 			}
@@ -183,7 +230,7 @@ func groupCodexModelMetadata(
 	missingMetadata := false
 	for i := range accounts {
 		account := &accounts[i]
-		if account.Platform != platform {
+		if !codexAccountServesPlatformModel(account, platform, modelID) {
 			continue
 		}
 		if routed && !containsInt64(routedAccountIDs, account.ID) {
@@ -251,7 +298,7 @@ func codexExplicitModelTargetsConflictForPlatform(accounts []Account, platform, 
 	targets := make(map[string]struct{})
 	for i := range accounts {
 		account := &accounts[i]
-		if account.Platform != platform {
+		if !codexAccountServesPlatformModel(account, platform, modelID) {
 			continue
 		}
 		mappedModel, matched := account.ResolveMappedModel(modelID)
@@ -281,8 +328,11 @@ func intersectUpstreamModelMetadata(modelID string, candidates []UpstreamModelMe
 			result.CodexToolCapabilities[field] = value
 		} else if declared {
 			fallback := json.RawMessage("null")
-			if field == "supports_search_tool" || field == "use_responses_lite" {
+			switch field {
+			case "supports_search_tool", "use_responses_lite":
 				fallback = json.RawMessage("false")
+			case "service_tiers":
+				fallback = json.RawMessage("[]")
 			}
 			result.CodexToolCapabilities[field] = fallback
 		}

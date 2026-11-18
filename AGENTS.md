@@ -2,6 +2,8 @@
 
 Repo ini adalah distribusi mandiri yang mengikuti upstream `Wei-Shaw/sub2api`, dengan sejumlah kecil kustomisasi yang sengaja di-keep.
 
+> **2026-11-18 sync** memakai Wei-Shaw `69d2fae91` (0.2.22). Kiro terdaftar di katalog platform dan tetap menggunakan akun, gateway, cache emulation serta session affinity dari fork. Migrasi Kiro tetap memakai checksum historis. Runner melewati penambahan CHECK kuota lama sejak validasi berpindah ke katalog aplikasi. CI memakai Go 1.27.4 dan golangci-lint v2.14.0.
+
 > **2026-10-08 sync:** baseline upstream `3f1a2ea0a` (0.2.14), referensi nianzs `304cbe65b`. Semua fitur Kiro saat ini tetap di-keep, termasuk cache emulation lokal, usage session fingerprint dan stable account affinity, serta Sonnet/Opus 5.5. Fitur lokal tambahan (Image 2.5, GPT-6 prompt-cache dan Responses array tool output) juga tetap dipertahankan. Sinkronisasi ini memakai worktree terisolasi dan commit yang mempertahankan riwayat main; tidak melakukan reset/force-push/deploy. Daftar SHA dan prosedur rewrite historis di bawah bukan instruksi untuk mengubah riwayat tanpa persetujuan pengguna. CI terbaru memakai Go 1.27.0 dan golangci-lint v2.13; validasi lokal menggunakan v2.13.2. Detail: `docs/UPSTREAM_SYNC_20261008_CN.md`.
 
 > ⚠️ **KOREKSI PENTING (2026-07-21) — baca ini dulu sebelum melakukan sync/reset apa pun:**
@@ -176,7 +178,7 @@ sed -i 's#Wei-Shaw/sub2api#tamakiramimy/sub2api-kiro#g' .github/workflows/cla.ym
 | `frontend/package.json` + `pnpm-lock.yaml` | *(RESOLVED)* upstream sudah mendeklarasikan `@intlify/message-compiler` langsung sejak base saat ini — tidak perlu divergence lagi, verifikasi tiap sync apakah masih ada. |
 | `backend/go.mod` | *(RESOLVED)* upstream sudah adopt versi Go yang sama — bukan divergence lagi. |
 
-> ⚠️ **VERIFIKASI PAKAI PERINTAH CI YANG SEBENARNYA — bukan `go test ./...` polos.** CI jalanin `make test-unit` = `go test -tags=unit ./...` dan `make test-integration` = `go test -tags=integration ./...`. `go test ./...` polos MELEWATI file ber-`//go:build unit`. **Selalu tutup gate backend dengan:** `go test -tags=unit ./...`, `go test -tags=integration ./...`, `govulncheck ./...`, dan golangci-lint versi CI (seri v2.13).
+> ⚠️ **VERIFIKASI PAKAI PERINTAH CI YANG SEBENARNYA — bukan `go test ./...` polos.** CI jalanin `make test-unit` = `go test -tags=unit ./...` dan `make test-integration` = `go test -tags=integration ./...`. `go test ./...` polos MELEWATI file ber-`//go:build unit`. **Selalu tutup gate backend dengan:** `go test -tags=unit ./...`, `go test -tags=integration ./...`, `govulncheck ./...`, dan golangci-lint versi CI (seri v2.14).
 
 ### Divergensi struktural upstream yang mempengaruhi re-apply fitur
 
@@ -259,10 +261,10 @@ go vet ./...
 go test -tags=unit ./...
 go test -tags=integration ./...
 govulncheck ./...
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 "$(go env GOPATH)/bin/golangci-lint" run --timeout=30m
 ```
-> ⚠️ PATH mesin maintainer bisa menunjuk ke golangci-lint versi berbeda dari CI. **Jangan pakai binary PATH tanpa cek versi** — cocokkan seri v2.13 dari CI; versi yang diverifikasi untuk sync ini adalah v2.13.2.
+> ⚠️ PATH mesin maintainer bisa menunjuk ke golangci-lint versi berbeda dari CI. **Jangan pakai binary PATH tanpa cek versi** — cocokkan versi v2.14.0 dari CI.
 
 ### Frontend
 ```bash

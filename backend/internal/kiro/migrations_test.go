@@ -8,12 +8,13 @@ import (
 )
 
 func TestAdaptPlatformQuotaMigrationSQL(t *testing.T) {
-	for _, name := range []string{"241_add_typesafe_platform.sql", "241_user_platform_quotas_add_kiro.sql"} {
+	for _, name := range []string{"241_add_typesafe_platform.sql", "241_user_platform_quotas_add_kiro.sql", "242_user_platform_quotas_kiro_typesafe.sql"} {
 		body, err := migrations.FS.ReadFile(name)
 		require.NoError(t, err)
 		content := string(body)
 		adapted := AdaptPlatformQuotaMigrationSQL(name, content)
-		require.Contains(t, adapted, "'opencode_go', 'typesafe', 'kiro'))")
+		require.Contains(t, adapted, "DROP CONSTRAINT IF EXISTS user_platform_quotas_platform_check;")
+		require.NotContains(t, adapted, "ADD CONSTRAINT user_platform_quotas_platform_check")
 		require.Equal(t, adapted, AdaptPlatformQuotaMigrationSQL(name, adapted))
 		require.Equal(t, content, AdaptPlatformQuotaMigrationSQL("unknown.sql", content))
 		if name == "241_add_typesafe_platform.sql" {

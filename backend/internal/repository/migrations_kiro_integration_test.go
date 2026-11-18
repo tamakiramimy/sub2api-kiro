@@ -21,10 +21,12 @@ func TestKiroTypeSafeQuotaMigrations(t *testing.T) {
 	}
 	for _, testCase := range []struct {
 		name, appliedMigration, platform string
+		upstreamConstraintsDropped       bool
 	}{
 		{name: "fresh"},
 		{name: "kiro_upgrade", appliedMigration: "241_user_platform_quotas_add_kiro.sql", platform: "kiro"},
 		{name: "typesafe_upgrade", appliedMigration: "241_add_typesafe_platform.sql", platform: "typesafe"},
+		{name: "newer_upstream_upgrade", appliedMigration: "241_add_typesafe_platform.sql", platform: "cline", upstreamConstraintsDropped: true},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			tx := testTx(t)
@@ -35,18 +37,25 @@ CREATE TEMP TABLE composite_model_routes (target_platform TEXT NOT NULL) ON COMM
 			if testCase.appliedMigration != "" {
 				_, err = tx.ExecContext(ctx, readSQL(testCase.appliedMigration))
 				require.NoError(t, err)
+				if testCase.upstreamConstraintsDropped {
+					_, err = tx.ExecContext(ctx, readSQL("242_drop_platform_check_constraints.sql"))
+					require.NoError(t, err)
+				}
 				_, err = tx.ExecContext(ctx, "INSERT INTO user_platform_quotas (platform) VALUES ($1)", testCase.platform)
 				require.NoError(t, err)
 			}
-			for _, name := range []string{"241_add_typesafe_platform.sql", "241_user_platform_quotas_add_kiro.sql"} {
+			for _, name := range []string{
+				"241_add_typesafe_platform.sql",
+				"241_user_platform_quotas_add_kiro.sql",
+				"242_drop_platform_check_constraints.sql",
+				"242_user_platform_quotas_kiro_typesafe.sql",
+			} {
 				if name != testCase.appliedMigration {
 					_, err = tx.ExecContext(ctx, kiropkg.AdaptPlatformQuotaMigrationSQL(name, readSQL(name)))
 					require.NoError(t, err)
 				}
 			}
-			_, err = tx.ExecContext(ctx, readSQL("242_user_platform_quotas_kiro_typesafe.sql"))
-			require.NoError(t, err)
-			_, err = tx.ExecContext(ctx, "INSERT INTO user_platform_quotas (platform) VALUES ('kiro'), ('typesafe')")
+			_, err = tx.ExecContext(ctx, "INSERT INTO user_platform_quotas (platform) VALUES ('kiro'), ('typesafe'), ('cline'), ('command_code')")
 			require.NoError(t, err)
 			if testCase.platform != "" {
 				var count int
@@ -55,7 +64,7 @@ CREATE TEMP TABLE composite_model_routes (target_platform TEXT NOT NULL) ON COMM
 			}
 		})
 	}
-	for _, name := range []string{"241_add_typesafe_platform.sql", "241_user_platform_quotas_add_kiro.sql"} {
+	for _, name := range []string{"241_add_typesafe_platform.sql", "241_user_platform_quotas_add_kiro.sql", "242_user_platform_quotas_kiro_typesafe.sql"} {
 		var stored string
 		require.NoError(t, integrationDB.QueryRowContext(t.Context(), "SELECT checksum FROM schema_migrations WHERE filename = $1", name).Scan(&stored))
 		sum := sha256.Sum256([]byte(readSQL(name)))

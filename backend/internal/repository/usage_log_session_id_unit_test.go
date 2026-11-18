@@ -41,23 +41,23 @@ func TestPrepareUsageLogInsert_SessionIDArgWiring(t *testing.T) {
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes),
 		"prepared args must match the arg-type table length")
 
-	// created_at is last; native_compaction_v2 and fingerprint precede it; session_id comes first.
-	sessionArg := prepared.args[len(prepared.args)-4]
+	// Session ID precedes the Kiro fingerprint, native compaction, cache TTL counters and created_at.
+	sessionArg := prepared.args[len(prepared.args)-6]
 	ns, ok := sessionArg.(sql.NullString)
 	require.True(t, ok, "session_id arg should be a sql.NullString, got %T", sessionArg)
 	require.True(t, ns.Valid)
 	require.Equal(t, sessionID, ns.String)
 
-	require.Equal(t, "text", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-4],
+	require.Equal(t, "text", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-6],
 		"session_id arg type must be text")
 
-	fingerprintArg, ok := prepared.args[len(prepared.args)-3].(sql.NullString)
-	require.True(t, ok, "kiro_session_fingerprint arg should be a sql.NullString, got %T", prepared.args[len(prepared.args)-3])
+	fingerprintArg, ok := prepared.args[len(prepared.args)-5].(sql.NullString)
+	require.True(t, ok, "kiro_session_fingerprint arg should be a sql.NullString, got %T", prepared.args[len(prepared.args)-5])
 	require.True(t, fingerprintArg.Valid)
 	require.Equal(t, fingerprint, fingerprintArg.String)
-	require.Equal(t, "text", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-3],
+	require.Equal(t, "text", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-5],
 		"kiro_session_fingerprint arg type must be text")
-	require.Equal(t, "boolean", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-2],
+	require.Equal(t, "boolean", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-4],
 		"native_compaction_v2 arg type must be boolean")
 }
 
@@ -65,14 +65,14 @@ func TestPrepareUsageLogInsert_SessionIDArgWiring(t *testing.T) {
 // persisted as SQL NULL rather than an empty string.
 func TestPrepareUsageLogInsert_SessionIDNullWhenAbsent(t *testing.T) {
 	prepared := prepareUsageLogInsert(newSessionIDUsageLog(nil))
-	sessionArg := prepared.args[len(prepared.args)-4]
+	sessionArg := prepared.args[len(prepared.args)-6]
 	ns, ok := sessionArg.(sql.NullString)
 	require.True(t, ok, "session_id arg should be a sql.NullString, got %T", sessionArg)
 	require.False(t, ns.Valid, "absent session id must be NULL, not empty string")
 
 	empty := ""
 	preparedEmpty := prepareUsageLogInsert(newSessionIDUsageLog(&empty))
-	nsEmpty := preparedEmpty.args[len(preparedEmpty.args)-4].(sql.NullString)
+	nsEmpty := preparedEmpty.args[len(preparedEmpty.args)-6].(sql.NullString)
 	require.False(t, nsEmpty.Valid, "empty session id must also be NULL")
 }
 

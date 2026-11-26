@@ -28,10 +28,12 @@ vi.mock('@/api/admin', () => ({
       delete: vi.fn(),
       batchClearError: vi.fn(),
       batchRefresh: vi.fn(),
-      toggleSchedulable: vi.fn()
+      toggleSchedulable: vi.fn(),
+      getUpstreamBillingProbeSettings: vi.fn().mockResolvedValue({})
     },
     proxies: {
-      getAll: getAllProxies
+      getAll: getAllProxies,
+      getAllWithCount: getAllProxies
     },
     groups: {
       getAll: getAllGroups

@@ -364,14 +364,7 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 	}
 
 	// Update usage from accumulated delta
-	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
-		finalResp.Usage = apicompat.AnthropicUsage{
-			InputTokens:              usage.InputTokens,
-			OutputTokens:             usage.OutputTokens,
-			CacheCreationInputTokens: usage.CacheCreationInputTokens,
-			CacheReadInputTokens:     usage.CacheReadInputTokens,
-		}
-	}
+	normalizeAnthropicEventUsageForResponses(&apicompat.AnthropicStreamEvent{Message: finalResp}, usage)
 
 	// Chain: Anthropic → Responses → Chat Completions
 	responsesResp := apicompat.AnthropicToResponsesResponse(finalResp)
@@ -437,6 +430,7 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 	anthState.Model = originalModel
 	ccState := apicompat.NewResponsesEventToChatState()
 	ccState.Model = originalModel
+	toolNameRestorer := newToolNameStreamRestorer(toolNameRewriteFromContext(c))
 
 	var usage ClaudeUsage
 	var firstTokenMs *int
@@ -549,23 +543,36 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 			continue
 		}
 
-		var event apicompat.AnthropicStreamEvent
-		if err := json.Unmarshal([]byte(payload), &event); err != nil {
-			continue
+		var restored [2][]byte
+		n := 1
+		if toolNameRestorer == nil {
+			restored[0] = streamEventBytes(payload)
+		} else {
+			n = toolNameRestorer.restoreInto(streamEventBytes(payload), &restored)
 		}
+		for _, payload := range restored[:n] {
+			var event apicompat.AnthropicStreamEvent
+			if err := json.Unmarshal(payload, &event); err != nil {
+				continue
+			}
 
-		// Forward received usage regardless of the client stream_options.
-		// The intermediate Responses converter synthesizes usage even when absent.
-		ccState.IncludeUsage = ccState.IncludeUsage || anthropicChatStreamHasUsage(&event, payload)
+			// Forward received usage regardless of the client stream_options.
+			// The intermediate Responses converter synthesizes usage even when absent.
+			ccState.IncludeUsage = ccState.IncludeUsage || anthropicChatStreamHasUsage(&event, string(payload))
 
-		observer.ObserveAnthropic([]byte(payload))
-		stream.observe(&event, payload)
+			observer.ObserveAnthropic(payload)
+			stream.observe(&event, string(payload))
+			if stream.upstreamErrType != "" {
+				break
+			}
+			processAnthropicEvent(&event)
+		}
 		if stream.upstreamErrType != "" {
 			break
 		}
-		processAnthropicEvent(&event)
 	}
 
+	flushToolNameCarry(c, c.Writer.Size() != writerSizeBeforeStream, toolNameRestorer, processAnthropicEvent)
 	if failure := stream.failure(); failure != nil {
 		return finishAnthropicCompatStreamFailure(c, writerSizeBeforeStream, failure, resultWithUsage(), func() {
 			writeAnthropicCompatCCStreamFailure(c, failure)

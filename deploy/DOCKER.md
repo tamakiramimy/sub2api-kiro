@@ -1,6 +1,8 @@
 # Sub2API Kiro Docker Image
 
-Sub2API Kiro is the Kiro-enhanced distribution of Sub2API. The published image supports GPT-5.6, Claude Opus 5, Claude Opus 4.8, and Claude Sonnet 5 through the Kiro integration.
+Sub2API Kiro is the Kiro-enhanced distribution of Sub2API. The published image supports GPT-5.6, Claude Opus 5, Claude Opus 4.8, and Claude Sonnet 5 through the Kiro integration, on a Wei-Shaw 0.2.25 baseline.
+
+Kiro Claude protocol support includes implicit `<thinking>` tag stripping for Opus 4.7+/5+ and Sonnet 5+, forced `tool_choice`, structured output (`response_format`), `stop_sequences`, and automatic history trimming when a request exceeds the Kiro input limit. Kiro accounts are reachable through the Anthropic Messages, OpenAI Responses, and Chat Completions gateways.
 
 ## Image
 
@@ -31,10 +33,10 @@ Use `docker-compose.local.yml` for local data directories that are easier to bac
 
 ## Tags
 
-- `latest` - Latest stable release
-- `x.y.z` - Specific version
-- `x.y` - Latest patch of minor version
-- `x` - Latest minor of major version
+- `latest` - Latest release, a multi-architecture manifest
+- `YYYYMMDD_HHMMSS` - A specific build, for example `20261126_151231`, a multi-architecture manifest
+- `amd64-YYYYMMDD_HHMMSS`, `arm64-YYYYMMDD_HHMMSS` - The single-architecture images of that build
+- `amd64-latest`, `arm64-latest` - The single-architecture images of the latest build
 
 ## Links
 

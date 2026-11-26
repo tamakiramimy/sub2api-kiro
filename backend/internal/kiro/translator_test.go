@@ -103,7 +103,8 @@ func TestBuildKiroPayloadClaude55AdaptiveFields(t *testing.T) {
 			body = []byte(fmt.Sprintf(`{"model":%q,"messages":[{"role":"user","content":"hello"}]}`, model))
 			result, err = BuildKiroPayloadWithContext(body, MapModel(model), "", "AI_EDITOR", nil)
 			require.NoError(t, err)
-			require.False(t, result.Context.ThinkingEnabled)
+			// Implicit tag stripping is parse-only: no thinking fields are sent upstream.
+			require.True(t, result.Context.ThinkingEnabled)
 			require.False(t, gjson.GetBytes(result.Payload, "additionalModelRequestFields").Exists())
 		})
 	}
@@ -2022,4 +2023,76 @@ func buildEventStreamFrame(t *testing.T, eventType string, payload any) []byte {
 	_, _ = frame.Write(payloadBytes)
 	require.NoError(t, binary.Write(frame, binary.BigEndian, uint32(0)))
 	return frame.Bytes()
+}
+
+func TestImplicitThinkingTagStrippingStream(t *testing.T) {
+	body := []byte(`{"model":"claude-opus-4-8","messages":[{"role":"user","content":"hi"}]}`)
+	result, err := BuildKiroPayloadWithContext(body, "claude-opus-4.8", "", "AI_EDITOR", nil)
+	require.NoError(t, err)
+	require.True(t, result.Context.ThinkingEnabled)
+	require.NotContains(t, string(result.Payload), "<thinking_mode>")
+
+	old, err := BuildKiroPayloadWithContext([]byte(`{"model":"claude-opus-4-6","messages":[{"role":"user","content":"hi"}]}`), "claude-opus-4.6", "", "AI_EDITOR", nil)
+	require.NoError(t, err)
+	require.False(t, old.Context.ThinkingEnabled)
+}
+
+func TestForcedToolChoiceDisablesThinking(t *testing.T) {
+	body := []byte(`{"model":"claude-opus-4-6-thinking","tool_choice":{"type":"any"},"tools":[{"name":"t","input_schema":{"type":"object"}}],"messages":[{"role":"user","content":"hi"}]}`)
+	result, err := BuildKiroPayloadWithContext(body, "claude-opus-4.6", "", "AI_EDITOR", nil)
+	require.NoError(t, err)
+	require.False(t, result.Context.ThinkingEnabled)
+	require.NotContains(t, string(result.Payload), "<thinking_mode>")
+}
+
+func TestStructuredOutputToolRoundTrip(t *testing.T) {
+	body := []byte(`{"model":"claude-sonnet-4-6","response_format":{"type":"json_schema","json_schema":{"name":"out","schema":{"type":"object","properties":{"a":{"type":"string"}}}}},"messages":[{"role":"user","content":"hi"}]}`)
+	result, err := BuildKiroPayloadWithContext(body, "claude-sonnet-4.6", "", "AI_EDITOR", nil)
+	require.NoError(t, err)
+	require.Equal(t, "out", result.Context.StructuredOutputToolName)
+	require.Equal(t, "out", gjson.GetBytes(result.Payload, "conversationState.currentMessage.userInputMessage.userInputMessageContext.tools.0.toolSpecification.name").String())
+
+	resp := buildClaudeResponse("", []KiroToolUse{{ToolUseID: "tu1", Name: "out", Input: map[string]any{"a": "x"}}}, "m", Usage{}, "tool_use", result.Context)
+	require.Equal(t, "text", gjson.GetBytes(resp, "content.0.type").String())
+	require.JSONEq(t, `{"a":"x"}`, gjson.GetBytes(resp, "content.0.text").String())
+	require.Equal(t, "end_turn", gjson.GetBytes(resp, "stop_reason").String())
+}
+
+func TestStopSequencesNonStreaming(t *testing.T) {
+	ctx := KiroRequestContext{StopSequences: []string{"END"}}
+	resp := buildClaudeResponse("hello END world", nil, "m", Usage{}, "end_turn", ctx)
+	require.Equal(t, "hello ", gjson.GetBytes(resp, "content.0.text").String())
+	require.Equal(t, "stop_sequence", gjson.GetBytes(resp, "stop_reason").String())
+	require.Equal(t, "END", gjson.GetBytes(resp, "stop_sequence").String())
+}
+
+func TestStopSequencesAcrossStreamChunks(t *testing.T) {
+	var buf bytes.Buffer
+	for _, chunk := range []string{"hello E", "ND tail"} {
+		buf.Write(buildEventStreamFrame(t, "assistantResponseEvent", map[string]any{"content": chunk}))
+	}
+	var out bytes.Buffer
+	res, err := StreamEventStreamAsAnthropicWithContext(context.Background(), &buf, &out, "m", 1, KiroRequestContext{StopSequences: []string{"END"}})
+	require.NoError(t, err)
+	require.Equal(t, "stop_sequence", res.StopReason)
+	require.Contains(t, out.String(), `"stop_sequence":"END"`)
+	require.NotContains(t, out.String(), "tail")
+}
+
+func TestTruncateKiroPayloadToLimit(t *testing.T) {
+	big := strings.Repeat("x", 200*1024)
+	var history []KiroHistoryMessage
+	for i := 0; i < 10; i++ {
+		history = append(history,
+			KiroHistoryMessage{UserInputMessage: &KiroUserInputMessage{Content: big, ModelID: "m", Origin: "AI_EDITOR"}},
+			KiroHistoryMessage{AssistantResponseMessage: &KiroAssistantResponseMessage{Content: "ok"}},
+		)
+	}
+	payload := &KiroPayload{ConversationState: KiroConversationState{
+		CurrentMessage: KiroCurrentMessage{UserInputMessage: KiroUserInputMessage{Content: "now", ModelID: "m", Origin: "AI_EDITOR"}},
+		History:        history,
+	}}
+	truncateKiroPayloadToLimit(payload, false)
+	require.LessOrEqual(t, kiroPayloadByteSize(payload), kiroMaxPayloadBytes)
+	require.Contains(t, payload.ConversationState.History[0].UserInputMessage.Content, "Earlier conversation history was truncated")
 }

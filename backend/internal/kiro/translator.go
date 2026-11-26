@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -24,8 +25,15 @@ import (
 )
 
 const (
-	kiroMaxToolDescLen               = 10237
-	kiroMaxToolNameLen               = 63
+	kiroMaxToolDescLen = 10237
+	kiroMaxToolNameLen = 63
+	// kiroMaxPayloadBytes keeps the request under Kiro's "Input is too long" limit.
+	kiroMaxPayloadBytes = 900 * 1024
+	// kiroMinRecentHistoryTurns is the minimum number of recent turns kept when old history is dropped.
+	kiroMinRecentHistoryTurns = 4
+	// kiroHistoryTruncationPlaceholder is inserted once when older history is dropped.
+	kiroHistoryTruncationPlaceholder = "[Earlier conversation history was truncated to fit the model's input limit. Older messages and tool activity have been omitted.]"
+	structuredOutputToolName         = "__structured_output__"
 	kiroHistoryImageKeepCount        = 5
 	thinkingStartTag                 = "<thinking>"
 	thinkingEndTag                   = "</thinking>"
@@ -102,6 +110,10 @@ type KiroRequestContext struct {
 	ToolNameMap         map[string]string
 	ThinkingEnabled     bool
 	CacheEmulationUsage *Usage
+
+	StructuredOutputToolName string
+	StructuredOutputUserHint string
+	StopSequences            []string
 }
 
 type KiroBuildResult struct {
@@ -372,8 +384,19 @@ func buildKiroPayload(claudeBody []byte, modelID, profileArn, origin string, hea
 	// top-level system prompt instead of silently dropping it from the payload.
 	inlineSystem, filteredMessages := extractInlineSystemPrompts(messages)
 	thinking := deriveThinkingDirective(claudeBody, headers)
+	if hasForcedClaudeToolChoice(claudeBody) {
+		thinking = nil
+	}
 	requestCtx.ThinkingEnabled = thinking != nil
-	toolChoiceHint := extractClaudeToolChoiceHint(claudeBody, &requestCtx)
+	// Opus 4.7+/5+ may emit <thinking>…</thinking> as plain text even when the
+	// client did not request thinking. Enable tag extraction only on the parse
+	// side so the tags never leak into the assistant text.
+	if !requestCtx.ThinkingEnabled && requiresImplicitThinkingTagStripping(modelID) {
+		requestCtx.ThinkingEnabled = true
+	}
+	requestCtx.StopSequences = extractClaudeStopSequences(claudeBody)
+	structuredOutputTool, structuredOutputHint := buildStructuredOutputTool(claudeBody, &requestCtx)
+	toolChoiceHint := joinPromptHints(extractClaudeToolChoiceHint(claudeBody, &requestCtx), structuredOutputHint)
 	baseSystem := extractSystemPrompt(claudeBody)
 	if inlineSystem != "" {
 		if strings.TrimSpace(baseSystem) != "" {
@@ -391,11 +414,17 @@ func buildKiroPayload(claudeBody []byte, modelID, profileArn, origin string, hea
 		tools = gjson.GetBytes(claudeBody, "tools")
 	}
 	kiroTools := convertClaudeToolsToKiro(tools, &requestCtx)
+	if structuredOutputTool != nil {
+		kiroTools = append(kiroTools, *structuredOutputTool)
+	}
 	currentToolResults, orphanedToolUseIDs := validateToolPairing(history, currentToolResults)
 	removeOrphanedToolUses(history, orphanedToolUseIDs)
 	kiroTools = appendMissingPlaceholderTools(kiroTools, collectHistoryToolNames(history))
 	if currentUserMsg != nil {
 		currentUserMsg.Content = buildFinalContent(currentUserMsg.Content, currentToolResults)
+		if requestCtx.StructuredOutputUserHint != "" {
+			currentUserMsg.Content = appendTextBlock(currentUserMsg.Content, requestCtx.StructuredOutputUserHint)
+		}
 		currentToolResults = deduplicateToolResults(currentToolResults)
 		if len(kiroTools) > 0 || len(currentToolResults) > 0 {
 			currentUserMsg.UserInputMessageContext = &KiroUserInputMessageContext{
@@ -444,6 +473,7 @@ func buildKiroPayload(claudeBody []byte, modelID, profileArn, origin string, hea
 		InferenceConfig:              inferenceConfig,
 		AdditionalModelRequestFields: buildAdditionalModelRequestFields(thinking, modelID),
 	}
+	truncateKiroPayloadToLimit(&payload, strings.TrimSpace(systemPrompt) != "")
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -489,6 +519,8 @@ func StreamEventStreamAsAnthropicWithContext(ctx context.Context, body io.Reader
 	lastContentFragment := ""
 	pendingLeadingWhitespace := ""
 	stopReason := ""
+	stopSequenceMatched := ""
+	stopSequencePendingText := ""
 	thinkingBuffer := ""
 	inThinkingBlock := false
 	stripThinkingLeadingNewline := false
@@ -710,7 +742,7 @@ func StreamEventStreamAsAnthropicWithContext(ctx context.Context, body io.Reader
 		}
 		return closeStreamingTool(toolUseID)
 	}
-	emitTextDelta := func(text string, allowWhitespace bool) error {
+	writeTextDelta := func(text string, allowWhitespace bool) error {
 		if text == "" || (!allowWhitespace && strings.TrimSpace(text) == "") {
 			return nil
 		}
@@ -760,9 +792,55 @@ func StreamEventStreamAsAnthropicWithContext(ctx context.Context, body io.Reader
 			},
 		})
 	}
-	emitToolUse := func(tool KiroToolUse) error {
-		if !shouldEmitToolUse(tool, emittedToolContents) {
+	emitTextDelta := func(text string, allowWhitespace bool) error {
+		if stopSequenceMatched != "" || text == "" {
 			return nil
+		}
+		if len(requestCtx.StopSequences) == 0 {
+			return writeTextDelta(text, allowWhitespace)
+		}
+		stopSequencePendingText += text
+		if idx, matched := firstStopSequenceIndex(stopSequencePendingText, requestCtx.StopSequences); matched != "" {
+			emitText := stopSequencePendingText[:idx]
+			stopSequencePendingText = ""
+			err := writeTextDelta(emitText, allowWhitespace)
+			stopSequenceMatched = matched
+			stopReason = "stop_sequence"
+			return err
+		}
+		suffix := stopSequencePotentialSuffix(stopSequencePendingText, requestCtx.StopSequences)
+		if len(suffix) == len(stopSequencePendingText) {
+			return nil
+		}
+		emitText := stopSequencePendingText[:len(stopSequencePendingText)-len(suffix)]
+		stopSequencePendingText = suffix
+		return writeTextDelta(emitText, allowWhitespace)
+	}
+	flushTextStopBuffer := func() error {
+		if stopSequencePendingText == "" {
+			return nil
+		}
+		text := stopSequencePendingText
+		stopSequencePendingText = ""
+		return writeTextDelta(text, true)
+	}
+	emitToolUse := func(tool KiroToolUse) error {
+		structuredOutput := isStructuredOutputToolName(tool.Name, requestCtx)
+		if !structuredOutput && !shouldEmitToolUse(tool, emittedToolContents) {
+			return nil
+		}
+		if structuredOutput {
+			if tool.IsTruncated {
+				return nil
+			}
+			inputJSON, err := json.Marshal(tool.Input)
+			if err != nil {
+				inputJSON = []byte("{}")
+			}
+			if stopReason == "" || stopReason == "tool_use" {
+				stopReason = "end_turn"
+			}
+			return emitTextDelta(string(inputJSON), true)
 		}
 		if err := closeOpenStreamingTool(); err != nil {
 			return err
@@ -996,9 +1074,11 @@ func StreamEventStreamAsAnthropicWithContext(ctx context.Context, body io.Reader
 		if evt.SourceStopReason != "" {
 			switch strings.ToLower(strings.TrimSpace(evt.SourceStopReason)) {
 			case "max_tokens":
-				stopReason = "max_tokens"
+				if stopReason != "stop_sequence" {
+					stopReason = "max_tokens"
+				}
 			case "end_turn", "tool_use":
-				if stopReason != "max_tokens" {
+				if stopReason != "max_tokens" && stopReason != "stop_sequence" {
 					stopReason = strings.ToLower(strings.TrimSpace(evt.SourceStopReason))
 				}
 			}
@@ -1026,7 +1106,8 @@ func StreamEventStreamAsAnthropicWithContext(ctx context.Context, body io.Reader
 			if evt.ToolUse == nil || processedIDs[evt.ToolUse.ToolUseID] {
 				return nil
 			}
-			if !isEmittableToolUse(*evt.ToolUse) {
+			structuredOutput := isStructuredOutputToolName(evt.ToolUse.Name, requestCtx)
+			if !structuredOutput && !isEmittableToolUse(*evt.ToolUse) {
 				return nil
 			}
 			discardStreamingTool(evt.ToolUse.ToolUseID)
@@ -1099,6 +1180,9 @@ func StreamEventStreamAsAnthropicWithContext(ctx context.Context, body io.Reader
 	if err := flushPendingAssistantText(); err != nil {
 		return nil, err
 	}
+	if err := flushTextStopBuffer(); err != nil {
+		return nil, err
+	}
 	if err := closeText(); err != nil {
 		return nil, err
 	}
@@ -1117,6 +1201,8 @@ func StreamEventStreamAsAnthropicWithContext(ctx context.Context, body io.Reader
 		usage = mergeKiroCacheEmulationUsage(usage, requestCtx.CacheEmulationUsage)
 	}
 	switch stopReason {
+	case "stop_sequence":
+		// A client stop sequence matched; preserve it.
 	case "max_tokens":
 		// The upstream explicitly reported truncation; preserve it.
 	case "":
@@ -1148,7 +1234,7 @@ func StreamEventStreamAsAnthropicWithContext(ctx context.Context, body io.Reader
 		"type": "message_delta",
 		"delta": map[string]any{
 			"stop_reason":   stopReason,
-			"stop_sequence": nil,
+			"stop_sequence": nullableStopSequence(stopSequenceMatched),
 		},
 		"usage": finalUsageMap,
 	}); err != nil {
@@ -2225,6 +2311,23 @@ func mergeKiroContinuation(target *KiroContinuation, value any) {
 func buildClaudeResponse(content string, toolUses []KiroToolUse, model string, usage Usage, stopReason string, requestCtx KiroRequestContext) []byte {
 	var blocks []map[string]any
 	blocks = append(blocks, extractThinkingBlocks(content)...)
+	stopSequence := ""
+	if len(toolUses) == 0 {
+		if nextBlocks, matched := applyStopSequencesToTextBlocks(blocks, requestCtx.StopSequences); matched != "" {
+			blocks = nextBlocks
+			stopReason = "stop_sequence"
+			stopSequence = matched
+		}
+	}
+	if structuredText, remainingTools, ok := extractStructuredOutputToolText(toolUses, requestCtx); ok {
+		if len(blocks) == 1 && blocks[0]["type"] == "text" && blocks[0]["text"] == "" {
+			blocks = blocks[:0]
+		}
+		toolUses = remainingTools
+		blocks = append(blocks, map[string]any{"type": "text", "text": structuredText})
+		stopReason = "end_turn"
+		stopSequence = ""
+	}
 	usableTools := 0
 	for _, tool := range toolUses {
 		if tool.IsTruncated {
@@ -2262,6 +2365,7 @@ func buildClaudeResponse(content string, toolUses []KiroToolUse, model string, u
 		"stop_reason": stopReason,
 		"usage":       buildKiroClaudeUsageMap(usage),
 	}
+	response["stop_sequence"] = nullableStopSequence(stopSequence)
 	result, _ := json.Marshal(response)
 	return result
 }
@@ -3453,4 +3557,430 @@ func addKiroCacheUsageFields(usageMap map[string]any, usage Usage) {
 			"ephemeral_1h_input_tokens": usage.CacheCreation1hInputTokens,
 		}
 	}
+}
+
+// requiresImplicitThinkingTagStripping 判断是否需要在客户端未显式请求 thinking 时
+// 仍开启流式/非流式解析器的 <thinking> tag 抽取。
+//
+// Opus 4.7/4.8/5 的内部 CoT 在 Kiro 上游以 <thinking>...</thinking> 文本形式流出,
+// 不开启抽取会让标签和思考内容直接落到 assistant 正文,客户端看到形如
+// "<thinking>...</thinking>final" 的乱码。
+//
+// 仅作用于解析阶段;不会触发 system prompt 注入 <thinking_mode> 前缀,
+// 也不会改写 inferenceConfig,避免改变上游请求语义。
+func requiresImplicitThinkingTagStripping(modelID string) bool {
+	return isKiroHighCapabilityClaude(modelID)
+}
+
+// isKiroHighCapabilityClaude 覆盖 Opus 4.7 及以上，以及 Opus/Sonnet 主版本 >= 5。
+// 点号和短横线写法、重复的 -thinking 后缀都认。Opus 4.6 与 Sonnet 4.6 保持原行为。
+func isKiroHighCapabilityClaude(model string) bool {
+	family, major, minor, hasMinor, ok := claudeOpusSonnetVersion(model)
+	if !ok {
+		return false
+	}
+	if major >= 5 {
+		return true
+	}
+	return family == "opus" && major == 4 && hasMinor && minor >= 7
+}
+
+var claudeOpusSonnetVersionPattern = regexp.MustCompile(`^(claude-(opus|sonnet))-(\d+)(?:[.-](\d{1,2}))?$`)
+
+func claudeOpusSonnetVersion(model string) (family string, major, minor int, hasMinor, ok bool) {
+	id := normalizeModelAlias(model)
+	matches := claudeOpusSonnetVersionPattern.FindStringSubmatch(id)
+	if matches == nil {
+		return "", 0, 0, false, false
+	}
+	family = matches[2]
+	major, _ = strconv.Atoi(matches[3])
+	if matches[4] != "" {
+		minor, _ = strconv.Atoi(matches[4])
+		hasMinor = true
+	}
+	return family, major, minor, hasMinor, true
+}
+
+func extractClaudeStopSequences(claudeBody []byte) []string {
+	raw := gjson.GetBytes(claudeBody, "stop_sequences")
+	if !raw.IsArray() {
+		return nil
+	}
+	var out []string
+	seen := make(map[string]bool)
+	for _, item := range raw.Array() {
+		if item.Type != gjson.String {
+			continue
+		}
+		seq := item.String()
+		if seq == "" || seen[seq] {
+			continue
+		}
+		seen[seq] = true
+		out = append(out, seq)
+	}
+	return out
+}
+
+func hasForcedClaudeToolChoice(claudeBody []byte) bool {
+	toolChoice := gjson.GetBytes(claudeBody, "tool_choice")
+	if !toolChoice.Exists() {
+		return false
+	}
+	if toolChoice.Type == gjson.String {
+		switch strings.ToLower(strings.TrimSpace(toolChoice.String())) {
+		case "any", "required":
+			return true
+		default:
+			return false
+		}
+	}
+	switch strings.ToLower(strings.TrimSpace(toolChoice.Get("type").String())) {
+	case "any", "tool":
+		return true
+	default:
+		return false
+	}
+}
+
+func joinPromptHints(hints ...string) string {
+	var out []string
+	for _, hint := range hints {
+		hint = strings.TrimSpace(hint)
+		if hint != "" {
+			out = append(out, hint)
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
+func buildStructuredOutputTool(claudeBody []byte, requestCtx *KiroRequestContext) (*KiroToolWrapper, string) {
+	format, ok := extractStructuredOutputFormat(claudeBody)
+	if !ok {
+		return nil, ""
+	}
+	formatType := strings.ToLower(strings.TrimSpace(format.Get("type").String()))
+	switch formatType {
+	case "json_object":
+		return nil, "[INSTRUCTION: Respond only with one valid JSON object. Do not include markdown fences, prose, comments, or trailing text.]"
+	case "json_schema":
+	default:
+		return nil, ""
+	}
+
+	schema := firstExistingJSON(format.Get("schema"), format.Get("json_schema.schema"))
+	if !schema.Exists() {
+		return nil, "[INSTRUCTION: Respond only with one valid JSON object that satisfies the requested structured output format. Do not include markdown fences, prose, comments, or trailing text.]"
+	}
+	toolName := strings.TrimSpace(firstNonEmptyString(
+		format.Get("name").String(),
+		format.Get("json_schema.name").String(),
+	))
+	if toolName == "" {
+		toolName = structuredOutputToolName
+	}
+	mappedName := mapKiroToolName(toolName, requestCtx)
+	if mappedName == "" {
+		return nil, ""
+	}
+	requestCtx.StructuredOutputToolName = mappedName
+	requestCtx.StructuredOutputUserHint = fmt.Sprintf("[CRITICAL] You MUST call the '%s' tool now with the structured JSON answer. Do NOT output plain text. Do NOT wrap the JSON in markdown.", mappedName)
+	if claudeBodyHasToolNamed(claudeBody, toolName, mappedName, requestCtx) {
+		return nil, fmt.Sprintf("[INSTRUCTION: You MUST respond by calling the '%s' tool with the structured JSON answer. Do not output plain text.]", mappedName)
+	}
+	return &KiroToolWrapper{
+		ToolSpecification: KiroToolSpecification{
+			Name:        mappedName,
+			Description: "Output the result as structured JSON. You MUST call this tool with your answer.",
+			InputSchema: KiroInputSchema{JSON: normalizeKiroJSONSchema(schema.Value())},
+		},
+	}, fmt.Sprintf("[INSTRUCTION: You MUST respond by calling the '%s' tool with the structured JSON answer. Do not output plain text.]", mappedName)
+}
+
+func extractStructuredOutputFormat(claudeBody []byte) (gjson.Result, bool) {
+	for _, path := range []string{"output_config.format", "output_format", "response_format"} {
+		value := gjson.GetBytes(claudeBody, path)
+		if value.Exists() {
+			return value, true
+		}
+	}
+	return gjson.Result{}, false
+}
+
+func claudeBodyHasToolNamed(claudeBody []byte, originalName, mappedName string, requestCtx *KiroRequestContext) bool {
+	tools := gjson.GetBytes(claudeBody, "tools")
+	if !tools.IsArray() {
+		return false
+	}
+	for _, tool := range tools.Array() {
+		name := strings.TrimSpace(tool.Get("name").String())
+		if name == "" {
+			name = strings.TrimSpace(tool.Get("type").String())
+		}
+		if name == originalName || mapKiroToolName(name, requestCtx) == mappedName {
+			return true
+		}
+	}
+	return false
+}
+
+func firstExistingJSON(values ...gjson.Result) gjson.Result {
+	for _, value := range values {
+		if value.Exists() {
+			return value
+		}
+	}
+	return gjson.Result{}
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func appendTextBlock(content, extra string) string {
+	extra = strings.TrimSpace(extra)
+	if extra == "" {
+		return content
+	}
+	if strings.TrimSpace(content) == "" {
+		return extra
+	}
+	return strings.TrimRight(content, "\n") + "\n\n" + extra
+}
+
+// truncateKiroPayloadToLimit 在序列化体积超过 kiroMaxPayloadBytes 时丢掉最旧历史。
+// 系统提示对、最近若干轮和当前消息保留。只有确实丢掉旧轮次时才插入一次占位。
+// 丢掉之后仍然超限，则静默缩短当前消息正文和仍保留的工具结果，不附加截断说明。
+func truncateKiroPayloadToLimit(payload *KiroPayload, hasPriming bool) {
+	if payload == nil || kiroPayloadByteSize(payload) <= kiroMaxPayloadBytes {
+		return
+	}
+
+	history := payload.ConversationState.History
+	primingCount := 0
+	if hasPriming && len(history) >= 2 {
+		primingCount = 2
+	}
+	priming := append([]KiroHistoryMessage(nil), history[:primingCount]...)
+	conversation := history[primingCount:]
+
+	current := payload.ConversationState.CurrentMessage.UserInputMessage
+	origin := current.Origin
+	if origin == "" {
+		origin = "AI_EDITOR"
+	}
+	placeholderEntry := KiroHistoryMessage{
+		UserInputMessage: &KiroUserInputMessage{
+			Content: kiroHistoryTruncationPlaceholder,
+			ModelID: current.ModelID,
+			Origin:  origin,
+		},
+	}
+
+	entrySizes := make([]int, len(conversation))
+	for i := range conversation {
+		entrySizes[i] = kiroHistoryEntryByteSize(conversation[i])
+	}
+
+	payload.ConversationState.History = priming
+	baseSize := kiroPayloadByteSize(payload) + kiroHistoryEntryByteSize(placeholderEntry)
+
+	keepFrom := len(conversation)
+	running := baseSize
+	for i := len(conversation) - 1; i >= 0; i-- {
+		running += entrySizes[i]
+		kept := len(conversation) - i
+		if running > kiroMaxPayloadBytes && kept > kiroMinRecentHistoryTurns {
+			break
+		}
+		keepFrom = i
+	}
+
+	tail := dropLeadingKiroAssistantHistory(conversation[keepFrom:])
+	rebuilt := make([]KiroHistoryMessage, 0, len(priming)+1+len(tail))
+	rebuilt = append(rebuilt, priming...)
+	if keepFrom > 0 {
+		rebuilt = append(rebuilt, placeholderEntry)
+	}
+	rebuilt = append(rebuilt, tail...)
+	payload.ConversationState.History = rebuilt
+
+	shrinkKiroPayloadText(payload)
+}
+
+func dropLeadingKiroAssistantHistory(tail []KiroHistoryMessage) []KiroHistoryMessage {
+	for len(tail) > 0 && tail[0].AssistantResponseMessage != nil {
+		tail = tail[1:]
+	}
+	return tail
+}
+
+func kiroHistoryEntryByteSize(entry KiroHistoryMessage) int {
+	raw, err := json.Marshal(entry)
+	if err != nil {
+		return 0
+	}
+	return len(raw) + 1
+}
+
+func kiroPayloadByteSize(payload *KiroPayload) int {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return 0
+	}
+	return len(raw)
+}
+
+func shrinkKiroPayloadText(payload *KiroPayload) {
+	for {
+		size := kiroPayloadByteSize(payload)
+		if size <= kiroMaxPayloadBytes {
+			return
+		}
+		target := longestKiroShrinkableText(payload)
+		if target == nil || len(*target) == 0 {
+			return
+		}
+		nextLen := len(*target) - (size - kiroMaxPayloadBytes)
+		if nextLen < 0 {
+			nextLen = 0
+		}
+		shortened := truncateUTF8(*target, nextLen)
+		if len(shortened) >= len(*target) {
+			*target = ""
+			continue
+		}
+		*target = shortened
+	}
+}
+
+func longestKiroShrinkableText(payload *KiroPayload) *string {
+	var longest *string
+	consider := func(text *string) {
+		if longest == nil || len(*text) > len(*longest) {
+			longest = text
+		}
+	}
+	current := &payload.ConversationState.CurrentMessage.UserInputMessage
+	consider(&current.Content)
+	appendKiroToolResultTexts(current.UserInputMessageContext, consider)
+	for i := range payload.ConversationState.History {
+		msg := payload.ConversationState.History[i].UserInputMessage
+		if msg == nil {
+			continue
+		}
+		appendKiroToolResultTexts(msg.UserInputMessageContext, consider)
+	}
+	return longest
+}
+
+func appendKiroToolResultTexts(ctx *KiroUserInputMessageContext, consider func(*string)) {
+	if ctx == nil {
+		return
+	}
+	for i := range ctx.ToolResults {
+		for j := range ctx.ToolResults[i].Content {
+			consider(&ctx.ToolResults[i].Content[j].Text)
+		}
+	}
+}
+
+func nullableStopSequence(stopSequence string) any {
+	if stopSequence == "" {
+		return nil
+	}
+	return stopSequence
+}
+
+func applyStopSequencesToTextBlocks(blocks []map[string]any, stopSequences []string) ([]map[string]any, string) {
+	if len(blocks) == 0 || len(stopSequences) == 0 {
+		return blocks, ""
+	}
+	out := make([]map[string]any, 0, len(blocks))
+	for _, block := range blocks {
+		if block["type"] != "text" {
+			out = append(out, block)
+			continue
+		}
+		text, _ := block["text"].(string)
+		idx, matched := firstStopSequenceIndex(text, stopSequences)
+		if matched == "" {
+			out = append(out, block)
+			continue
+		}
+		next := make(map[string]any, len(block))
+		for k, v := range block {
+			next[k] = v
+		}
+		next["text"] = text[:idx]
+		out = append(out, next)
+		return out, matched
+	}
+	return blocks, ""
+}
+
+func firstStopSequenceIndex(text string, stopSequences []string) (int, string) {
+	bestIdx := -1
+	bestSeq := ""
+	for _, seq := range stopSequences {
+		if seq == "" {
+			continue
+		}
+		idx := strings.Index(text, seq)
+		if idx < 0 {
+			continue
+		}
+		if bestIdx == -1 || idx < bestIdx || (idx == bestIdx && len(seq) > len(bestSeq)) {
+			bestIdx = idx
+			bestSeq = seq
+		}
+	}
+	return bestIdx, bestSeq
+}
+
+func stopSequencePotentialSuffix(text string, stopSequences []string) string {
+	best := ""
+	for _, seq := range stopSequences {
+		if seq == "" {
+			continue
+		}
+		limit := len(seq) - 1
+		if limit > len(text) {
+			limit = len(text)
+		}
+		for n := limit; n > len(best); n-- {
+			if strings.HasSuffix(text, seq[:n]) {
+				best = text[len(text)-n:]
+				break
+			}
+		}
+	}
+	return best
+}
+
+func extractStructuredOutputToolText(toolUses []KiroToolUse, requestCtx KiroRequestContext) (string, []KiroToolUse, bool) {
+	if requestCtx.StructuredOutputToolName == "" || len(toolUses) == 0 {
+		return "", toolUses, false
+	}
+	remaining := make([]KiroToolUse, 0, len(toolUses))
+	for i, tool := range toolUses {
+		if isStructuredOutputToolName(tool.Name, requestCtx) {
+			if b, err := json.Marshal(tool.Input); err == nil {
+				return string(b), append(remaining, toolUses[i+1:]...), true
+			}
+			return "{}", append(remaining, toolUses[i+1:]...), true
+		}
+		remaining = append(remaining, tool)
+	}
+	return "", toolUses, false
+}
+
+func isStructuredOutputToolName(name string, requestCtx KiroRequestContext) bool {
+	return requestCtx.StructuredOutputToolName != "" && strings.TrimSpace(name) == requestCtx.StructuredOutputToolName
 }

@@ -202,6 +202,7 @@ Kiro 固有の機能:
 - Kiro アカウントを OpenAI Responses および Chat Completions プロトコルへブリッジ。
 - Kiro トラフィック向けの Anthropic Prompt Cache 使用量エミュレーション。グループ単位の有効化と比率調整に対応。
 - GPT-5.6 Sol / Terra / Luna、Claude Opus 4.8、Claude Sonnet 5 の Kiro モデル互換エイリアスに対応。
+- Kiro 上の Claude プロトコル互換性を強化: クライアントが thinking を要求しない場合でも Opus 4.7+/5+ と Sonnet 5+ の `<thinking>` タグを除去。強制 `tool_choice`、内部ツールによる構造化出力（`response_format`）、ストリーミング/非ストリーミングの `stop_sequences`、Kiro の入力上限を超えた場合の古い履歴の自動削減に対応。
 
 ## 機能
 

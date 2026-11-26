@@ -208,10 +208,11 @@ Kiro 专属能力包括：
 - Kiro 账号可通过 OpenAI Responses 和 Chat Completions 协议桥接使用。
 - 面向 Kiro 流量的 Anthropic Prompt Cache 用量模拟，支持按分组启用和调整模拟比例。
 - 支持 Claude Sonnet 5.5、Opus 5.5 及 thinking 别名，同时保留 GPT-5.6 Sol、Terra、Luna，Claude Opus 4.8 与 Claude Sonnet 5 的兼容能力。
+- Kiro 上的 Claude 协议兼容增强：Opus 4.7+/5+、Sonnet 5+ 在客户端未请求 thinking 时也会剥离 `<thinking>` 标签；支持强制 `tool_choice`、通过内部工具实现的结构化输出（`response_format`）、流式与非流式的 `stop_sequences`，以及请求超出 Kiro 输入上限时自动裁剪最旧历史。
 
 ## 最新模型支持
 
-本发行版已同步 Wei-Shaw 0.2.14 基线，支持以下模型：
+本发行版已同步 Wei-Shaw 0.2.25 基线，支持以下模型：
 
 | 平台 | 模型 | 客户端模型 ID |
 | --- | --- | --- |

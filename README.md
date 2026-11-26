@@ -205,10 +205,11 @@ Kiro-specific capabilities include:
 - OpenAI Responses and Chat Completions protocol bridging for Kiro accounts.
 - Anthropic Prompt Cache usage emulation for Kiro traffic, with per-group enablement and adjustable ratios.
 - Kiro model compatibility for Claude Sonnet 5.5 and Opus 5.5, including thinking aliases, while retaining GPT-5.6 Sol, Terra, and Luna; Claude Opus 4.8; and Claude Sonnet 5 compatibility.
+- Claude protocol fidelity on Kiro: implicit `<thinking>` tag stripping for Opus 4.7+/5+ and Sonnet 5+ when the client does not request thinking, forced `tool_choice`, structured output (`response_format`) through a synthetic tool, `stop_sequences` for streaming and non-streaming responses, and automatic trimming of oldest history when a request exceeds the Kiro input limit.
 
 ## Latest Model Support
 
-This distribution includes the Wei-Shaw 0.2.14 baseline and the following model support:
+This distribution includes the Wei-Shaw 0.2.25 baseline and the following model support:
 
 | Provider | Model | Client model IDs |
 | --- | --- | --- |

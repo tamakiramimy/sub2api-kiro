@@ -2069,7 +2069,7 @@ func TestStopSequencesNonStreaming(t *testing.T) {
 func TestStopSequencesAcrossStreamChunks(t *testing.T) {
 	var buf bytes.Buffer
 	for _, chunk := range []string{"hello E", "ND tail"} {
-		buf.Write(buildEventStreamFrame(t, "assistantResponseEvent", map[string]any{"content": chunk}))
+		_, _ = buf.Write(buildEventStreamFrame(t, "assistantResponseEvent", map[string]any{"content": chunk}))
 	}
 	var out bytes.Buffer
 	res, err := StreamEventStreamAsAnthropicWithContext(context.Background(), &buf, &out, "m", 1, KiroRequestContext{StopSequences: []string{"END"}})

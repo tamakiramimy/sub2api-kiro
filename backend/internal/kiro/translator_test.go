@@ -2096,3 +2096,9 @@ func TestTruncateKiroPayloadToLimit(t *testing.T) {
 	require.LessOrEqual(t, kiroPayloadByteSize(payload), kiroMaxPayloadBytes)
 	require.Contains(t, payload.ConversationState.History[0].UserInputMessage.Content, "Earlier conversation history was truncated")
 }
+
+func TestReadStopReasonLowercasesUpstreamValue(t *testing.T) {
+	require.Equal(t, "end_turn", readStopReason(map[string]any{"stopReason": "END_TURN"}))
+	require.Equal(t, "tool_use", readStopReason(map[string]any{"stop_reason": "Tool_Use"}))
+	require.Equal(t, "", readStopReason(map[string]any{}))
+}

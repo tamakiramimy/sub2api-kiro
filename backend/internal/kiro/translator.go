@@ -3505,11 +3505,13 @@ func getString(m map[string]any, key string) string {
 	return ""
 }
 
+// readStopReason returns the upstream stop reason lower-cased, because Kiro can
+// report values such as END_TURN while the Anthropic protocol uses end_turn.
 func readStopReason(m map[string]any) string {
 	if stop := getString(m, "stop_reason"); stop != "" {
-		return stop
+		return strings.ToLower(strings.TrimSpace(stop))
 	}
-	return getString(m, "stopReason")
+	return strings.ToLower(strings.TrimSpace(getString(m, "stopReason")))
 }
 
 func toInt(value any) (int, bool) {
